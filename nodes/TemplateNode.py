@@ -1,52 +1,52 @@
 
-try:
-    import polyinterface
-except ImportError:
-    import pgc_interface as polyinterface
+import udi_interface
 import sys
 import time
 import urllib3
 
-LOGGER = polyinterface.LOGGER
+LOGGER = udi_interface.LOGGER
 
-class TemplateNode(polyinterface.Node):
+class TemplateNode(udi_interface.Node):
     """
     This is the class that all the Nodes will be represented by. You will add this to
-    Polyglot/ISY with the controller.addNode method.
+    Polyglot/ISY with the interface.addNode method.
 
     Class Variables:
-    self.primary: String address of the Controller node.
-    self.parent: Easy access to the Controller Class from the node itself.
+    self.primary: String address of the parent node.
     self.address: String address of this Node 14 character limit. (ISY limitation)
     self.added: Boolean Confirmed added to ISY
 
     Class Methods:
-    start(): This method is called once polyglot confirms the node is added to ISY.
     setDriver('ST', 1, report = True, force = False):
         This sets the driver 'ST' to 1. If report is False we do not report it to
         Polyglot/ISY. If force is True, we send a report even if the value hasn't changed.
+    reportDriver(driver, force): report the driver value to Polyglot/ISY if it has changed.
+        if force is true, send regardless.
     reportDrivers(): Forces a full update of all drivers to Polyglot/ISY.
     query(): Called when ISY sends a query request to Polyglot for this specific node
     """
-    def __init__(self, controller, primary, address, name):
+    def __init__(self, polyglot, primary, address, name):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
         to override the __init__ method, but if you do, you MUST call super.
 
-        :param controller: Reference to the Controller class
-        :param primary: Controller address
+        :param polyglot: Reference to the Interface class
+        :param primary: Parent address
         :param address: This nodes address
         :param name: This nodes name
         """
-        super(TemplateNode, self).__init__(controller, primary, address, name)
+        super(TemplateNode, self).__init__(polyglot, primary, address, name)
+        self.poly = polyglot
         self.lpfx = '%s:%s' % (address,name)
+        self.poly.onStart(address, self.start)
+        self.poly.onPoll(self.poll)
 
     def start(self):
         """
         Optional.
-        This method is run once the Node is successfully added to the ISY
-        and we get a return result from Polyglot. Only happens once.
+        This method is run via the callback configured above once
+        the node is added to the interface.
         """
         LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
         self.setDriver('ST', 1)
@@ -59,16 +59,16 @@ class TemplateNode(polyinterface.Node):
         LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
         self.http = urllib3.PoolManager()
 
-    def shortPoll(self):
-        LOGGER.debug('shortPoll')
-        if int(self.getDriver('ST')) == 1:
-            self.setDriver('ST',0)
+    def poll(self, longpoll):
+        if longpoll:
+            LOGGER.debug('longPoll (node)')
         else:
-            self.setDriver('ST',1)
-        LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
-
-    def longPoll(self):
-        LOGGER.debug('longPoll')
+            LOGGER.debug('shortPoll (node)')
+            if int(self.getDriver('ST')) == 1:
+                self.setDriver('ST',0)
+            else:
+                self.setDriver('ST',1)
+            LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
 
     def cmd_on(self, command):
         """
@@ -104,8 +104,6 @@ class TemplateNode(polyinterface.Node):
         """
         self.reportDrivers()
 
-    "Hints See: https://github.com/UniversalDevicesInc/hints"
-    hint = [1,2,3,4]
     drivers = [{'driver': 'ST', 'value': 0, 'uom': 2}]
     """
     Optional.
@@ -114,11 +112,13 @@ class TemplateNode(polyinterface.Node):
     of variable to display. Check the UOM's in the WSDK for a complete list.
     UOM 2 is boolean so the ISY will display 'True/False'
     """
+
     id = 'templatenodeid'
     """
     id of the node from the nodedefs.xml that is in the profile.zip. This tells
     the ISY what fields and commands this node has.
     """
+
     commands = {
                     'DON': cmd_on,
                     'DOF': cmd_off,
