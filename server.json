@@ -11,6 +11,10 @@
   "testMode": false,
   "logLevel": "INFO",
   "profile_version": "3.0.0",
+  "customParams": {
+	  "user": "to be defined",
+	  "password": "my secret password"
+  },
   "credits": [
     {
       "title": "mypoly: a NodeServer for Template Integration",
