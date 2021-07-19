@@ -1,35 +1,37 @@
 {
-  "name": "PythonTemplate",
-  "docs": "https://github.com/Einstein42/udi-poly-template-python",
-  "type": "python3",
-  "executable": "template-poly.py",
-  "install": "install.sh",
-  "description": "Template Node Server",
-  "notice": "Your disclaimer here",
-  "shortPoll": "120",
-  "longPoll": "240",
-  "testMode": false,
-  "logLevel": "INFO",
-  "profile_version": "3.0.0",
-  "customParams": {
-	  "user": "to be defined",
-	  "password": "my secret password"
-  },
-  "credits": [
-    {
-      "title": "mypoly: a NodeServer for Template Integration",
-      "author": "James Milne (Einstein.42)",
-      "version": "3.0.0",
-      "date": "January 14, 2021",
-      "source": "https://github.com/Einstein42/udi-poly-template-python",
-      "license": "https://raw.githubusercontent.com/Einstein42/udi-poly-template-python/master/LICENSE"
-    }
-  ],
-  "store": {
-    "developer": "milne.james@gmail.com",
-    "price": 0.00,
-    "recurring": 0,
-    "recurring_interval": "month",
-    "recurring_period": 0
-  }
+	"name": "PythonTemplate",
+	"docs": "https://github.com/UniversalDevicesInc/udi-poly-template-python",
+	"type": "python3",
+	"executable": "template-poly.py",
+	"install": "install.sh",
+	"description": "Template Node Server",
+	"notice": "Your disclaimer here",
+	"shortPoll": "120",
+	"longPoll": "240",
+	"testMode": false,
+	"logLevel": "INFO",
+	"profile_version": "3.0.0",
+	"customParams": {
+		"user": "",
+		"password": "my secret password"
+	},
+	"credits": [
+		{
+			"title": "mypoly: a NodeServer for Template Integration",
+			"author": "James Milne (Einstein.42)",
+			"version": "3.0.0",
+			"date": "January 14, 2021",
+			"source": "https://github.com/UniversalDevicesInc/udi-poly-template-python",'
+			"license": "https://github.com/UniversalDevicesInc/udi-poly-template-python/LICENSE"
+		}
+	],
+	"store": {
+		"developer": "milne.james@gmail.com",
+		"purchaseOptions": [
+			{
+				"isPerpetual": true,
+				"price": 0
+			}
+		]
+	}
 }
