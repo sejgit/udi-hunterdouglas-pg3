@@ -1,52 +1,69 @@
 
 
 """
-Get the polyinterface objects we need.  Currently Polyglot Cloud uses
+Get the polyinterface objects we need. 
 a different Python module which doesn't have the new LOG_HANDLER functionality
 """
-from udi_interface import Custom,Node,LOG_HANDLER,LOGGER
-import logging
+import udi_interface
 
 # My Template Node
 from nodes import TemplateNode
 
+"""
+Some shortcuts for udi interface components
+
+- LOGGER: to create log entries
+- Custom: to access the custom data class
+- ISY:    to communicate directly with the ISY (not commonly used)
+"""
+LOGGER = udi_interface.LOGGER
+Custom = udi_interface.Custom
+ISY = udi_interface.ISY
+
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
 
-class TemplateController(Node):
+class TemplateController(udi_interface.Node):
     """
-    The Node class represents a node on the ISY. The first node started and that is 
-    is used to for interaction with the node server is typically called a 'Controller'
-    node. If this node has the address 'controller', Polyglot will automatically populate
-    the 'ST' driver of this node with the node server's on-line/off-line status.
+    The Node class represents a node on the ISY. The first node started and
+    that is is used for interaction with the node server is typically called
+    a 'Controller' node. If this node has the address 'controller', Polyglot
+    will automatically populate the 'ST' driver of this node with the node
+    server's on-line/off-line status.
 
-    This node will also typically handle discovery & creation of other nodes and deal
-    with the user configurable options of the node server.
+    This node will also typically handle discovery & creation of other nodes
+    and deal with the user configurable options of the node server.
 
     Class Variables:
-    self.name: String name of the node
-    self.address: String Address of Node, must be less than 14 characters (ISY limitation)
-    self.primary: String Address of Node's parent, must be less than 14 characters (ISY limitation)
-    self.poly: Interface class object.  Provides access to the interface API.
+      self.name: String name of the node
+      self.address: String Address of Node, must be less than 14 characters
+                    (ISY limitation)
+      self.primary: String Address of Node's parent, must be less than 14
+                    characters (ISY limitation)
+      self.poly: Interface class object.  Provides access to the interface API.
 
     Class Methods
-    query(): Queries and reports ALL drivers for ALL nodes to the ISY.
-    getDriver('ST'): gets the current value from Polyglot for driver 'ST' returns a STRING, cast as needed
-    setDriver('ST', value, report, force, uom): Updates the driver with the value (and possibly a new UOM)
-    reportDriver('ST', force): Send the driver value to the ISY, normally it will only send if the value has changed, force will always send
-    reportDrivers(): Send all driver values to the ISY
-    status()
-    delNode(): Delete the node from the ISY and Polyglot database
+      query(): Queries and reports ALL drivers for ALL nodes to the ISY.
+      getDriver('ST'): gets the current value from Polyglot for driver 'ST'
+        returns a STRING, cast as needed
+      setDriver('ST', value, report, force, uom): Updates the driver with
+        the value (and possibly a new UOM)
+      reportDriver('ST', force): Send the driver value to the ISY, normally
+        it will only send if the value has changed, force will always send
+      reportDrivers(): Send all driver values to the ISY
+      status()
     """
     def __init__(self, polyglot, primary, address, name):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
         to override the __init__ method, but if you do, you MUST call super.
+
+        In most cases, you will want to do this for the controller node.
         """
         super(TemplateController, self).__init__(polyglot, primary, address, name)
         self.poly = polyglot
-        self.name = 'Template Controller'
+        self.name = 'Template Controller'  # override what was passed in
         self.hb = 0
 
         # Create data storage classes to hold specific data that we need
@@ -55,11 +72,22 @@ class TemplateController(Node):
         self.Notices = Custom(polyglot, 'notices')
         self.TypedParameters = Custom(polyglot, 'customtypedparams')
 
-        self.poly.onConfig(self.configHandler) # register to get config data sent by Polyglot
-        self.poly.onCustomParams(self.parameterHandler) # register to get parameter info sent by Polyglot
-        self.poly.onCustomTypedParams(self.typedParameterHandler) # register to get typed parameter info sent by Polyglot
-        self.poly.onStart(address, self.start) # register a function to run when the node is added
-        self.poly.onPoll(self.poll) # register to get short and long poll events
+        # Subscribe to various events from the Interface class.  This is
+        # how you will get information from Polyglog.  See the API
+        # documentation for the full list of events you can subscribe to.
+        #
+        # The START event is unique in that you can subscribe to 
+        # the start event for each node you define.
+
+        self.poly.subscribe(self.poly.START, self.start, address)
+        self.poly.subscribe(self.poly.LOGLEVEL, self.handleLevelChange)
+        self.poly.subscribe(self.poly.CUSTOMPARAMS, self.parameterHandler)
+        self.poly.subscribe(self.poly.CUSTOMTYPEDPARAMS, self.typedParameterHandler)
+        self.poly.subscribe(self.poly.POLL, self.poll)
+
+        # Tell the interface we have subscribed to all the events we need.
+        # Once we call ready(), the interface will start publishing data.
+        self.poly.ready()
 
         # Tell the interface we exist.  
         self.poly.addNode(self)
@@ -68,16 +96,15 @@ class TemplateController(Node):
 
     def start(self):
         """
-        Optional.
-        Polyglot v3 Interface startup done. Here is where you start your integration.
-        This is called via the onStart callback configured above, once the node has
-        been added to the interface.
+        The Polyglot v3 Interface will publish an event to let you know you
+        can start your integration. (see the START event subscribed to above)
 
-        In this example we call various methods that deal with initializing the
-        node server. This is where you should start. No need to Super this method,
-        the parent version does nothing.
+        This is where you do your initialization / device setup.
+        Polyglot v3 Interface startup done.
+
+        Here is where you start your integration. I.E. if you need to 
+        initiate communication with a device, do so here.
         """
-        self.check_params()
 
         # Send the profile files to the ISY if neccessary. The profile version
         # number will be checked and compared. If it has changed since the last
@@ -88,7 +115,14 @@ class TemplateController(Node):
         # for display in the dashboard.
         self.poly.setCustomParamsDoc()
 
+        # Initializing a heartbeat is an example of something you'd want
+        # to do during start.  Note that it is not required to have a
+        # heartbeat in your node server
         self.heartbeat(0)
+
+        # Device discovery. Here you may query for your device(s) and 
+        # their capabilities.  Also where you can create nodes that
+        # represent the found device(s)
         self.discover()
 
         # Here you may want to send updated values to the ISY rather
@@ -96,21 +130,9 @@ class TemplateController(Node):
         # immediate feedback that the node server is running
 
     """
-    Called via the onConfig event.  When the interface receives a
-    configuration structure from Polyglot, it will send that config
-    to your node server via this callback.
-
-    The config structure does contain the list of nodes & last
-    driver values stored in the database.  These can be accessed
-    here to update your node server with the previous state.
-    """
-    def configHandler(self, config):
-        pass
-
-    """
-    Called via the onCustomParams event. When the user enters or
+    Called via the CUSTOMPARAMS event. When the user enters or
     updates Custom Parameters via the dashboard. The full list of
-    parameters will be sent to your node server via this callback.
+    parameters will be sent to your node server via this event.
 
     Here we're loading them into our local storage so that we may
     use them as needed.
@@ -120,10 +142,11 @@ class TemplateController(Node):
     """
     def parameterHandler(self, params):
         self.Parameters.load(params)
+        self.check_params()
 
     """
-    Called via the onCustomParams event. When the user enters or
-    updates Custom Parameters via the dashboard. The full list of
+    Called via the CUSTOMTYPEDPARAMS event. When the user enters or
+    updates Custom Typed Parameters via the dashboard. The full list of
     parameters will be sent to your node server via this callback.
 
     Here we're loading them into our local storage so that we may
@@ -133,17 +156,17 @@ class TemplateController(Node):
         self.TypedParameters.load(params)
 
     """
-    Called via the onPoll event.  The onPoll event is triggerd at
+    Called via the POLL event.  The POLL event is triggerd at
     the intervals specified in the node server configuration. There
     are two separate poll events, a long poll and a short poll. Which
-    one is indicated by the flag.  flag==True indicates a long poll 
-    event.
+    one is indicated by the flag.  flag will hold the poll type either
+    'longPoll' or 'shortPoll'.
 
     Use this if you want your node server to do something at fixed
     intervals.
     """
     def poll(self, flag):
-        if flag:
+        if 'longPoll' in flag:
             LOGGER.debug('longPoll (controller)')
             self.heartbeat()
         else:
@@ -152,11 +175,14 @@ class TemplateController(Node):
     def query(self,command=None):
         """
         Optional.
-        By default a query to the control node reports the FULL driver set for ALL
-        nodes back to ISY. If you override this method you will need to Super or
-        issue a reportDrivers() to each node manually.
+
+        The query method will be called when the ISY attempts to query the
+        status of the node directly.  You can do one of two things here.
+        You can send the values currently held by Polyglot back to the
+        ISY by calling reportDriver() or you can actually query the 
+        device represented by the node and report back the current 
+        status.
         """
-        self.check_params()
         nodes = self.poly.getNodes()
         for node in nodes:
             nodes[node].reportDrivers()
@@ -164,24 +190,36 @@ class TemplateController(Node):
     def discover(self, *args, **kwargs):
         """
         Example
-        Do discovery here. Does not have to be called discovery. Called from example
-        controller start method and from DISCOVER command recieved from ISY as an exmaple.
+        Do discovery here. Does not have to be called discovery. Called from
+        example controller start method and from DISCOVER command recieved
+        from ISY as an exmaple.
         """
         self.poly.addNode(TemplateNode(self.poly, self.address, 'templateaddr', 'Template Node Name'))
 
     def delete(self):
         """
         Example
-        This is sent by Polyglot upon deletion of the NodeServer. If the process is
-        co-resident and controlled by Polyglot, it will be terminiated within 5 seconds
-        of receiving this message.
+        This is call3ed by Polyglot upon deletion of the NodeServer. If the
+        process is co-resident and controlled by Polyglot, it will be
+        terminiated within 5 seconds of receiving this message.
         """
         LOGGER.info('Oh God I\'m being deleted. Nooooooooooooooooooooooooooooooooooooooooo.')
 
     def stop(self):
+        """
+        This is called by Polyglot when the node server is stopped.  You have
+        the opportunity here to cleanly disconnect from your device or do
+        other shutdown type tasks.
+        """
         LOGGER.debug('NodeServer stopped.')
 
 
+    """
+    This is an example of implementing a heartbeat function.  It uses the
+    long poll intervale to alternately send a ON and OFF command back to
+    the ISY.  Programs on the ISY can then monitor this and take action
+    when the heartbeat fails to update.
+    """
     def heartbeat(self,init=False):
         LOGGER.debug('heartbeat: init={}'.format(init))
         if init is not False:
@@ -207,20 +245,16 @@ class TemplateController(Node):
         default_user = "YourUserName"
         default_password = "YourPassword"
 
-        #self.user = self.getCustomParam('user')
         self.user = self.Parameters.user
         if self.user is None:
             self.user = default_user
             LOGGER.error('check_params: user not defined in customParams, please add it.  Using {}'.format(self.user))
-            #self.addCustomParam({'user': self.user})
             self.Parameters.user = self.user
 
-        #self.password = self.getCustomParam('password')
         self.password = self.Parameters.password
         if self.password is None:
             self.password = default_password
             LOGGER.error('check_params: password not defined in customParams, please add it.  Using {}'.format(self.password))
-            #self.addCustomParam({'password': self.password})
             self.Parameters.password = self.password
 
         # Always overwrite this, it's just an example...
@@ -296,9 +330,8 @@ class TemplateController(Node):
 
     def remove_notice_test(self,command):
         LOGGER.info('remove_notice_test: notices={}'.format(self.Notices))
-        # Remove all existing notices
+        # Remove the test notice
         self.Notices.delete('test')
-        #self.removeNotice('test')
 
     def remove_notices_all(self,command):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
@@ -308,12 +341,13 @@ class TemplateController(Node):
     """
     Optional.
     Since the controller is a node in ISY, it will actual show up as a node.
-    So it needs to know the drivers and what id it will use. The controller should
-    report the node server status and have any commands that are needed to control
-    operation of the node server.
+    Thus it needs to know the drivers and what id it will use. The controller
+    should report the node server status and have any commands that are
+    needed to control operation of the node server.
 
-    Typically, node servers will use the 'ST' driver to report the node server status
-    and it a best pactice to do this unless you have a very good reason not to.
+    Typically, node servers will use the 'ST' driver to report the node server
+    status and it a best pactice to do this unless you have a very good
+    reason not to.
 
     The id must match the nodeDef id="controller" in the nodedefs.xml
     """

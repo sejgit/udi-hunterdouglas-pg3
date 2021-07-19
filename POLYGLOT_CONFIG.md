@@ -1,4 +1,5 @@
 
 # This is POLYGLOT_CONFIG.md
 
-This should have any description about how to configure your nodeserver.
+This uses 'markup' to format configuration help for your node server. You
+should describe the configuration parameters here.

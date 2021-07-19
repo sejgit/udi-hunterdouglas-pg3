@@ -16,18 +16,20 @@ pip install udi_interface
 Not Virutalenv:
 pip install udi_interface --user
 
-*I recommend you ALWAYS develop your NodeServers in virtualenv to maintain
-cleanliness, however that isn't required. I do not condone installing pip
-modules globally. Use the --user flag, not sudo.
-"""
-LOGGER = udi_interface.LOGGER
-"""
-udi_interface has a LOGGER that is created by default and logs to:
-logs/debug.log
-You can use LOGGER.info, LOGGER.warning, LOGGER.debug, LOGGER.error levels as needed.
+* It is recommended you ALWAYS develop your NodeServers in virtualenv
+  to maintain cleanliness, however that isn't required. Keep track of any
+  other modules you install and add these to the requirements.txt file.
 """
 
-""" Grab My Controller Node """
+"""
+udi_interface has a LOGGER that is created by default and logs to:
+  logs/debug.log
+You can use LOGGER.info, LOGGER.warning, LOGGER.debug, LOGGER.error,
+LOGGER.critical levels as needed in your node server.
+"""
+LOGGER = udi_interface.LOGGER
+
+""" Grab My Controller Node (optional) """
 from nodes import TemplateController
 
 if __name__ == "__main__":
@@ -35,26 +37,33 @@ if __name__ == "__main__":
         """
         Instantiates the Interface to Polyglot.
 
-        *pass list of class names instead of a node name for Polyglot version 3
+        * Optionally pass list of class names
+          - PG2 had the controller node name here
         """
         polyglot = udi_interface.Interface([TemplateController])
-        polyglot.start()
         """
         Starts MQTT and connects to Polyglot.
         """
-        control = TemplateController(polyglot, 'controller', 'controller', 'PythonTemplate')
-        """
-        Creates the Controller Node and passes in the Interface, the node's address,
-        parent address, and name/title.  
+        polyglot.start()
 
-        *address, parent address, and name/title are new for Polyglot version 3
         """
-        polyglot.runForever()
+        Creates the Controller Node and passes in the Interface, the node's
+        parent address, node's address, and name/title
+
+        * address, parent address, and name/title are new for Polyglot
+          version 3
+        * use 'controller' for both parent and address and PG3 will be able
+          to automatically update node server status
+        """
+        control = TemplateController(polyglot, 'controller', 'controller', 'PythonTemplate')
+
         """
         Sits around and does nothing forever, keeping your program running.
 
-        *runForever() moved from controller class to interface class in Polyglot version 3
+        * runForever() moved from controller class to interface class in
+          Polyglot version 3
         """
+        polyglot.runForever()
     except (KeyboardInterrupt, SystemExit):
         LOGGER.warning("Received interrupt or exit...")
         """
