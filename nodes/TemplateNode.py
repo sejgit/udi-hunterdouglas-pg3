@@ -69,7 +69,7 @@ class TemplateNode(udi_interface.Node):
         subscription during init.
         """
 
-        if 'longPoll' in polltype
+        if 'longPoll' in polltype:
             LOGGER.debug('longPoll (node)')
         else:
             LOGGER.debug('shortPoll (node)')
