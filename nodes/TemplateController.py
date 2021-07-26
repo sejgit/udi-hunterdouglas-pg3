@@ -157,6 +157,12 @@ class TemplateController(udi_interface.Node):
         self.TypedParameters.load(params)
 
     """
+    Called via the LOGLEVEL event.
+    """
+    def handleLevelChange(self, level):
+        LOGGER.info('New log level: {}'.format(level))
+
+    """
     Called via the POLL event.  The POLL event is triggerd at
     the intervals specified in the node server configuration. There
     are two separate poll events, a long poll and a short poll. Which
