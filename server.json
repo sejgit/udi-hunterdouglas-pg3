@@ -13,7 +13,10 @@
 	"profile_version": "3.0.0",
 	"customParams": {
 		"user": "",
-		"password": "my secret password"
+		"password": "my secret password",
+		"type": "TheType",
+        "host": "host_or_IP",
+        "port": "port_number"
 	},
 	"credits": [
 		{

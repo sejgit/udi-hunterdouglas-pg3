@@ -140,6 +140,9 @@ class TemplateController(udi_interface.Node):
 
     New or changed parameters are marked so that you may trigger
     other actions when the user changes or adds a parameter.
+
+    NOTE: Be carefull to not change parameters here. Changing
+    parameters will result in a new event, causing an infinite loop.
     """
     def parameterHandler(self, params):
         self.Parameters.load(params)
@@ -255,19 +258,14 @@ class TemplateController(udi_interface.Node):
         self.user = self.Parameters.user
         if self.user is None:
             self.user = default_user
-            LOGGER.error('check_params: user not defined in customParams, please add it.  Using {}'.format(self.user))
-            self.Parameters.user = self.user
+            LOGGER.error('check_params: user not defined in customParams, please add it.  Using {}'.format(default_user))
+            self.user = default_user
 
         self.password = self.Parameters.password
         if self.password is None:
             self.password = default_password
-            LOGGER.error('check_params: password not defined in customParams, please add it.  Using {}'.format(self.password))
-            self.Parameters.password = self.password
-
-        # Always overwrite this, it's just an example...
-        self.Parameters.type = "TheType"
-        self.Parameters.host = "host_or_IP"
-        self.Parameters.port = "port_number"
+            LOGGER.error('check_params: password not defined in customParams, please add it.  Using {}'.format(default_password))
+            self.password = default_password
 
         # Add a notice if they need to change the user/password from the default.
         if self.user == default_user or self.password == default_password:
