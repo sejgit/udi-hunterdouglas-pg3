@@ -17,6 +17,7 @@ Some shortcuts for udi interface components
 - ISY:    to communicate directly with the ISY (not commonly used)
 """
 LOGGER = udi_interface.LOGGER
+LOG_HANDLER = udi_interface.LOG_HANDLER
 Custom = udi_interface.Custom
 ISY = udi_interface.ISY
 
