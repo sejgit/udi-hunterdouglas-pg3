@@ -1,2 +1,2 @@
-udi_interface >= 3.0.6
+udi_interface >= 3.0.7
 urllib3
