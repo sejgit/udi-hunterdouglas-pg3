@@ -72,6 +72,7 @@ class TemplateController(udi_interface.Node):
         self.Parameters = Custom(polyglot, 'customparams')
         self.Notices = Custom(polyglot, 'notices')
         self.TypedParameters = Custom(polyglot, 'customtypedparams')
+        self.TypedData = Custom(polyglot, 'customtypeddata')
 
         # Subscribe to various events from the Interface class.  This is
         # how you will get information from Polyglog.  See the API
@@ -151,20 +152,32 @@ class TemplateController(udi_interface.Node):
         self.check_params()
 
     """
-    Called via the CUSTOMTYPEDPARAMS event. When the user enters or
-    updates Custom Typed Parameters via the dashboard. The full list of
-    parameters will be sent to your node server via this callback.
+    Called via the CUSTOMTYPEDPARAMS event. This event is sent When
+    the Custom Typed Parameters are created.  See the check_params()
+    below.  Generally, this event can be ignored.
 
-    Here we're loading them into our local storage so that we may
-    use them as needed.
+    Here we're re-load the parameters into our local storage.
+    The local storage should be considered read-only while processing
+    them here as changing them will cause the event to be sent again,
+    creating an infinite loop.
     """
     def typedParameterHandler(self, params):
         self.TypedParameters.load(params)
         LOGGER.debug('Loading typed parameters now')
         LOGGER.debug(params)
 
+    """
+    Called via the CUSTOMTYPEDDATA event. This event is sent when
+    the user enters or updates Custom Typed Parameters via the dashboard.
+    'params' will be the full list of parameters entered by the user.
+
+    Here we're loading them into our local storage so that we may
+    use them as needed.  The local storage should be considered 
+    read-only while processing them here as changing them will
+    cause the event to be sent again, creating an infinite loop.
+    """
     def typedDataHandler(self, params):
-        self.TypedParameters.load(params)
+        self.TypedData.load(params)
         LOGGER.debug('Loading typed data now')
         LOGGER.debug(params)
 
@@ -282,7 +295,7 @@ class TemplateController(udi_interface.Node):
             self.Notices['test'] = 'This is only a test'
 
         # Typed Parameters allow for more complex parameter entries.
-        #self.poly.save_typed_params(
+        # It may be better to do this during __init__() 
         self.TypedParameters.load( [
                 {
                     'name': 'item',
