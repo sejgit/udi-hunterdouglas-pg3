@@ -84,6 +84,7 @@ class TemplateController(udi_interface.Node):
         self.poly.subscribe(self.poly.LOGLEVEL, self.handleLevelChange)
         self.poly.subscribe(self.poly.CUSTOMPARAMS, self.parameterHandler)
         self.poly.subscribe(self.poly.CUSTOMTYPEDPARAMS, self.typedParameterHandler)
+        self.poly.subscribe(self.poly.CUSTOMTYPEDDATA, self.typedDataHandler)
         self.poly.subscribe(self.poly.POLL, self.poll)
 
         # Tell the interface we have subscribed to all the events we need.
@@ -146,6 +147,7 @@ class TemplateController(udi_interface.Node):
     """
     def parameterHandler(self, params):
         self.Parameters.load(params)
+        LOGGER.debug('Loading parameters now')
         self.check_params()
 
     """
@@ -158,6 +160,13 @@ class TemplateController(udi_interface.Node):
     """
     def typedParameterHandler(self, params):
         self.TypedParameters.load(params)
+        LOGGER.debug('Loading typed parameters now')
+        LOGGER.debug(params)
+
+    def typedDataHandler(self, params):
+        self.TypedParameters.load(params)
+        LOGGER.debug('Loading typed data now')
+        LOGGER.debug(params)
 
     """
     Called via the LOGLEVEL event.
