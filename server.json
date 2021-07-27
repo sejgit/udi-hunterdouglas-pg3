@@ -9,7 +9,7 @@
 	"shortPoll": "120",
 	"longPoll": "240",
 	"testMode": false,
-	"logLevel": "INFO",
+	"logLevel": "DEBUG",
 	"profile_version": "3.0.0",
 	"customParams": {
 		"user": "",
