@@ -296,6 +296,33 @@ class TemplateController(udi_interface.Node):
 
         # Typed Parameters allow for more complex parameter entries.
         # It may be better to do this during __init__() 
+
+        # Lets try a simpler thing here
+        self.TypedParameters.load( [
+                {
+                    'name': 'template_test',
+                    'title': 'Test parameters',
+                    'desc': 'Test parameters for template',
+                    'isList': False,
+                    'params': [
+                        {
+                            'name': 'id',
+                            'title': 'The Item ID number',
+                            'isRequired': True,
+                        },
+                        {
+                            'name': 'level',
+                            'title': 'Level Parameter',
+                            'defaultValue': '100',
+                            'isRequired': True,
+                        }
+                    ]
+                }
+            ],
+            True
+        )
+
+        '''
         self.TypedParameters.load( [
                 {
                     'name': 'item',
@@ -354,6 +381,7 @@ class TemplateController(udi_interface.Node):
                     ]
                 },
             ], True)
+            '''
 
     def remove_notice_test(self,command):
         LOGGER.info('remove_notice_test: notices={}'.format(self.Notices))
