@@ -5,7 +5,7 @@ version 3. The goal is to provide some concrete examples of the required
 implementations and some best known practices for developing node servers.
 
 You will need to be familiar with the udi_interface module API at 
-https://github/UniversalDevicesInc/udi_python_interface
+https://github.com/UniversalDevicesInc/udi_python_interface
 
 More developer information is available at https://developer.isy.io/
 
