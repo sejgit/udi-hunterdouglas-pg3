@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-This is a NodeServer template for Polyglot v3 written in Python3
-v2 version by Einstein.42 (James Milne) milne.james@gmail.com
-v3 version by (Bob Paauwe) bpaauwe@yahoo.com
+This is a Plugin/NodeServer for Polyglot v3 written in Python3
+modified from v3 template version by (Bob Paauwe) bpaauwe@yahoo.com
+It is an interface between HunterDouglas Shades and Polyglot for EISY/Polisy
+2024 Stephen Jenkins
 """
 import udi_interface
 import sys
@@ -29,8 +30,10 @@ LOGGER.critical levels as needed in your node server.
 """
 LOGGER = udi_interface.LOGGER
 
+VERSION = '0.0.1'
+
 """ Grab My Controller Node (optional) """
-from nodes import TemplateController
+from nodes import Controller
 
 if __name__ == "__main__":
     try:
@@ -40,11 +43,11 @@ if __name__ == "__main__":
         * Optionally pass list of class names
           - PG2 had the controller node name here
         """
-        polyglot = udi_interface.Interface([TemplateController])
+        polyglot = udi_interface.Interface([Controller])
         """
         Starts MQTT and connects to Polyglot.
         """
-        polyglot.start()
+        polyglot.start(VERSION)
 
         """
         Creates the Controller Node and passes in the Interface, the node's
@@ -55,7 +58,7 @@ if __name__ == "__main__":
         * use 'controller' for both parent and address and PG3 will be able
           to automatically update node server status
         """
-        control = TemplateController(polyglot, 'controller', 'controller', 'PythonTemplate')
+        control = Controller(polyglot, 'hdctrl', 'hdctrl', 'HunterDouglas')
 
         """
         Sits around and does nothing forever, keeping your program running.

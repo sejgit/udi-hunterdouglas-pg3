@@ -6,8 +6,8 @@ a different Python module which doesn't have the new LOG_HANDLER functionality
 """
 import udi_interface
 
-# My Template Node
-from nodes import TemplateNode
+# Node
+from nodes import Node
 
 """
 Some shortcuts for udi interface components
@@ -24,7 +24,7 @@ ISY = udi_interface.ISY
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
 
-class TemplateController(udi_interface.Node):
+class Controller(udi_interface.Node):
     """
     The Node class represents a node on the ISY. The first node started and
     that is is used for interaction with the node server is typically called
@@ -62,10 +62,12 @@ class TemplateController(udi_interface.Node):
 
         In most cases, you will want to do this for the controller node.
         """
-        super(TemplateController, self).__init__(polyglot, primary, address, name)
+        super(Controller, self).__init__(polyglot, primary, address, name)
         self.poly = polyglot
-        self.name = 'Template Controller'  # override what was passed in
+        self.name = 'HD Controller'  # override what was passed in
+        self.address = 'hdctrl'
         self.hb = 0
+        self.gateway = 'powerview-g3.local'
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -87,6 +89,7 @@ class TemplateController(udi_interface.Node):
         self.poly.subscribe(self.poly.CUSTOMTYPEDPARAMS, self.typedParameterHandler)
         self.poly.subscribe(self.poly.CUSTOMTYPEDDATA, self.typedDataHandler)
         self.poly.subscribe(self.poly.POLL, self.poll)
+        self.poly.subscribe(self.poly.STOP, self.stop)
 
         # Tell the interface we have subscribed to all the events we need.
         # Once we call ready(), the interface will start publishing data.
@@ -223,10 +226,12 @@ class TemplateController(udi_interface.Node):
         """
         Example
         Do discovery here. Does not have to be called discovery. Called from
-        example controller start method and from DISCOVER command recieved
-        from ISY as an exmaple.
+        example controller start method and from DISCOVER command received
+        from ISY as an example.
         """
-        self.poly.addNode(TemplateNode(self.poly, self.address, 'templateaddr', 'Template Node Name'))
+        #TODO do discovery here!
+        self.poly.addNode(myNode(self.poly, self.address, 'HDshadeTEST', 'Testshadename Node Name'))
+        pass
 
     def delete(self):
         """
@@ -272,121 +277,23 @@ class TemplateController(udi_interface.Node):
         This is an example if using custom Params for user and password and an example with a Dictionary
         """
         self.Notices.clear()
-        self.Notices['hello'] = 'Hey there, my IP is {}'.format(self.poly.network_interface['addr'])
-        self.Notices['hello2'] = 'Hello Friends!'
-        default_user = "YourUserName"
-        default_password = "YourPassword"
+        self.Notices['hello'] = 'Start-up'
 
-        self.user = self.Parameters.user
-        if self.user is None:
-            self.user = default_user
-            LOGGER.error('check_params: user not defined in customParams, please add it.  Using {}'.format(default_user))
-            self.user = default_user
-
-        self.password = self.Parameters.password
-        if self.password is None:
-            self.password = default_password
-            LOGGER.error('check_params: password not defined in customParams, please add it.  Using {}'.format(default_password))
-            self.password = default_password
+        default_gateway = "powerview-g3.local"
+        self.gateway = self.Parameters.gateway
+        if self.gateway is None:
+            self.gateway = default_gateway
+            LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(default_gateway))
 
         # Add a notice if they need to change the user/password from the default.
-        if self.user == default_user or self.password == default_password:
-            self.Notices['auth'] = 'Please set proper user and password in configuration page'
-            self.Notices['test'] = 'This is only a test'
+        if self.gateway == default_gateway:
+            self.Notices['gateway'] = 'Please note using default gateway address'
 
-        # Typed Parameters allow for more complex parameter entries.
-        # It may be better to do this during __init__() 
 
-        # Lets try a simpler thing here
-        self.TypedParameters.load( [
-                {
-                    'name': 'template_test',
-                    'title': 'Test parameters',
-                    'desc': 'Test parameters for template',
-                    'isList': False,
-                    'params': [
-                        {
-                            'name': 'id',
-                            'title': 'The Item ID number',
-                            'isRequired': True,
-                        },
-                        {
-                            'name': 'level',
-                            'title': 'Level Parameter',
-                            'defaultValue': '100',
-                            'isRequired': True,
-                        }
-                    ]
-                }
-            ],
-            True
-        )
-
-        '''
-        self.TypedParameters.load( [
-                {
-                    'name': 'item',
-                    'title': 'Item',
-                    'desc': 'Description of Item',
-                    'isList': False,
-                    'params': [
-                        {
-                            'name': 'id',
-                            'title': 'The Item ID',
-                            'isRequired': True,
-                        },
-                        {
-                            'name': 'title',
-                            'title': 'The Item Title',
-                            'defaultValue': 'The Default Title',
-                            'isRequired': True,
-                        },
-                        {
-                            'name': 'extra',
-                            'title': 'The Item Extra Info',
-                            'isRequired': False,
-                        }
-                    ]
-                },
-                {
-                    'name': 'itemlist',
-                    'title': 'Item List',
-                    'desc': 'Description of Item List',
-                    'isList': True,
-                    'params': [
-                        {
-                            'name': 'id',
-                            'title': 'The Item ID',
-                            'isRequired': True,
-                        },
-                        {
-                            'name': 'title',
-                            'title': 'The Item Title',
-                            'defaultValue': 'The Default Title',
-                            'isRequired': True,
-                        },
-                        {
-                            'name': 'names',
-                            'title': 'The Item Names',
-                            'isRequired': False,
-                            'isList': True,
-                            'defaultValue': ['somename']
-                        },
-                        {
-                            'name': 'extra',
-                            'title': 'The Item Extra Info',
-                            'isRequired': False,
-                            'isList': True,
-                        }
-                    ]
-                },
-            ], True)
-            '''
-
-    def remove_notice_test(self,command):
-        LOGGER.info('remove_notice_test: notices={}'.format(self.Notices))
-        # Remove the test notice
-        self.Notices.delete('test')
+    # def remove_notice_test(self,command):
+    #     LOGGER.info('remove_notice_test: notices={}'.format(self.Notices))
+    #     # Remove the test notice
+    #     self.Notices.delete('test')
 
     def remove_notices_all(self,command):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
@@ -406,12 +313,11 @@ class TemplateController(udi_interface.Node):
 
     The id must match the nodeDef id="controller" in the nodedefs.xml
     """
-    id = 'controller'
+    id = 'hdctrl'
     commands = {
         'QUERY': query,
         'DISCOVER': discover,
         'REMOVE_NOTICES_ALL': remove_notices_all,
-        'REMOVE_NOTICE_TEST': remove_notice_test,
     }
     drivers = [
         {'driver': 'ST', 'value': 1, 'uom': 2},

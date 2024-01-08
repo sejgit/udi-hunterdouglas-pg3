@@ -6,7 +6,7 @@ import urllib3
 
 LOGGER = udi_interface.LOGGER
 
-class TemplateNode(udi_interface.Node):
+class myNode(udi_interface.Node):
     """
     This is the class that all the Nodes will be represented by. You will
     add this to Polyglot/ISY with the interface.addNode method.
@@ -39,7 +39,7 @@ class TemplateNode(udi_interface.Node):
         :param address: This nodes address
         :param name: This nodes name
         """
-        super(TemplateNode, self).__init__(polyglot, primary, address, name)
+        super(myNode, self).__init__(polyglot, primary, address, name)
         self.poly = polyglot
         self.lpfx = '%s:%s' % (address,name)
 
@@ -82,7 +82,7 @@ class TemplateNode(udi_interface.Node):
     def cmd_on(self, command):
         """
         Example command received from ISY.
-        Set DON on TemplateNode.
+        Set DON on myNode.
         Sets the ST (status) driver to 1 or 'True'
         """
         self.setDriver('ST', 1)
@@ -90,7 +90,7 @@ class TemplateNode(udi_interface.Node):
     def cmd_off(self, command):
         """
         Example command received from ISY.
-        Set DOF on TemplateNode
+        Set DOF on myNode
         Sets the ST (status) driver to 0 or 'False'
         """
         self.setDriver('ST', 0)
@@ -126,7 +126,7 @@ class TemplateNode(udi_interface.Node):
     id of the node from the nodedefs.xml that is in the profile.zip. This tells
     the ISY what fields and commands this node has.
     """
-    id = 'templatenodeid'
+    id = 'nodeid'
 
     """
     This is a dictionary of commands. If ISY sends a command to the NodeServer,
@@ -137,3 +137,4 @@ class TemplateNode(udi_interface.Node):
                     'DOF': cmd_off,
                     'PING': cmd_ping
                 }
+

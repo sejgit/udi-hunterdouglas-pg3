@@ -1,0 +1,42 @@
+
+# rooms & shades
+GET http://powerview-g3.local/home/rooms?shades=true
+
+# scenes
+GET http://powerview-g3.local/home/scenes
+
+# active scenes
+GET http://powerview-g3.local/home/scenes/active
+
+#basement shades 44 left, 73 right
+#activate scene (basement tilt open)
+PUT http://powerview-g3.local/home/scenes/49/activate
+
+#activate scene (basement tilt close)
+PUT http://powerview-g3.local/home/scenes/66/activate
+
+#alexandra shade 22 lower
+#activate scene (alexandra open)
+PUT http://powerview-g3.local/home/scenes/23/activate
+
+#activate scene (alexandra close)
+PUT http://powerview-g3.local/home/scenes/25/activate
+
+#activate scene (alexandra 25)
+PUT http://powerview-g3.local/home/scenes/30/activate
+
+#activate scene (alexandra 75)
+PUT http://powerview-g3.local/home/scenes/40/activate
+
+#alexandra shade 84 south-left, 87 south-right
+#activate scene (alexandra south open)
+PUT http://powerview-g3.local/home/scenes/93/activate
+
+#activate scene (alexandra south 50)
+PUT http://powerview-g3.local/home/scenes/99/activate
+
+#activate scene (alexandra south closed)
+PUT http://powerview-g3.local/home/scenes/96/activate
+
+
+

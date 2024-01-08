@@ -1,2 +1,5 @@
-udi_interface >= 3.0.8
+udi_interface >= 3.0.60
+pyyaml>=5.3.1
+pip~=23.2.1
+setuptools~=65.5.0
 urllib3
