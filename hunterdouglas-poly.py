@@ -7,27 +7,7 @@ It is an interface between HunterDouglas Shades and Polyglot for EISY/Polisy
 """
 import udi_interface
 import sys
-"""
-Import the polyglot interface module. This is in pypy so you can just install it
-normally. Replace pip with pip3 if you are using python3.
 
-Virtualenv:
-pip install udi_interface
-
-Not Virutalenv:
-pip install udi_interface --user
-
-* It is recommended you ALWAYS develop your NodeServers in virtualenv
-  to maintain cleanliness, however that isn't required. Keep track of any
-  other modules you install and add these to the requirements.txt file.
-"""
-
-"""
-udi_interface has a LOGGER that is created by default and logs to:
-  logs/debug.log
-You can use LOGGER.info, LOGGER.warning, LOGGER.debug, LOGGER.error,
-LOGGER.critical levels as needed in your node server.
-"""
 LOGGER = udi_interface.LOGGER
 
 VERSION = '0.0.1'
@@ -43,7 +23,7 @@ if __name__ == "__main__":
         * Optionally pass list of class names
           - PG2 had the controller node name here
         """
-        polyglot = udi_interface.Interface([Controller])
+        polyglot = udi_interface.Interface([])
         """
         Starts MQTT and connects to Polyglot.
         """

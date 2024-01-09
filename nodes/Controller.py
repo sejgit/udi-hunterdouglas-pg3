@@ -7,7 +7,7 @@ a different Python module which doesn't have the new LOG_HANDLER functionality
 import udi_interface
 
 # Node
-from nodes import Node
+from nodes import myNode
 
 """
 Some shortcuts for udi interface components
