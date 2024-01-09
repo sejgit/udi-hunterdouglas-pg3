@@ -64,8 +64,6 @@ class Controller(udi_interface.Node):
         """
         super(Controller, self).__init__(polyglot, primary, address, name)
         self.poly = polyglot
-        self.name = 'HD Controller'  # override what was passed in
-        self.address = 'hdctrl'
         self.hb = 0
         self.gateway = 'powerview-g3.local'
 
@@ -230,7 +228,7 @@ class Controller(udi_interface.Node):
         from ISY as an example.
         """
         #TODO do discovery here!
-        self.poly.addNode(myNode(self.poly, self.address, 'HDshadeTEST', 'Testshadename Node Name'))
+        self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Testshadename Node Name'))
         pass
 
     def delete(self):
