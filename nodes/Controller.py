@@ -7,7 +7,7 @@ import udi_interface
 import urllib3
 
 # powerview3 class
-from powerview3 import PowerViewGen3
+from nodes import PowerViewGen3
 
 # Node
 from nodes import myNode

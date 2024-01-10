@@ -2,7 +2,7 @@
 import udi_interface
 import sys
 import time
-from powerview3 import PowerViewGen3
+from nodes import PowerViewGen3
 
 LOGGER = udi_interface.LOGGER
 

@@ -5,3 +5,4 @@ from .Scene           import Scene
 from .Shade           import Shade
 from .myNode          import myNode
 from .Controller      import Controller
+from .powerview3      import PowerViewGen3
