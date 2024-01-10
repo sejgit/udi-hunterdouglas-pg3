@@ -1,13 +1,18 @@
 
-
 """
 Get the polyinterface objects we need. 
 a different Python module which doesn't have the new LOG_HANDLER functionality
 """
 import udi_interface
+import urllib3
+
+# powerview3 class
+from powerview3 import PowerViewGen3
 
 # Node
 from nodes import myNode
+from nodes import Scene
+from nodes import Shade
 
 """
 Some shortcuts for udi interface components
@@ -23,6 +28,8 @@ ISY = udi_interface.ISY
 
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
+
+powerview3: PowerViewGen3 = None
 
 class Controller(udi_interface.Node):
     """
@@ -133,6 +140,8 @@ class Controller(udi_interface.Node):
         # than wait for a poll interval.  The user will get more 
         # immediate feedback that the node server is running
 
+        global powerview3
+
     """
     Called via the CUSTOMPARAMS event. When the user enters or
     updates Custom Parameters via the dashboard. The full list of
@@ -222,14 +231,21 @@ class Controller(udi_interface.Node):
 
     def discover(self, *args, **kwargs):
         """
-        Example
         Do discovery here. Does not have to be called discovery. Called from
         example controller start method and from DISCOVER command received
         from ISY as an example.
         """
-        #TODO do discovery here!
-        self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Testshadename Node Name'))
-        pass
+        self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Test Node Name'))
+
+        self.shadeIds = []
+        self.shadeIds = powerview3.shadeIds(self.gateway)
+        for shadeId in self.shadeIds:
+            self.poly.addNode(Shade(self.poly, self.address, 'Shade-{s}'.format(shadeId), 'Shade {s}'.format(shadeId)))
+
+        self.scenes = None
+        self.scenes = powerview3.scenes(self.gateway)
+        for scene in self.scenes:
+            self.poly.addNode(Scene(self.poly, self.address, 'Scene-{s}'.format(scene), 'Scene {s}'.format(scene)))
 
     def delete(self):
         """

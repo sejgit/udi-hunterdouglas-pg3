@@ -20,3 +20,13 @@ CDM-50 = Critical
 ND-nodeid-NAME = Node
 ST-node-ST-NAME = Node Status
 CMD-node-PING-NAME = Ping
+
+# shade
+ND-shadeid-NAME = Shade
+ST-shade-ST-NAME = Status
+CMD-shade-PING-NAME = Ping
+
+# scene
+ND-sceneid-NAME = Scene
+ST-shade-ST-NAME = Status
+CMD-shade-ACTIVATE-NAME = Activate

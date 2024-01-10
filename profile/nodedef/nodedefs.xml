@@ -16,7 +16,6 @@
               <cmd id="QUERY" />
               <cmd id="DISCOVER" />
               <cmd id="REMOVE_NOTICES_ALL" />
-              <cmd id="REMOVE_NOTICE_TEST" />
             </accepts>
         </cmds>
     </nodeDef>
@@ -32,6 +31,33 @@
                 <cmd id="DON" />
                 <cmd id="DOF" />
                 <cmd id="PING" />
+            </accepts>
+        </cmds>
+    </nodeDef>
+	<!-- shadeid -->
+    <nodeDef id="shadeid" nls="shade">
+        <editors />
+        <sts>
+            <st id="ST" editor="bool" />
+        </sts>
+        <cmds>
+            <sends />
+            <accepts>
+                <cmd id="DON" />
+                <cmd id="PING" />
+            </accepts>
+        </cmds>
+    </nodeDef>
+	<!-- sceneid -->
+    <nodeDef id="sceneid" nls="scene">
+        <editors />
+        <sts>
+            <st id="ST" editor="bool" />
+        </sts>
+        <cmds>
+            <sends />
+            <accepts>
+                <cmd id="ACTIVATE" />
             </accepts>
         </cmds>
     </nodeDef>
