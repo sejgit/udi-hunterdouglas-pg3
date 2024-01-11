@@ -72,7 +72,7 @@ class PowerViewGen3:
     URL_SCENES_ = 'http://{h}/home/scenes/{id}'
     URL_SCENES_ACTIVATE_ = 'http://{h}/home/scenes/{id}/activate'
 
-    def __init__(self, None):
+    def __init__(self):
         super().__init__()
 
     def activateScene(self, hubHostname, sceneId):
