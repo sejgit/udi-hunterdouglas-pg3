@@ -29,8 +29,6 @@ ISY = udi_interface.ISY
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
 
-powerview3: PowerViewGen3 = None
-
 class Controller(udi_interface.Node):
     """
     The Node class represents a node on the ISY. The first node started and
@@ -238,12 +236,12 @@ class Controller(udi_interface.Node):
         self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Test Node Name'))
 
         self.shadeIds = []
-        self.shadeIds = powerview3.shadeIds(self.gateway)
+        self.shadeIds = PowerViewGen3.shadeIds(self.gateway)
         for shadeId in self.shadeIds:
             self.poly.addNode(Shade(self.poly, self.address, 'Shade-{s}'.format(shadeId), 'Shade {s}'.format(shadeId)))
 
         self.scenes = None
-        self.scenes = powerview3.scenes(self.gateway)
+        self.scenes = PowerViewGen3.scenes(self.gateway)
         for scene in self.scenes:
             self.poly.addNode(Scene(self.poly, self.address, 'Scene-{s}'.format(scene), 'Scene {s}'.format(scene)))
 
