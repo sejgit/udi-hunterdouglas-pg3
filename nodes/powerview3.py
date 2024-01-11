@@ -72,9 +72,8 @@ class PowerViewGen3:
     URL_SCENES_ = 'http://{h}/home/scenes/{id}'
     URL_SCENES_ACTIVATE_ = 'http://{h}/home/scenes/{id}/activate'
 
-    def __init__(self, prefs):
+    def __init__(self, None):
         super().__init__()
-        self.logger = prefs.get('logger', None) # logging.getLogger(prefs.get('logger', "net.segment7.powerview"))
 
     def activateScene(self, hubHostname, sceneId):
         activateSceneUrl = self.URL_SCENES_ACTIVATE_.format(h=hubHostname, id=sceneId)

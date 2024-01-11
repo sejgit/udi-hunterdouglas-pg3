@@ -7,7 +7,7 @@ import udi_interface
 import urllib3
 
 # powerview3 class
-from nodes import PowerViewGen3
+from nodes import PowerViewGen3, powerview3
 
 # Node
 from nodes import myNode
@@ -28,6 +28,8 @@ ISY = udi_interface.ISY
 
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
+
+powerview3: PowerViewGen3 = None
 
 class Controller(udi_interface.Node):
     """
@@ -139,6 +141,7 @@ class Controller(udi_interface.Node):
         # immediate feedback that the node server is running
 
         global powerview3
+        PowerViewGen3(powerview3, None)
 
     """
     Called via the CUSTOMPARAMS event. When the user enters or
@@ -233,15 +236,17 @@ class Controller(udi_interface.Node):
         example controller start method and from DISCOVER command received
         from ISY as an example.
         """
+        global powerview3
+        
         self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Test Node Name'))
 
         self.shadeIds = []
-        self.shadeIds = PowerViewGen3.shadeIds(self.gateway)
+        self.shadeIds = PowerViewGen3.shadeIds(powerview3, self.gateway)
         for shadeId in self.shadeIds:
             self.poly.addNode(Shade(self.poly, self.address, 'Shade-{s}'.format(shadeId), 'Shade {s}'.format(shadeId)))
 
         self.scenes = None
-        self.scenes = PowerViewGen3.scenes(self.gateway)
+        self.scenes = PowerViewGen3.scenes(powerview3, self.gateway)
         for scene in self.scenes:
             self.poly.addNode(Scene(self.poly, self.address, 'Scene-{s}'.format(scene), 'Scene {s}'.format(scene)))
 
