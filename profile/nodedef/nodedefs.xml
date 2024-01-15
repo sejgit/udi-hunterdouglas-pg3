@@ -19,32 +19,29 @@
             </accepts>
         </cmds>
     </nodeDef>
-	<!-- nodeid -->
-    <nodeDef id="nodeid" nls="node">
-        <editors />
-        <sts>
-            <st id="ST" editor="bool" />
-        </sts>
-        <cmds>
-            <sends />
-            <accepts>
-                <cmd id="DON" />
-                <cmd id="DOF" />
-                <cmd id="PING" />
-            </accepts>
-        </cmds>
-    </nodeDef>
 	<!-- shadeid -->
     <nodeDef id="shadeid" nls="shade">
         <editors />
         <sts>
             <st id="ST" editor="bool" />
+            <st id="GV0" editor="id" />
+            <st id="GV3" editor="shadecap" />
+            <st id="GV5" editor="batteryst" />
+            <st id="GV6" editor="id" />
+            <st id="GV7" editor="position" />
+            <st id="GV8" editor="position" />
+            <st id="GV9" editor="tilt" />
         </sts>
         <cmds>
             <sends />
             <accepts>
-                <cmd id="DON" />
-                <cmd id="PING" />
+                <cmd id="OPEN" />
+                <cmd id="CLOSE" />
+                <cmd id="STOP" />
+                <cmd id="TILTOPEN" />
+                <cmd id="TILTCLOSE" />
+                <cmd id="JOG" />
+                <cmd id="QUERY" />
             </accepts>
         </cmds>
     </nodeDef>
@@ -53,11 +50,13 @@
         <editors />
         <sts>
             <st id="ST" editor="bool" />
+            <st id="GV0" editor="id" />
         </sts>
         <cmds>
             <sends />
             <accepts>
                 <cmd id="ACTIVATE" />
+                <cmd id="QUERY" />
             </accepts>
         </cmds>
     </nodeDef>

@@ -54,13 +54,6 @@ class myNode(udi_interface.Node):
         """
         LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
         self.setDriver('ST', 1)
-        LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
-        self.setDriver('ST', 0)
-        LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
-        self.setDriver('ST', 1)
-        LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
-        self.setDriver('ST', 0)
-        LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
         self.http = urllib3.PoolManager()
 
     def poll(self, polltype):

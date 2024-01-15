@@ -3,6 +3,9 @@ import udi_interface
 import sys
 import time
 
+# powerview3 class
+from nodes import PowerViewGen3, powerview3
+
 LOGGER = udi_interface.LOGGER
 
 class Shade(udi_interface.Node):
@@ -27,7 +30,7 @@ class Shade(udi_interface.Node):
     query(): Called when ISY sends a query request to Polyglot for this
         specific node
     """
-    def __init__(self, polyglot, primary, address, name):
+    def __init__(self, polyglot, primary, address, name, shadedata):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
@@ -40,61 +43,100 @@ class Shade(udi_interface.Node):
         """
         super(Shade, self).__init__(polyglot, primary, address, name)
         self.poly = polyglot
+        self.primary = primary
+        self.controller = polyglot.getNode(self.primary)
+        self.address = address
+        self.name = name
+
+        self.pv3 = self.controller.powerview3
+
         self.lpfx = '%s:%s' % (address,name)
+        self.shadedata = shadedata
+        LOGGER.debug(shadedata)
+        self.sid = self.shadedata["shadeId"]
 
         self.poly.subscribe(self.poly.START, self.start, address)
-        self.poly.subscribe(self.poly.POLL, self.poll)
+        # self.poly.subscribe(self.poly.POLL, self.poll)
+
+    def updatedata(self, update):
+        """
+        update data
+        """
+        if 'newshadedata' not in locals():
+            newshadedata = self.shadedata
+
+        if update:
+            newshadedata = self.pv3.shade(self.controller.gateway, self.sid)
+
+        online = 1               
+        try:
+            self.online = newshadedata["shadeId"]
+        except:
+            online = 0
+            LOGGER.debug('%s: OFFLINE',self.lpfx)
+            newshadedata = self.shadedata
+        finally:
+            self.setDriver('ST', online)
+            self.setDriver('GV0', newshadedata["shadeId"])
+            self.setDriver('GV3', newshadedata["capabilities"])
+            self.setDriver('GV5', newshadedata["batteryStatus"])
+            self.setDriver('GV6', newshadedata["roomId"])
+            self.setDriver('GV7', newshadedata["positions"]["primary"])
+            self.setDriver('GV8', newshadedata["positions"]["secondary"])
+            self.setDriver('GV9', newshadedata["positions"]["tilt"])
+            self.positions = newshadedata["positions"]
 
     def start(self):
         """
-        Optional.
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        pass
+        self.updatedata(update = False)
+
+    def cmd_open(self, command):
+        """
+        open shade
+        """
+        LOGGER.debug('Shade Open %s', self.lpfx)
+        self.positions["primary"] = 0
+        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
+
+    def cmd_close(self, command):
+        """
+        close shade
+        """
+        LOGGER.debug('Shade Open %s', self.lpfx)
+        self.positions["primary"] = 100
+        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
+
+    def cmd_stop(self, command):
+        """
+        stop shade
+        """
+        LOGGER.debug('Shade Stop %s', self.lpfx)
+        self.pv3.stopShade(self.controller.gateway, self.sid)
 
 
-    def poll(self, polltype):
+    def cmd_tiltopen(self, command):
         """
-        This method is called at the poll intervals per the POLL event
-        subscription during init.
+        tilt shade open
         """
+        self.positions["tilt"] = 50
+        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
 
-        if 'longPoll' in polltype:
-            LOGGER.debug('longPoll (node)')
-        else:
-            LOGGER.debug('shortPoll (node)')
-            if int(self.getDriver('ST')) == 1:
-                self.setDriver('ST',0)
-            else:
-                self.setDriver('ST',1)
-            LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
+    def cmd_tiltclose(self, command):
+        """
+        tilt shade close
+        """
+        self.positions["tilt"] = 0
+        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
 
-    def cmd_on(self, command):
+    def cmd_jog(self, command):
         """
-        Example command received from ISY.
-        Set DON on myNode.
-        Sets the ST (status) driver to 1 or 'True'
+        jog shade
         """
-        self.setDriver('ST', 1)
-
-    def cmd_off(self, command):
-        """
-        Example command received from ISY.
-        Set DOF on myNode
-        Sets the ST (status) driver to 0 or 'False'
-        """
-        self.setDriver('ST', 0)
-
-    def cmd_ping(self,command):
-        """
-        Not really a ping, but don't care... It's an example to test LOGGER
-        in a module...
-        """
-        LOGGER.debug("cmd_ping:")
-        r = self.http.request('GET',"google.com")
-        LOGGER.debug("cmd_ping: r={}".format(r))
-
+        LOGGER.debug('Shade JOG %s', self.lpfx)
+        self.pv3.jogShade(self.controller.gateway, self.sid)
 
     def query(self,command=None):
         """
@@ -102,16 +144,29 @@ class Shade(udi_interface.Node):
         the parent class, so you don't need to override this method unless
         there is a need.
         """
+        self.updatedata(update = True)
         self.reportDrivers()
 
     """
-    Optional.
-    This is an array of dictionary items containing the variable names(drivers)
-    values and uoms(units of measure) from ISY. This is how ISY knows what kind
-    of variable to display. Check the UOM's in the WSDK for a complete list.
-    UOM 2 is boolean so the ISY will display 'True/False'
+        {'driver': 'ST', 'value': 0, 'uom': 2} # online
+        {'driver': 'GV0', 'value': 0, 'uom': 25}# id
+        {'driver': 'GV3', 'value': 0, 'uom': 25}# capabilities
+        {'driver': 'GV5', 'value': 0, 'uom': 25)# batteryStatus
+        {'driver': 'GV6', 'value': 0, 'uom': 25}# room -> roomId
+        {'driver': 'GV7', 'value': 0, 'uom': 25}# positions {primary, secondary, tilt}
+        {'driver': 'GV8', 'value': 0, 'uom': 25}# positions {primary, secondary, tilt}
+        {'driver': 'GV9', 'value': 0, 'uom': 25}# positions {primary, secondary, tilt}
     """
-    drivers = [{'driver': 'ST', 'value': 0, 'uom': 2}]
+    drivers = [
+        {'driver': 'ST', 'value': 0, 'uom': 2}, 
+        {'driver': 'GV0', 'uom': 25},
+        {'driver': 'GV3', 'uom': 25},
+        {'driver': 'GV5', 'uom': 25},
+        {'driver': 'GV6', 'uom': 25},
+        {'driver': 'GV7', 'uom': 25},
+        {'driver': 'GV8', 'uom': 25},
+        {'driver': 'GV9', 'uom': 25},
+               ]
 
     """
     id of the node from the nodedefs.xml that is in the profile.zip. This tells
@@ -124,8 +179,12 @@ class Shade(udi_interface.Node):
     this tells it which method to call. DON calls setOn, etc.
     """
     commands = {
-                    'DON': cmd_on,
-                    'DOF': cmd_off,
-                    'PING': cmd_ping
+                    'OPEN': cmd_open,
+                    'CLOSE': cmd_close,
+                    'STOP': cmd_stop,
+                    'TILTOPEN': cmd_tiltopen,
+                    'TILTCLOSE': cmd_tiltclose,
+                    'JOG': cmd_jog,
+                    'QUERY': query,
                 }
 

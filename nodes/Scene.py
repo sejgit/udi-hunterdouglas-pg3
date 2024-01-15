@@ -3,6 +3,9 @@ import udi_interface
 import sys
 import time
 
+# powerview3 class
+from nodes import PowerViewGen3, powerview3
+
 LOGGER = udi_interface.LOGGER
 
 class Scene(udi_interface.Node):
@@ -27,7 +30,7 @@ class Scene(udi_interface.Node):
     query(): Called when ISY sends a query request to Polyglot for this
         specific node
     """
-    def __init__(self, polyglot, primary, address, name):
+    def __init__(self, polyglot, primary, address, name, scenedata):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
@@ -37,13 +40,24 @@ class Scene(udi_interface.Node):
         :param primary: Parent address
         :param address: This nodes address
         :param name: This nodes name
+        :param scenedata: scene data
         """
-        super(Shade, self).__init__(polyglot, primary, address, name)
+        super(Scene, self).__init__(polyglot, primary, address, name)
+
         self.poly = polyglot
+        self.primary = primary
+        self.controller = polyglot.getNode(self.primary)
+        self.address = address
+        self.name = name
+
+        self.pv3 = self.controller.powerview3
+
         self.lpfx = '%s:%s' % (address,name)
+        self.scenedata = scenedata
+        self.sid = scenedata["id"]
 
         self.poly.subscribe(self.poly.START, self.start, address)
-        self.poly.subscribe(self.poly.POLL, self.poll)
+        # self.poly.subscribe(self.poly.POLL, self.poll)
 
     def start(self):
         """
@@ -51,26 +65,33 @@ class Scene(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
+        self.setDriver('ST', 0)
         LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
-        self.http = urllib3.PoolManager()
+        self.setDriver('GV0', int(self.sid))
+        LOGGER.debug('%s: get GV0=%s',self.lpfx,self.getDriver('GV0'))
 
-    def poll(self, polltype):
-        """
-        This method is called at the poll intervals per the POLL event
-        subscription during init.
-        """
-
-        if 'longPoll' in polltype:
-            LOGGER.debug('longPoll (node)')
-        else:
-            LOGGER.debug('shortPoll (node)')
+    # def poll(self, polltype):
+    #     """
+    #     This method is called at the poll intervals per the POLL event
+    #     subscription during init.
+    #     """
+    # 
+    #     if 'longPoll' in polltype:
+    #         LOGGER.debug('longPoll (node)')
+    #     else:
+    #         LOGGER.debug('shortPoll (node)')
 
     def cmd_activate(self, command):
         """
         activate scene
         """
+    
         self.setDriver('ST', 1)
-           
+        LOGGER.debug('activate ON %s: get ST=%s',self.lpfx, self.getDriver('ST'))
+        self.pv3.activateScene(self.controller.gateway, self.sid)
+        self.setDriver('ST', 0)
+        LOGGER.debug('activate OFF %s: get ST=%s',self.lpfx, self.getDriver('ST'))
+                   
     def query(self,command=None):
         """
         Called by ISY to report all drivers for this node. This is done in
@@ -80,13 +101,15 @@ class Scene(udi_interface.Node):
         self.reportDrivers()
 
     """
-    Optional.
     This is an array of dictionary items containing the variable names(drivers)
     values and uoms(units of measure) from ISY. This is how ISY knows what kind
     of variable to display. Check the UOM's in the WSDK for a complete list.
     UOM 2 is boolean so the ISY will display 'True/False'
     """
-    drivers = [{'driver': 'ST', 'value': 0, 'uom': 2}]
+    drivers = [
+        {'driver': 'ST', 'value': 0, 'uom': 2},
+        {'driver': 'GV0', 'uom': 25},
+               ]
 
     """
     id of the node from the nodedefs.xml that is in the profile.zip. This tells
@@ -99,6 +122,7 @@ class Scene(udi_interface.Node):
     this tells it which method to call. DON calls setOn, etc.
     """
     commands = {
-                    'ACTIVATE': cmd_activate
+                    'ACTIVATE': cmd_activate,
+                    'QUERY': query,
                 }
 

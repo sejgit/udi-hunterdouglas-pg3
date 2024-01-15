@@ -1,16 +1,21 @@
+"""
+udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/PolISY
+
+(C) 2024 Stephen Jenkins
+"""
 
 """
 Get the polyinterface objects we need. 
-a different Python module which doesn't have the new LOG_HANDLER functionality
 """
 import udi_interface
-import urllib3
+import requests
+import math
+import base64
 
 # powerview3 class
-from nodes import PowerViewGen3, powerview3
+from nodes import PowerViewGen3
 
-# Node
-from nodes import myNode
+# Nodes
 from nodes import Scene
 from nodes import Shade
 
@@ -28,8 +33,6 @@ ISY = udi_interface.ISY
 
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
-
-powerview3: PowerViewGen3 = None
 
 class Controller(udi_interface.Node):
     """
@@ -70,7 +73,12 @@ class Controller(udi_interface.Node):
         In most cases, you will want to do this for the controller node.
         """
         super(Controller, self).__init__(polyglot, primary, address, name)
+
         self.poly = polyglot
+        self.parent = primary
+        self.address = address
+        self.name = name
+
         self.hb = 0
         self.gateway = 'powerview-g3.local'
 
@@ -129,7 +137,7 @@ class Controller(udi_interface.Node):
         # Initializing a heartbeat is an example of something you'd want
         # to do during start.  Note that it is not required to have a
         # heartbeat in your node server
-        self.heartbeat(0)
+        self.heartbeat(False)
 
         # Device discovery. Here you may query for your device(s) and 
         # their capabilities.  Also where you can create nodes that
@@ -139,9 +147,6 @@ class Controller(udi_interface.Node):
         # Here you may want to send updated values to the ISY rather
         # than wait for a poll interval.  The user will get more 
         # immediate feedback that the node server is running
-
-        global powerview3
-        PowerViewGen3(powerview3, None)
 
     """
     Called via the CUSTOMPARAMS event. When the user enters or
@@ -217,8 +222,6 @@ class Controller(udi_interface.Node):
 
     def query(self,command=None):
         """
-        Optional.
-
         The query method will be called when the ISY attempts to query the
         status of the node directly.  You can do one of two things here.
         You can send the values currently held by Polyglot back to the
@@ -237,27 +240,28 @@ class Controller(udi_interface.Node):
         from ISY as an example.
         """
         global powerview3
+        self.powerview3 = PowerViewGen3()
         
-        self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Test Node Name'))
+        # self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Test Node Name'))
 
-        self.shadeIds = []
-        self.shadeIds = PowerViewGen3.shadeIds(powerview3, self.gateway)
+        self.shadeIds = None
+        self.shadeIds = self.powerview3.shadeIds(self.gateway)
         for shadeId in self.shadeIds:
-            self.poly.addNode(Shade(self.poly, self.address, 'Shade-{s}'.format(shadeId), 'Shade {s}'.format(shadeId)))
+            shade = self.powerview3.shade(self.gateway, shadeId)
+            self.poly.addNode(Shade(self.poly, self.address, 'shade{}'.format(shadeId), shade["name"], shade))
 
         self.scenes = None
-        self.scenes = PowerViewGen3.scenes(powerview3, self.gateway)
+        self.scenes = self.powerview3.scenes(self.gateway)
         for scene in self.scenes:
-            self.poly.addNode(Scene(self.poly, self.address, 'Scene-{s}'.format(scene), 'Scene {s}'.format(scene)))
+            self.poly.addNode(Scene(self.poly, self.address, "scene{}".format(scene["id"]), scene["name"],scene))
 
     def delete(self):
         """
-        Example
         This is call3ed by Polyglot upon deletion of the NodeServer. If the
         process is co-resident and controlled by Polyglot, it will be
         terminiated within 5 seconds of receiving this message.
         """
-        LOGGER.info('Oh God I\'m being deleted. Nooooooooooooooooooooooooooooooooooooooooo.')
+        LOGGER.info('bye bye ... deleted.')
 
     def stop(self):
         """
@@ -267,9 +271,8 @@ class Controller(udi_interface.Node):
         """
         LOGGER.debug('NodeServer stopped.')
 
-
     """
-    This is an example of implementing a heartbeat function.  It uses the
+    This is a heartbeat function.  It uses the
     long poll intervale to alternately send a ON and OFF command back to
     the ISY.  Programs on the ISY can then monitor this and take action
     when the heartbeat fails to update.
@@ -286,18 +289,15 @@ class Controller(udi_interface.Node):
             self.reportCmd("DOF",2)
             self.hb = 0
 
-    def set_module_logs(self,level):
-        logging.getLogger('urllib3').setLevel(level)
-
     def check_params(self):
         """
-        This is an example if using custom Params for user and password and an example with a Dictionary
+        This is using custom Params for gateway IP
         """
         self.Notices.clear()
         self.Notices['hello'] = 'Start-up'
 
         default_gateway = "powerview-g3.local"
-        self.gateway = self.Parameters.gateway
+        self.gateway = self.Parameters.gatewayip
         if self.gateway is None:
             self.gateway = default_gateway
             LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(default_gateway))
@@ -306,36 +306,80 @@ class Controller(udi_interface.Node):
         if self.gateway == default_gateway:
             self.Notices['gateway'] = 'Please note using default gateway address'
 
-
-    # def remove_notice_test(self,command):
-    #     LOGGER.info('remove_notice_test: notices={}'.format(self.Notices))
-    #     # Remove the test notice
-    #     self.Notices.delete('test')
-
     def remove_notices_all(self,command):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
         # Remove all existing notices
         self.Notices.clear()
 
-    """
-    Optional.
-    Since the controller is a node in ISY, it will actual show up as a node.
-    Thus it needs to know the drivers and what id it will use. The controller
-    should report the node server status and have any commands that are
-    needed to control operation of the node server.
-
-    Typically, node servers will use the 'ST' driver to report the node server
-    status and it a best pactice to do this unless you have a very good
-    reason not to.
-
-    The id must match the nodeDef id="controller" in the nodedefs.xml
-    """
     id = 'hdctrl'
+
+    # Commands that this node can handle.  Should match the
+    # 'accepts' section of the nodedef file.
     commands = {
         'QUERY': query,
         'DISCOVER': discover,
         'REMOVE_NOTICES_ALL': remove_notices_all,
     }
+
+    # Status that this node has. Should match the 'sts' section
+    # of the nodedef file.
     drivers = [
         {'driver': 'ST', 'value': 1, 'uom': 2},
     ]
+
+    """
+Shade Capabilities:
+
+Type 0 - Bottom Up 
+Examples: Standard roller/screen shades, Duette bottom up 
+Uses the “primary” control type
+
+Type 1 - Bottom Up w/ 90° Tilt 
+Examples: Silhouette, Pirouette 
+Uses the “primary” and “tilt” control types
+
+Type 2 - Bottom Up w/ 180° Tilt 
+Example: Silhouette Halo 
+Uses the “primary” and “tilt” control types
+
+Type 3 - Vertical (Traversing) 
+Examples: Skyline, Duette Vertiglide, Design Studio Drapery 
+Uses the “primary” control type
+
+Type 4 - Vertical (Traversing) w/ 180° Tilt 
+Example: Luminette 
+Uses the “primary” and “tilt” control types
+
+Type 5 - Tilt Only 180° 
+Examples: Palm Beach Shutters, Parkland Wood Blinds 
+Uses the “tilt” control type
+
+Type 6 - Top Down 
+Example: Duette Top Down 
+Uses the “primary” control type
+
+Type 7 - Top-Down/Bottom-Up (can open either from the bottom or from the top) 
+Examples: Duette TDBU, Vignette TDBU 
+Uses the “primary” and “secondary” control types
+
+Type 8 - Duolite (front and rear shades) 
+Examples: Roller Duolite, Vignette Duolite, Dual Roller
+Uses the “primary” and “secondary” control types 
+Note: In some cases the front and rear shades are
+controlled by a single motor and are on a single tube so they cannot operate independently - the
+front shade must be down before the rear shade can deploy. In other cases, they are independent with
+two motors and two tubes. Where they are dependent, the shade firmware will force the appropriate
+front shade position when the rear shade is controlled - there is no need for the control system to
+take this into account.
+
+Type 9 - Duolite with 90° Tilt 
+(front bottom up shade that also tilts plus a rear blackout (non-tilting) shade) 
+Example: Silhouette Duolite, Silhouette Adeux 
+Uses the “primary,” “secondary,” and “tilt” control types Note: Like with Type 8, these can be
+either dependent or independent.
+
+Type 10 - Duolite with 180° Tilt 
+Example: Silhouette Halo Duolite 
+Uses the “primary,” “secondary,” and “tilt” control types
+"""
+

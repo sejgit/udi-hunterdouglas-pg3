@@ -6,4 +6,22 @@
     <editor id="I_DEBUG">
       <range uom="25" subset="9,10,20,30,40,50" nls="CDM"/>
     </editor>
+    <editor id="id">
+      <range uom="25" />
+    </editor>
+    <editor id="shadecap">
+      <range uom="25" subset="1-10" nls="SHADECAP"/>
+    </editor>
+    <editor id="powertype">
+      <range uom="25" subset="1-3" nls="POWERTYPE"/>
+    </editor>
+    <editor id="batteryst">
+      <range uom="25" subset="0-4" nls="BATTERYST" />
+    </editor>
+    <editor id="position">
+      <range uom="25" />
+    </editor>
+    <editor id="tilt">
+      <range uom="25" />
+    </editor>
 </editors>

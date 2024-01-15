@@ -2,6 +2,10 @@
 import base64
 import math
 import requests
+import udi_interface
+
+LOGGER = udi_interface.LOGGER
+
 
 """
 Shade Capabilities:
@@ -80,10 +84,10 @@ class PowerViewGen3:
         self.put(activateSceneUrl)
 
     def activateSceneCollection(self, hubHostname, sceneCollectionId):
-        indigo.server.log('Scene Collections are not available on Generation 3+ gateway. Use a Multi-Room Scene instead.')
+        LOGGER.info('Scene Collections are not available on Generation 3+ gateway. Use a Multi-Room Scene instead.')
 
     def calibrateShade(self, hubHostname, shadeId):
-        indigo.server.log('Calibrate Shade function is not available on Generation 3+ gateway.')
+        LOGGER.info('Calibrate Shade function is not available on Generation 3+ gateway.')
 
     def jogShade(self, hubHostname, shadeId):
         shadeUrl = self.URL_SHADES_MOTION_.format(h=hubHostname, id=shadeId)
@@ -123,7 +127,7 @@ class PowerViewGen3:
             self.put(shade_url, pos)
             return True
         else:
-            indigo.server.log('Position sent to Set Shade Position must be values from 0 to 100.')
+            LOGGER.info('Position sent to Set Shade Position must be values from 0 to 100.')
             return False
 
     def scenes(self, hubHostname):
@@ -142,10 +146,6 @@ class PowerViewGen3:
             scene['name'] = '%s - %s' % (room_name, name)
 
         return data
-
-    def sceneCollections(self, hubHostname):
-        indigo.server.log('Scene Collections are not available on Generation 3+ gateway. Use a Multi-Room Scene instead.')
-        return []
 
     def shade(self, hubHostname, shadeId, room=False) -> dict:
         shadeUrl = self.URL_SHADES_.format(h=hubHostname, id=shadeId)
@@ -171,7 +171,7 @@ class PowerViewGen3:
                 data['positions']['tilt'] = self.to_percent(data['positions']['tilt'])
                 data['positions']['velocity'] = self.to_percent(data['positions']['velocity'])
 
-        self.logger.debug("shade V3: Return data={}".format(data))
+        LOGGER.debug("shade V3: Return data={}".format(data))
         return data
 
     def shadeIds(self, hubHostname) -> list:
@@ -185,7 +185,7 @@ class PowerViewGen3:
         return shadeIds
 
     def to_percent(self, pos, divr=1.0) -> int:
-        self.logger.debug(f"to_percent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
+        LOGGER.debug(f"to_percent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
         return math.trunc((float(pos) / divr * 100.0) + 0.5)
 
     def do_get(self, url, *param, **kwargs):
@@ -196,14 +196,14 @@ class PowerViewGen3:
         try:
             res = self.do_get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
-            self.logger.exception(f"Error fetching {url}", exc_info=True)
-            self.logger.debug(
-                f"    Get from '{url}' returned {'n/a' if not res else res.status_code}, response body '{'n/a' if not res else res.text}'")
+            LOGGER.error(f"Error fetching {url}")
+            if res:
+                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return {}
 
         if res.status_code != requests.codes.ok:
-            self.logger.error(f"Unexpected response fetching {url}: {res.status_code}")
-            self.logger.debug(f"    Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
+            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return {}
 
         response = res.json()
@@ -217,14 +217,14 @@ class PowerViewGen3:
                 res = requests.put(url, headers={'accept': 'application/json'})
 
         except requests.exceptions.RequestException as e:
-            self.logger.exception(f"Error in put {url} with data {data}:", exc_info=True)
-            self.logger.debug(
-                f"    Get from '{url}' returned {'n/a' if not res else res.status_code}, response body {'n/a' if not res else res.text}'")
+            LOGGER.error(f"Error in put {url} with data {data}:", exc_info=True)
+            if res:
+                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
 
         if res and res.status_code != requests.codes.ok:
-            self.logger.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
-            self.logger.debug(f"    Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            LOGGER.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
+            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
 
         response = res.json()
