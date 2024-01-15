@@ -4,16 +4,10 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/PolISY
 (C) 2024 Stephen Jenkins
 """
 
-"""
-Get the polyinterface objects we need. 
-"""
 import udi_interface
 import requests
 import math
 import base64
-
-# powerview3 class
-from nodes import PowerViewGen3
 
 # Nodes
 from nodes import Scene
@@ -31,10 +25,24 @@ LOG_HANDLER = udi_interface.LOG_HANDLER
 Custom = udi_interface.Custom
 ISY = udi_interface.ISY
 
+
+"""
+HunterDouglas PowerViewGen3 url's
+"""
+URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_SHADES = 'http://{g}/home/shades/{id}'
+URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
+URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
+URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
+URL_SCENES = 'http://{g}/home/scenes/{id}'
+URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
+
 # IF you want a different log format than the current default
 LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
 
 class Controller(udi_interface.Node):
+    id = 'hdctrl'
+
     """
     The Node class represents a node on the ISY. The first node started and
     that is is used for interaction with the node server is typically called
@@ -64,13 +72,15 @@ class Controller(udi_interface.Node):
       reportDrivers(): Send all driver values to the ISY
       status()
     """
+
     def __init__(self, polyglot, primary, address, name):
         """
-        Optional.
-        Super runs all the parent class necessities. You do NOT have
-        to override the __init__ method, but if you do, you MUST call super.
-
-        In most cases, you will want to do this for the controller node.
+        super
+        self definitions
+        data storage classes
+        subscribes
+        ready
+        we exist!
         """
         super(Controller, self).__init__(polyglot, primary, address, name)
 
@@ -78,9 +88,6 @@ class Controller(udi_interface.Node):
         self.parent = primary
         self.address = address
         self.name = name
-
-        self.hb = 0
-        self.gateway = 'powerview-g3.local'
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -111,8 +118,6 @@ class Controller(udi_interface.Node):
         # Tell the interface we exist.  
         self.poly.addNode(self)
 
-
-
     def start(self):
         """
         The Polyglot v3 Interface will publish an event to let you know you
@@ -137,7 +142,7 @@ class Controller(udi_interface.Node):
         # Initializing a heartbeat is an example of something you'd want
         # to do during start.  Note that it is not required to have a
         # heartbeat in your node server
-        self.heartbeat(False)
+        self.heartbeat(True)
 
         # Device discovery. Here you may query for your device(s) and 
         # their capabilities.  Also where you can create nodes that
@@ -220,7 +225,7 @@ class Controller(udi_interface.Node):
         else:
             LOGGER.debug('shortPoll (controller)')
 
-    def query(self,command=None):
+    def query(self):
         """
         The query method will be called when the ISY attempts to query the
         status of the node directly.  You can do one of two things here.
@@ -233,26 +238,21 @@ class Controller(udi_interface.Node):
         for node in nodes:
             nodes[node].reportDrivers()
 
-    def discover(self, *args, **kwargs):
+    def discover(self):
         """
         Do discovery here. Does not have to be called discovery. Called from
         example controller start method and from DISCOVER command received
         from ISY as an example.
         """
-        global powerview3
-        self.powerview3 = PowerViewGen3()
-        
-        # self.poly.addNode(myNode(self.poly, self.address, 'nodeaddress', 'Test Node Name'))
-
-        self.shadeIds = None
-        self.shadeIds = self.powerview3.shadeIds(self.gateway)
-        for shadeId in self.shadeIds:
-            shade = self.powerview3.shade(self.gateway, shadeId)
+        shadeIds = []
+        shadeIds = self.shadeIds()
+        for shadeId in shadeIds:
+            shade = self.shade(shadeId)
             self.poly.addNode(Shade(self.poly, self.address, 'shade{}'.format(shadeId), shade["name"], shade))
 
-        self.scenes = None
-        self.scenes = self.powerview3.scenes(self.gateway)
-        for scene in self.scenes:
+        scenes = []
+        scenes = self.scenes()
+        for scene in scenes:
             self.poly.addNode(Scene(self.poly, self.address, "scene{}".format(scene["id"]), scene["name"],scene))
 
     def delete(self):
@@ -273,7 +273,7 @@ class Controller(udi_interface.Node):
 
     """
     This is a heartbeat function.  It uses the
-    long poll intervale to alternately send a ON and OFF command back to
+    long poll interval to alternately send a ON and OFF command back to
     the ISY.  Programs on the ISY can then monitor this and take action
     when the heartbeat fails to update.
     """
@@ -306,12 +306,149 @@ class Controller(udi_interface.Node):
         if self.gateway == default_gateway:
             self.Notices['gateway'] = 'Please note using default gateway address'
 
-    def remove_notices_all(self,command):
+    def remove_notices_all(self):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
         # Remove all existing notices
         self.Notices.clear()
 
-    id = 'hdctrl'
+    def activateScene(self, sceneId):
+        activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.gateway, id=sceneId)
+        self.put(activateSceneUrl)
+
+    def jogShade(self, shadeId):
+        shadeUrl = URL_SHADES_MOTION.format(g=self.gateway, id=shadeId)
+        body = {
+            "motion": "jog"
+        }
+        self.put(shadeUrl, data=body)
+
+    def stopShade(self, shadeId):
+        shadeUrl = URL_SHADES_STOP.format(g=self.gateway, id=shadeId)
+        self.put(shadeUrl)
+
+
+    def rooms(self, roomId):
+            roomsUrl = URL_ROOMS.format(g=self.gateway, id=roomId)
+            data = self.get(roomsUrl)
+            data['name'] = base64.b64decode(data.pop('name')).decode()
+            return data
+
+    def setShadePosition(self, shadeId, pos):
+        positions = {}
+
+        if pos.get('primary', '0') in range(0, 101):
+            positions["primary"] = float(pos.get('primary', '0')) / 100.0
+
+        if pos.get('secondary', '0') in range(0, 101):
+            positions["secondary"] = float(pos.get('secondary', '0')) / 100.0
+
+        if pos.get('tilt', '0') in range(0, 101):
+            positions["tilt"] = float(pos.get('tilt', '0')) / 100.0
+
+        if pos.get('velocity', '0') in range(0, 101):
+            positions["velocity"] = float(pos.get('velocity', '0')) / 100.0
+
+        shade_url = URL_SHADES_POSITIONS.format(g=self.gateway, id=shadeId)
+        pos = {'positions': positions}
+        self.put(shade_url, pos)
+        return True
+
+    def scenes(self):
+        scenesURL = URL_SCENES.format(g=self.gateway, id='')
+
+        data = self.get(scenesURL)
+
+        for scene in data:
+            name = base64.b64decode(scene.pop('name')).decode()
+
+            if len(scene['roomIds']) == 1:
+                room = self.rooms(scene['roomIds'][0])
+                room_name = room['name']
+            else:
+                room_name = "Multi-Room"
+            scene['name'] = '%s - %s' % (room_name, name)
+
+        return data
+
+    def shade(self, shadeId, room=False):
+        shadeUrl = URL_SHADES.format(g=self.gateway, id=shadeId)
+
+        data = self.get(shadeUrl)
+        if data:
+            data['shadeId'] = data.pop('id')
+
+            data['name'] = base64.b64decode(data.pop('name')).decode()
+            if room and 'roomId' in data:
+                room_data = self.rooms( data['roomId'] )
+                data['room'] = room_data['name']
+            if 'batteryStrength' in data:
+                data['batteryLevel'] = data.pop('batteryStrength')
+            else:
+                data['batteryLevel'] = 'unk'
+
+            if 'positions' in data:
+                # Convert positions to integer percentages
+                data['positions']['primary'] = self.to_percent(data['positions']['primary'])
+                data['positions']['secondary'] = self.to_percent(data['positions']['secondary'])
+                data['positions']['tilt'] = self.to_percent(data['positions']['tilt'])
+                data['positions']['velocity'] = self.to_percent(data['positions']['velocity'])
+
+        LOGGER.debug("shade V3: Return data={}".format(data))
+        return data
+
+    def shadeIds(self):
+        shadesUrl = URL_SHADES.format(g=self.gateway, id='')
+
+        data = self.get(shadesUrl)
+        shadeIds = []
+        for shade in data:
+            shadeIds.append(shade['id'])
+
+        return shadeIds
+
+    def to_percent(self, pos, divr=1.0):
+        LOGGER.debug(f"to_percent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
+        return math.trunc((float(pos) / divr * 100.0) + 0.5)
+
+    def put(self, url, data=None):
+        res = None
+        try:
+            if data:
+                res = requests.put(url, json=data, headers={'accept': 'application/json'})
+            else:
+                res = requests.put(url, headers={'accept': 'application/json'})
+
+        except requests.exceptions.RequestException as e:
+            LOGGER.error(f"Error {e} in put {url} with data {data}:", exc_info=True)
+            if res:
+                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            return False
+
+        if res and res.status_code != requests.codes.ok:
+            LOGGER.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
+            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            return False
+
+        response = res.json()
+        return response
+
+    def get(self, url):
+        res = None
+        try:
+            res = requests.get(url, headers={'accept': 'application/json'})
+        except requests.exceptions.RequestException as e:
+            LOGGER.error(f"Error {e} fetching {url}")
+            if res:
+                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            return {}
+
+        if res.status_code != requests.codes.ok:
+            LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
+            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            return {}
+
+        response = res.json()
+        return response
 
     # Commands that this node can handle.  Should match the
     # 'accepts' section of the nodedef file.
@@ -327,6 +464,7 @@ class Controller(udi_interface.Node):
         {'driver': 'ST', 'value': 1, 'uom': 2},
     ]
 
+    
     """
 Shade Capabilities:
 

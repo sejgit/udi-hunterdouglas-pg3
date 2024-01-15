@@ -3,14 +3,15 @@
 This is a Plugin/NodeServer for Polyglot v3 written in Python3
 modified from v3 template version by (Bob Paauwe) bpaauwe@yahoo.com
 It is an interface between HunterDouglas Shades and Polyglot for EISY/Polisy
-2024 Stephen Jenkins
+
+(c) 2024 Stephen Jenkins
 """
 import udi_interface
 import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.0.1'
+VERSION = '0.0.2'
 
 """ Grab My Controller Node (optional) """
 from nodes import Controller

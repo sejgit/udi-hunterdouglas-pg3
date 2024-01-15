@@ -6,67 +6,7 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-
-"""
-Shade Capabilities:
-
-Type 0 - Bottom Up 
-Examples: Standard roller/screen shades, Duette bottom up 
-Uses the “primary” control type
-
-Type 1 - Bottom Up w/ 90° Tilt 
-Examples: Silhouette, Pirouette 
-Uses the “primary” and “tilt” control types
-
-Type 2 - Bottom Up w/ 180° Tilt 
-Example: Silhouette Halo 
-Uses the “primary” and “tilt” control types
-
-Type 3 - Vertical (Traversing) 
-Examples: Skyline, Duette Vertiglide, Design Studio Drapery 
-Uses the “primary” control type
-
-Type 4 - Vertical (Traversing) w/ 180° Tilt 
-Example: Luminette 
-Uses the “primary” and “tilt” control types
-
-Type 5 - Tilt Only 180° 
-Examples: Palm Beach Shutters, Parkland Wood Blinds 
-Uses the “tilt” control type
-
-Type 6 - Top Down 
-Example: Duette Top Down 
-Uses the “primary” control type
-
-Type 7 - Top-Down/Bottom-Up (can open either from the bottom or from the top) 
-Examples: Duette TDBU, Vignette TDBU 
-Uses the “primary” and “secondary” control types
-
-Type 8 - Duolite (front and rear shades) 
-Examples: Roller Duolite, Vignette Duolite, Dual Roller
-Uses the “primary” and “secondary” control types 
-Note: In some cases the front and rear shades are
-controlled by a single motor and are on a single tube so they cannot operate independently - the
-front shade must be down before the rear shade can deploy. In other cases, they are independent with
-two motors and two tubes. Where they are dependent, the shade firmware will force the appropriate
-front shade position when the rear shade is controlled - there is no need for the control system to
-take this into account.
-
-Type 9 - Duolite with 90° Tilt 
-(front bottom up shade that also tilts plus a rear blackout (non-tilting) shade) 
-Example: Silhouette Duolite, Silhouette Adeux 
-Uses the “primary,” “secondary,” and “tilt” control types Note: Like with Type 8, these can be
-either dependent or independent.
-
-Type 10 - Duolite with 180° Tilt 
-Example: Silhouette Halo Duolite 
-Uses the “primary,” “secondary,” and “tilt” control types
-"""
-
-
 class PowerViewGen3:
-
-    GENERATION = "V3"
 
     URL_ROOM_ = 'http://{h}/home/rooms/{id}'
     URL_SHADES_ = 'http://{h}/home/shades/{id}'
@@ -82,12 +22,6 @@ class PowerViewGen3:
     def activateScene(self, hubHostname, sceneId):
         activateSceneUrl = self.URL_SCENES_ACTIVATE_.format(h=hubHostname, id=sceneId)
         self.put(activateSceneUrl)
-
-    def activateSceneCollection(self, hubHostname, sceneCollectionId):
-        LOGGER.info('Scene Collections are not available on Generation 3+ gateway. Use a Multi-Room Scene instead.')
-
-    def calibrateShade(self, hubHostname, shadeId):
-        LOGGER.info('Calibrate Shade function is not available on Generation 3+ gateway.')
 
     def jogShade(self, hubHostname, shadeId):
         shadeUrl = self.URL_SHADES_MOTION_.format(h=hubHostname, id=shadeId)
@@ -155,7 +89,6 @@ class PowerViewGen3:
             data['shadeId'] = data.pop('id')
 
             data['name'] = base64.b64decode(data.pop('name')).decode()
-            data['generation'] = 3
             if room and 'roomId' in data:
                 room_data = self.room(hubHostname, data['roomId'])
                 data['room'] = room_data['name']
@@ -188,15 +121,13 @@ class PowerViewGen3:
         LOGGER.debug(f"to_percent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
         return math.trunc((float(pos) / divr * 100.0) + 0.5)
 
-    def do_get(self, url, *param, **kwargs):
-        '''This method exists to make it easier to test the plugin.'''
-        return requests.get(url, *param, **kwargs)
-
-    def get(self, url) -> dict:
+    
+    def get(self, url):
+        res = None
         try:
-            res = self.do_get(url, headers={'accept': 'application/json'})
+            res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Error fetching {url}")
+            LOGGER.error(f"Error {e} fetching {url}")
             if res:
                 LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return {}
@@ -209,7 +140,8 @@ class PowerViewGen3:
         response = res.json()
         return response
 
-    def put(self, url, data=None) -> dict:
+    def put(self, url, data=None):
+        res = None
         try:
             if data:
                 res = requests.put(url, json=data, headers={'accept': 'application/json'})
@@ -217,7 +149,7 @@ class PowerViewGen3:
                 res = requests.put(url, headers={'accept': 'application/json'})
 
         except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Error in put {url} with data {data}:", exc_info=True)
+            LOGGER.error(f"Error {e} in put {url} with data {data}:", exc_info=True)
             if res:
                 LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
