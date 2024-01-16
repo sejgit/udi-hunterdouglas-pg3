@@ -29,6 +29,7 @@ ISY = udi_interface.ISY
 """
 HunterDouglas PowerViewGen3 url's
 """
+URL_HOME = 'http://{g}/home'
 URL_ROOMS = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
 URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
@@ -36,9 +37,6 @@ URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
 URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
 URL_SCENES = 'http://{g}/home/scenes/{id}'
 URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
-
-# IF you want a different log format than the current default
-LOG_HANDLER.set_log_format('%(asctime)s %(threadName)-10s %(name)-18s %(levelname)-8s %(module)s:%(funcName)s: %(message)s')
 
 class Controller(udi_interface.Node):
     id = 'hdctrl'
@@ -153,6 +151,8 @@ class Controller(udi_interface.Node):
         # than wait for a poll interval.  The user will get more 
         # immediate feedback that the node server is running
 
+        self.remove_notices_all()
+
     """
     Called via the CUSTOMPARAMS event. When the user enters or
     updates Custom Parameters via the dashboard. The full list of
@@ -244,16 +244,20 @@ class Controller(udi_interface.Node):
         example controller start method and from DISCOVER command received
         from ISY as an example.
         """
-        shadeIds = []
-        shadeIds = self.shadeIds()
-        for shadeId in shadeIds:
-            shade = self.shade(shadeId)
-            self.poly.addNode(Shade(self.poly, self.address, 'shade{}'.format(shadeId), shade["name"], shade))
+        self.updateAllFromServer()
 
-        scenes = []
-        scenes = self.scenes()
-        for scene in scenes:
-            self.poly.addNode(Scene(self.poly, self.address, "scene{}".format(scene["id"]), scene["name"],scene))
+        for shade in self.shades_array:
+            self.poly.addNode(Shade(self.poly, \
+                                    self.address, \
+                                    'shade{}'.format(shade['shadeId']), \
+                                    shade["name"], \
+                                    shade['shadeId']))
+        for scene in self.scenes_array:
+            self.poly.addNode(Scene(self.poly, \
+                                    self.address, \
+                                    "scene{}".format(scene["_id"]), \
+                                    scene["name"], \
+                                    scene["_id"]))
 
     def delete(self):
         """
@@ -311,6 +315,75 @@ class Controller(udi_interface.Node):
         # Remove all existing notices
         self.Notices.clear()
 
+    def updateAllFromServer(self):
+        homeUrl = URL_HOME.format(g=self.gateway)
+        data = self.get(homeUrl)
+        try:
+            if data:
+                self.rooms_array = []
+                self.roomIds_array = []
+                self.shades_array = []
+                self.shadeIds_array = []
+                self.scenes_array = []
+                self.sceneIds_array = []
+
+                for r in data["rooms"]:
+                    LOGGER.debug('Update rooms')
+                    self.roomIds_array.append(r["_id"])
+                    self.rooms_array.append(r)
+                    for sh in r["shades"]:
+                        LOGGER.debug('Update shades')
+                        sh['shadeId'] = sh.pop('id')
+                        sh['name'] = base64.b64decode(sh.pop('name')).decode()
+                        LOGGER.debug(sh['name'])
+                        if 'positions' in sh:
+                            # Convert positions to integer percentages
+                            sh['positions']['primary'] = self.to_percent(sh['positions']['primary'])
+                            sh['positions']['secondary'] = self.to_percent(sh['positions']['secondary'])
+                            sh['positions']['tilt'] = self.to_percent(sh['positions']['tilt'])
+                            sh['positions']['velocity'] = self.to_percent(sh['positions']['velocity'])
+                        self.shadeIds_array.append(sh["shadeId"])
+                        self.shades_array.append(sh)
+
+                LOGGER.debug(self.roomIds_array)
+                LOGGER.debug(self.shadeIds_array)
+
+                for sc in data["scenes"]:
+                    LOGGER.debug('Update scenes-1')
+                    LOGGER.debug(sc)
+                    self.sceneIds_array.append(sc["_id"])
+                    self.scenes_array.append(sc)
+                    name = sc.pop('name')
+                    LOGGER.debug("scenes-3")
+                    room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                    sc['name'] = '%s - %s' % (room_name, name)
+                    LOGGER.debug('Update scenes-1')
+
+                LOGGER.debug(self.sceneIds_array)
+                self.home = data
+            return data
+        except:
+            LOGGER.error('Update error')
+            return False
+        
+    def get(self, url):
+        res = None
+        try:
+            res = requests.get(url, headers={'accept': 'application/json'})
+        except requests.exceptions.RequestException as e:
+            LOGGER.error(f"Error {e} fetching {url}")
+            if res:
+                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            return {}
+
+        if res.status_code != requests.codes.ok:
+            LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
+            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            return {}
+
+        response = res.json()
+        return response
+
     def activateScene(self, sceneId):
         activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.gateway, id=sceneId)
         self.put(activateSceneUrl)
@@ -325,13 +398,6 @@ class Controller(udi_interface.Node):
     def stopShade(self, shadeId):
         shadeUrl = URL_SHADES_STOP.format(g=self.gateway, id=shadeId)
         self.put(shadeUrl)
-
-
-    def rooms(self, roomId):
-            roomsUrl = URL_ROOMS.format(g=self.gateway, id=roomId)
-            data = self.get(roomsUrl)
-            data['name'] = base64.b64decode(data.pop('name')).decode()
-            return data
 
     def setShadePosition(self, shadeId, pos):
         positions = {}
@@ -352,59 +418,6 @@ class Controller(udi_interface.Node):
         pos = {'positions': positions}
         self.put(shade_url, pos)
         return True
-
-    def scenes(self):
-        scenesURL = URL_SCENES.format(g=self.gateway, id='')
-
-        data = self.get(scenesURL)
-
-        for scene in data:
-            name = base64.b64decode(scene.pop('name')).decode()
-
-            if len(scene['roomIds']) == 1:
-                room = self.rooms(scene['roomIds'][0])
-                room_name = room['name']
-            else:
-                room_name = "Multi-Room"
-            scene['name'] = '%s - %s' % (room_name, name)
-
-        return data
-
-    def shade(self, shadeId, room=False):
-        shadeUrl = URL_SHADES.format(g=self.gateway, id=shadeId)
-
-        data = self.get(shadeUrl)
-        if data:
-            data['shadeId'] = data.pop('id')
-
-            data['name'] = base64.b64decode(data.pop('name')).decode()
-            if room and 'roomId' in data:
-                room_data = self.rooms( data['roomId'] )
-                data['room'] = room_data['name']
-            if 'batteryStrength' in data:
-                data['batteryLevel'] = data.pop('batteryStrength')
-            else:
-                data['batteryLevel'] = 'unk'
-
-            if 'positions' in data:
-                # Convert positions to integer percentages
-                data['positions']['primary'] = self.to_percent(data['positions']['primary'])
-                data['positions']['secondary'] = self.to_percent(data['positions']['secondary'])
-                data['positions']['tilt'] = self.to_percent(data['positions']['tilt'])
-                data['positions']['velocity'] = self.to_percent(data['positions']['velocity'])
-
-        LOGGER.debug("shade V3: Return data={}".format(data))
-        return data
-
-    def shadeIds(self):
-        shadesUrl = URL_SHADES.format(g=self.gateway, id='')
-
-        data = self.get(shadesUrl)
-        shadeIds = []
-        for shade in data:
-            shadeIds.append(shade['id'])
-
-        return shadeIds
 
     def to_percent(self, pos, divr=1.0):
         LOGGER.debug(f"to_percent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
@@ -428,24 +441,6 @@ class Controller(udi_interface.Node):
             LOGGER.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
-
-        response = res.json()
-        return response
-
-    def get(self, url):
-        res = None
-        try:
-            res = requests.get(url, headers={'accept': 'application/json'})
-        except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Error {e} fetching {url}")
-            if res:
-                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
-            return {}
-
-        if res.status_code != requests.codes.ok:
-            LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
-            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
-            return {}
 
         response = res.json()
         return response

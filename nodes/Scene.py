@@ -1,14 +1,11 @@
 
 import udi_interface
-import sys
-import time
-
-# powerview3 class
-from nodes import PowerViewGen3, powerview3
 
 LOGGER = udi_interface.LOGGER
 
 class Scene(udi_interface.Node):
+    id = 'sceneid'
+
     """
     This is the class that all the Nodes will be represented by. You will
     add this to Polyglot/ISY with the interface.addNode method.
@@ -30,7 +27,7 @@ class Scene(udi_interface.Node):
     query(): Called when ISY sends a query request to Polyglot for this
         specific node
     """
-    def __init__(self, polyglot, primary, address, name, scenedata):
+    def __init__(self, polyglot, primary, address, name, sid):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
@@ -40,7 +37,7 @@ class Scene(udi_interface.Node):
         :param primary: Parent address
         :param address: This nodes address
         :param name: This nodes name
-        :param scenedata: scene data
+        :param sid: scene id
         """
         super(Scene, self).__init__(polyglot, primary, address, name)
 
@@ -50,14 +47,10 @@ class Scene(udi_interface.Node):
         self.address = address
         self.name = name
 
-        self.pv3 = self.controller.powerview3
-
         self.lpfx = '%s:%s' % (address,name)
-        self.scenedata = scenedata
-        self.sid = scenedata["id"]
+        self.sid = sid
 
         self.poly.subscribe(self.poly.START, self.start, address)
-        # self.poly.subscribe(self.poly.POLL, self.poll)
 
     def start(self):
         """
@@ -70,29 +63,17 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid))
         LOGGER.debug('%s: get GV0=%s',self.lpfx,self.getDriver('GV0'))
 
-    # def poll(self, polltype):
-    #     """
-    #     This method is called at the poll intervals per the POLL event
-    #     subscription during init.
-    #     """
-    # 
-    #     if 'longPoll' in polltype:
-    #         LOGGER.debug('longPoll (node)')
-    #     else:
-    #         LOGGER.debug('shortPoll (node)')
-
-    def cmd_activate(self, command):
+    def cmd_activate(self):
         """
         activate scene
         """
-    
         self.setDriver('ST', 1)
         LOGGER.debug('activate ON %s: get ST=%s',self.lpfx, self.getDriver('ST'))
-        self.pv3.activateScene(self.controller.gateway, self.sid)
+        self.controller.activateScene(self.sid)
         self.setDriver('ST', 0)
         LOGGER.debug('activate OFF %s: get ST=%s',self.lpfx, self.getDriver('ST'))
                    
-    def query(self,command=None):
+    def query(self):
         """
         Called by ISY to report all drivers for this node. This is done in
         the parent class, so you don't need to override this method unless
@@ -110,12 +91,6 @@ class Scene(udi_interface.Node):
         {'driver': 'ST', 'value': 0, 'uom': 2},
         {'driver': 'GV0', 'uom': 25},
                ]
-
-    """
-    id of the node from the nodedefs.xml that is in the profile.zip. This tells
-    the ISY what fields and commands this node has.
-    """
-    id = 'sceneid'
 
     """
     This is a dictionary of commands. If ISY sends a command to the NodeServer,

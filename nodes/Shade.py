@@ -1,14 +1,11 @@
 
 import udi_interface
-import sys
-import time
-
-# powerview3 class
-from nodes import PowerViewGen3, powerview3
 
 LOGGER = udi_interface.LOGGER
 
 class Shade(udi_interface.Node):
+    id = 'shadeid'
+    
     """
     This is the class that all the Nodes will be represented by. You will
     add this to Polyglot/ISY with the interface.addNode method.
@@ -30,7 +27,7 @@ class Shade(udi_interface.Node):
     query(): Called when ISY sends a query request to Polyglot for this
         specific node
     """
-    def __init__(self, polyglot, primary, address, name, shadedata):
+    def __init__(self, polyglot, primary, address, name, sid):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
@@ -48,50 +45,44 @@ class Shade(udi_interface.Node):
         self.address = address
         self.name = name
 
-        self.pv3 = self.controller.powerview3
-
         self.lpfx = '%s:%s' % (address,name)
-        self.shadedata = shadedata
-        LOGGER.debug(shadedata)
-        self.sid = self.shadedata["shadeId"]
+        self.sid = sid
 
         self.poly.subscribe(self.poly.START, self.start, address)
-        # self.poly.subscribe(self.poly.POLL, self.poll)
 
-    def updatedata(self, update):
+    def updatedata(self, updatefromserver = True):
         """
         update data
         """
-        if 'newshadedata' not in locals():
-            newshadedata = self.shadedata
+        if updatefromserver:
+            self.controller.updateAllFromServer()
 
-        if update:
-            newshadedata = self.pv3.shade(self.controller.gateway, self.sid)
-
-        online = 1               
         try:
-            self.online = newshadedata["shadeId"]
+            self.shadedata = self.controller.shades_array[self.controller.shadeIds_array.index(self.sid)]
+            online = 1
+            LOGGER.debug(self.shadedata)
         except:
-            online = 0
+            online = 0              
             LOGGER.debug('%s: OFFLINE',self.lpfx)
-            newshadedata = self.shadedata
         finally:
             self.setDriver('ST', online)
-            self.setDriver('GV0', newshadedata["shadeId"])
-            self.setDriver('GV3', newshadedata["capabilities"])
-            self.setDriver('GV5', newshadedata["batteryStatus"])
-            self.setDriver('GV6', newshadedata["roomId"])
-            self.setDriver('GV7', newshadedata["positions"]["primary"])
-            self.setDriver('GV8', newshadedata["positions"]["secondary"])
-            self.setDriver('GV9', newshadedata["positions"]["tilt"])
-            self.positions = newshadedata["positions"]
+            self.setDriver('GV0', self.shadedata["shadeId"])
+            self.setDriver('GV3', self.shadedata["capabilities"])
+            self.setDriver('GV5', self.shadedata["batteryStatus"])
+            self.setDriver('GV6', self.shadedata["roomId"])
+            self.setDriver('GV7', self.shadedata["positions"]["primary"])
+            self.setDriver('GV8', self.shadedata["positions"]["secondary"])
+            self.setDriver('GV9', self.shadedata["positions"]["tilt"])
+            self.positions = self.shadedata["positions"]
+        # self.positions = {"primary": 0, "secondary": 0, "tilt": 0, "velocity": 0}
+        
 
     def start(self):
         """
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.updatedata(update = False)
+        self.updatedata(updatefromserver = False)
 
     def cmd_open(self, command):
         """
@@ -99,7 +90,7 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 0
-        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
+        self.controller.setShadePosition(self.sid, self.positions)
 
     def cmd_close(self, command):
         """
@@ -107,14 +98,14 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 100
-        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
+        self.controller.setShadePosition(self.sid, self.positions)
 
     def cmd_stop(self, command):
         """
         stop shade
         """
         LOGGER.debug('Shade Stop %s', self.lpfx)
-        self.pv3.stopShade(self.controller.gateway, self.sid)
+        self.controller.stopShade(self.sid)
 
 
     def cmd_tiltopen(self, command):
@@ -122,29 +113,29 @@ class Shade(udi_interface.Node):
         tilt shade open
         """
         self.positions["tilt"] = 50
-        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
+        self.controller.setShadePosition(self.sid, self.positions)
 
     def cmd_tiltclose(self, command):
         """
         tilt shade close
         """
         self.positions["tilt"] = 0
-        self.pv3.setShadePosition(self.controller.gateway, self.sid, self.positions)
+        self.controller.setShadePosition(self.sid, self.positions)
 
     def cmd_jog(self, command):
         """
         jog shade
         """
         LOGGER.debug('Shade JOG %s', self.lpfx)
-        self.pv3.jogShade(self.controller.gateway, self.sid)
+        self.controller.jogShade(self.sid)
 
-    def query(self,command=None):
+    def query(self, command=None):
         """
         Called by ISY to report all drivers for this node. This is done in
         the parent class, so you don't need to override this method unless
         there is a need.
         """
-        self.updatedata(update = True)
+        self.updatedata(updatefromserver = True)
         self.reportDrivers()
 
     """
@@ -167,12 +158,6 @@ class Shade(udi_interface.Node):
         {'driver': 'GV8', 'uom': 25},
         {'driver': 'GV9', 'uom': 25},
                ]
-
-    """
-    id of the node from the nodedefs.xml that is in the profile.zip. This tells
-    the ISY what fields and commands this node has.
-    """
-    id = 'shadeid'
 
     """
     This is a dictionary of commands. If ISY sends a command to the NodeServer,
