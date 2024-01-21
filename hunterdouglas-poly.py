@@ -11,9 +11,8 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 
-""" Grab My Controller Node (optional) """
 from nodes import Controller
 
 if __name__ == "__main__":

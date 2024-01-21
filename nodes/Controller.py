@@ -41,36 +41,6 @@ URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
 class Controller(udi_interface.Node):
     id = 'hdctrl'
 
-    """
-    The Node class represents a node on the ISY. The first node started and
-    that is is used for interaction with the node server is typically called
-    a 'Controller' node. If this node has the address 'controller', Polyglot
-    will automatically populate the 'ST' driver of this node with the node
-    server's on-line/off-line status.
-
-    This node will also typically handle discovery & creation of other nodes
-    and deal with the user configurable options of the node server.
-
-    Class Variables:
-      self.name: String name of the node
-      self.address: String Address of Node, must be less than 14 characters
-                    (ISY limitation)
-      self.primary: String Address of Node's parent, must be less than 14
-                    characters (ISY limitation)
-      self.poly: Interface class object.  Provides access to the interface API.
-
-    Class Methods
-      query(): Queries and reports ALL drivers for ALL nodes to the ISY.
-      getDriver('ST'): gets the current value from Polyglot for driver 'ST'
-        returns a STRING, cast as needed
-      setDriver('ST', value, report, force, uom): Updates the driver with
-        the value (and possibly a new UOM)
-      reportDriver('ST', force): Send the driver value to the ISY, normally
-        it will only send if the value has changed, force will always send
-      reportDrivers(): Send all driver values to the ISY
-      status()
-    """
-
     def __init__(self, polyglot, primary, address, name):
         """
         super
@@ -94,9 +64,7 @@ class Controller(udi_interface.Node):
         self.TypedParameters = Custom(polyglot, 'customtypedparams')
         self.TypedData = Custom(polyglot, 'customtypeddata')
 
-        # Subscribe to various events from the Interface class.  This is
-        # how you will get information from Polyglog.  See the API
-        # documentation for the full list of events you can subscribe to.
+        # Subscribe to various events from the Interface class.
         #
         # The START event is unique in that you can subscribe to 
         # the start event for each node you define.
@@ -117,17 +85,6 @@ class Controller(udi_interface.Node):
         self.poly.addNode(self)
 
     def start(self):
-        """
-        The Polyglot v3 Interface will publish an event to let you know you
-        can start your integration. (see the START event subscribed to above)
-
-        This is where you do your initialization / device setup.
-        Polyglot v3 Interface startup done.
-
-        Here is where you start your integration. I.E. if you need to 
-        initiate communication with a device, do so here.
-        """
-
         # Send the profile files to the ISY if neccessary. The profile version
         # number will be checked and compared. If it has changed since the last
         # start, the new files will be sent.
@@ -224,6 +181,7 @@ class Controller(udi_interface.Node):
             self.heartbeat()
         else:
             LOGGER.debug('shortPoll (controller)')
+            self.updateAllFromServer()
 
     def query(self):
         """
