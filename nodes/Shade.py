@@ -150,13 +150,13 @@ class Shade(udi_interface.Node):
     """
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2}, 
-        {'driver': 'GV0', 'uom': 25},
-        {'driver': 'GV3', 'uom': 25},
-        {'driver': 'GV5', 'uom': 25},
-        {'driver': 'GV6', 'uom': 25},
-        {'driver': 'GV7', 'uom': 25},
-        {'driver': 'GV8', 'uom': 25},
-        {'driver': 'GV9', 'uom': 25},
+        {'driver': 'GV0', 'value': 0, 'uom': 25},
+        {'driver': 'GV3', 'value': 0, 'uom': 25},
+        {'driver': 'GV5', 'value': 0, 'uom': 25},
+        {'driver': 'GV6', 'value': 0, 'uom': 25},
+        {'driver': 'GV7', 'value': 0, 'uom': 25},
+        {'driver': 'GV8', 'value': 0, 'uom': 25},
+        {'driver': 'GV9', 'value': 0, 'uom': 25},
                ]
 
     """

@@ -11,7 +11,16 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.0.3'
+VERSION = '0.0.4'
+"""
+this version:
+DONE discover when new gatewayip is entered
+DONE poll status regularly using shortpoll
+DONE update required after nodes added to get status
+DONE notice when gateway get error
+future version:
+TODO think about status updates when command is given
+"""
 
 from nodes import Controller
 

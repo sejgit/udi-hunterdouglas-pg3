@@ -89,7 +89,7 @@ class Scene(udi_interface.Node):
     """
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2},
-        {'driver': 'GV0', 'uom': 25},
+        {'driver': 'GV0', 'value': 0, 'uom': 25},
                ]
 
     """

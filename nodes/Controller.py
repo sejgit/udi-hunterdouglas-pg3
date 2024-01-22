@@ -108,8 +108,6 @@ class Controller(udi_interface.Node):
         # than wait for a poll interval.  The user will get more 
         # immediate feedback that the node server is running
 
-        self.remove_notices_all()
-
     """
     Called via the CUSTOMPARAMS event. When the user enters or
     updates Custom Parameters via the dashboard. The full list of
@@ -128,6 +126,7 @@ class Controller(udi_interface.Node):
         self.Parameters.load(params)
         LOGGER.debug('Loading parameters now')
         self.check_params()
+        self.discover()
 
     """
     Called via the CUSTOMTYPEDPARAMS event. This event is sent When
@@ -192,6 +191,7 @@ class Controller(udi_interface.Node):
         device represented by the node and report back the current 
         status.
         """
+        self.updateAllFromServer()
         nodes = self.poly.getNodes()
         for node in nodes:
             nodes[node].reportDrivers()
@@ -202,20 +202,20 @@ class Controller(udi_interface.Node):
         example controller start method and from DISCOVER command received
         from ISY as an example.
         """
-        self.updateAllFromServer()
+        if self.updateAllFromServer():
 
-        for shade in self.shades_array:
-            self.poly.addNode(Shade(self.poly, \
-                                    self.address, \
-                                    'shade{}'.format(shade['shadeId']), \
-                                    shade["name"], \
-                                    shade['shadeId']))
-        for scene in self.scenes_array:
-            self.poly.addNode(Scene(self.poly, \
-                                    self.address, \
-                                    "scene{}".format(scene["_id"]), \
-                                    scene["name"], \
-                                    scene["_id"]))
+            for shade in self.shades_array:
+                self.poly.addNode(Shade(self.poly, \
+                                        self.address, \
+                                        'shade{}'.format(shade['shadeId']), \
+                                        shade["name"], \
+                                        shade['shadeId']))
+            for scene in self.scenes_array:
+                self.poly.addNode(Scene(self.poly, \
+                                        self.address, \
+                                        "scene{}".format(scene["_id"]), \
+                                        scene["name"], \
+                                        scene["_id"]))
 
     def delete(self):
         """
@@ -330,6 +330,8 @@ class Controller(udi_interface.Node):
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error {e} fetching {url}")
+            self.Notices['badfetch'] = 'Error fetching from gateway.'
+
             if res:
                 LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return {}
