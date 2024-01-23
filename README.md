@@ -7,11 +7,11 @@ and Polyglot V3 server
 
 #### Installation
 
-This template node server can be installed from the PG3 NodeServer Store.
+This node server can be installed from the PG3 NodeServer Store.
 
 #### Requirements
 
-This template node server will only run on Polyglot version 3. You will
+This node server will only run on Polyglot version 3. You will
 need to have an EISY/Polisy with PG3 installed to run this node server.
 
 ### See also [Hunter Douglas PowerView][hd_powerview]
