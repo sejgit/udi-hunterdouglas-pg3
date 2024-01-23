@@ -8,6 +8,7 @@ import udi_interface
 import requests
 import math
 import base64
+import time
 
 # Nodes
 from nodes import Scene
@@ -56,6 +57,7 @@ class Controller(udi_interface.Node):
         self.parent = primary
         self.address = address
         self.name = name
+        self.last = 0.0
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -85,6 +87,7 @@ class Controller(udi_interface.Node):
         self.poly.addNode(self)
 
     def start(self):
+        self.last = 0.0
         # Send the profile files to the ISY if neccessary. The profile version
         # number will be checked and compared. If it has changed since the last
         # start, the new files will be sent.
@@ -180,7 +183,7 @@ class Controller(udi_interface.Node):
             self.heartbeat()
         else:
             LOGGER.debug('shortPoll (controller)')
-            self.updateAllFromServer()
+            self.Notices.clear()
 
     def query(self):
         """
@@ -191,10 +194,10 @@ class Controller(udi_interface.Node):
         device represented by the node and report back the current 
         status.
         """
-        self.updateAllFromServer()
-        nodes = self.poly.getNodes()
-        for node in nodes:
-            nodes[node].reportDrivers()
+        if self.updateAllFromServer():
+            nodes = self.poly.getNodes()
+            for node in nodes:
+                nodes[node].reportDrivers()
 
     def discover(self):
         """
@@ -274,55 +277,58 @@ class Controller(udi_interface.Node):
         self.Notices.clear()
 
     def updateAllFromServer(self):
-        homeUrl = URL_HOME.format(g=self.gateway)
-        data = self.get(homeUrl)
-        try:
-            if data:
-                self.rooms_array = []
-                self.roomIds_array = []
-                self.shades_array = []
-                self.shadeIds_array = []
-                self.scenes_array = []
-                self.sceneIds_array = []
+        if time.perf_counter() > (self.last + 5.0):
+            self.last = time.perf_counter()
+            homeUrl = URL_HOME.format(g=self.gateway)
+            data = self.get(homeUrl)
+            try:
+                if data:
+                    self.rooms_array = []
+                    self.roomIds_array = []
+                    self.shades_array = []
+                    self.shadeIds_array = []
+                    self.scenes_array = []
+                    self.sceneIds_array = []
 
-                for r in data["rooms"]:
-                    LOGGER.debug('Update rooms')
-                    self.roomIds_array.append(r["_id"])
-                    self.rooms_array.append(r)
-                    for sh in r["shades"]:
-                        LOGGER.debug('Update shades')
-                        sh['shadeId'] = sh.pop('id')
-                        sh['name'] = base64.b64decode(sh.pop('name')).decode()
-                        LOGGER.debug(sh['name'])
-                        if 'positions' in sh:
-                            # Convert positions to integer percentages
-                            sh['positions']['primary'] = self.to_percent(sh['positions']['primary'])
-                            sh['positions']['secondary'] = self.to_percent(sh['positions']['secondary'])
-                            sh['positions']['tilt'] = self.to_percent(sh['positions']['tilt'])
-                            sh['positions']['velocity'] = self.to_percent(sh['positions']['velocity'])
-                        self.shadeIds_array.append(sh["shadeId"])
-                        self.shades_array.append(sh)
+                    for r in data["rooms"]:
+                        LOGGER.debug('Update rooms')
+                        self.roomIds_array.append(r["_id"])
+                        self.rooms_array.append(r)
+                        for sh in r["shades"]:
+                            LOGGER.debug('Update shades')
+                            sh['shadeId'] = sh.pop('id')
+                            sh['name'] = base64.b64decode(sh.pop('name')).decode()
+                            LOGGER.debug(sh['name'])
+                            if 'positions' in sh:
+                                # Convert positions to integer percentages
+                                sh['positions']['primary'] = self.to_percent(sh['positions']['primary'])
+                                sh['positions']['secondary'] = self.to_percent(sh['positions']['secondary'])
+                                sh['positions']['tilt'] = self.to_percent(sh['positions']['tilt'])
+                                sh['positions']['velocity'] = self.to_percent(sh['positions']['velocity'])
+                            self.shadeIds_array.append(sh["shadeId"])
+                            self.shades_array.append(sh)
 
-                LOGGER.debug(self.roomIds_array)
-                LOGGER.debug(self.shadeIds_array)
+                    LOGGER.debug(self.roomIds_array)
+                    LOGGER.debug(self.shadeIds_array)
 
-                for sc in data["scenes"]:
-                    LOGGER.debug('Update scenes-1')
-                    LOGGER.debug(sc)
-                    self.sceneIds_array.append(sc["_id"])
-                    self.scenes_array.append(sc)
-                    name = sc.pop('name')
-                    LOGGER.debug("scenes-3")
-                    room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
-                    sc['name'] = '%s - %s' % (room_name, name)
-                    LOGGER.debug('Update scenes-1')
+                    for sc in data["scenes"]:
+                        LOGGER.debug('Update scenes-1')
+                        LOGGER.debug(sc)
+                        self.sceneIds_array.append(sc["_id"])
+                        self.scenes_array.append(sc)
+                        name = sc.pop('name')
+                        LOGGER.debug("scenes-3")
+                        room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                        sc['name'] = '%s - %s' % (room_name, name)
+                        LOGGER.debug('Update scenes-1')
 
-                LOGGER.debug(self.sceneIds_array)
-                self.home = data
-            return data
-        except:
-            LOGGER.error('Update error')
-            return False
+                    LOGGER.debug(self.sceneIds_array)
+                    self.home = data
+                return True
+            except:
+                LOGGER.error('Update error')
+                return False
+        return True
         
     def get(self, url):
         res = None
@@ -330,19 +336,15 @@ class Controller(udi_interface.Node):
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error {e} fetching {url}")
-            self.Notices['badfetch'] = 'Error fetching from gateway.'
-
-            if res:
-                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            self.Notices['badfetch'] = 'Error fetching from gateway, check configuration.'
             return {}
 
         if res.status_code != requests.codes.ok:
             LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
-            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
             return {}
-
-        response = res.json()
-        return response
+        else:
+            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+        return res.json()
 
     def activateScene(self, sceneId):
         activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.gateway, id=sceneId)

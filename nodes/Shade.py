@@ -49,7 +49,8 @@ class Shade(udi_interface.Node):
         self.sid = sid
 
         self.poly.subscribe(self.poly.START, self.start, address)
-
+        self.poly.subscribe(self.poly.POLL, self.poll)
+        
     def updatedata(self, updatefromserver = True):
         """
         update data
@@ -74,8 +75,6 @@ class Shade(udi_interface.Node):
             self.setDriver('GV8', self.shadedata["positions"]["secondary"])
             self.setDriver('GV9', self.shadedata["positions"]["tilt"])
             self.positions = self.shadedata["positions"]
-        # self.positions = {"primary": 0, "secondary": 0, "tilt": 0, "velocity": 0}
-        
 
     def start(self):
         """
@@ -84,6 +83,13 @@ class Shade(udi_interface.Node):
         """
         self.updatedata(updatefromserver = False)
 
+    def poll(self, flag):
+        if 'longPoll' in flag:
+            LOGGER.debug('longPoll (shade)')
+        else:
+            LOGGER.debug('shortPoll (shade)')
+            self.updatedata(updatefromserver = True)
+                
     def cmd_open(self, command):
         """
         open shade

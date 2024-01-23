@@ -11,15 +11,28 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.0.4'
+VERSION = '0.0.5'
 """
-this version:
+0.0.5:
+DONE change shortpoll to 30s
+DONE update shades on shortpoll
+DONE clear start notice at shortpoll
+DONE clean up error proofing in get
+DONE fix updating variables with shortpoll
+DONE limit device ping to 5s
+
+add to future version:
+TODO think about status updates when command is given
+TODO move shade by specific amounts
+TODO version update notices ; are they provided by polyglot now?
+TODO remove parameters based on shade capability (primary, secondary, tilt)
+
+past versions:
+0.0.4:
 DONE discover when new gatewayip is entered
 DONE poll status regularly using shortpoll
 DONE update required after nodes added to get status
 DONE notice when gateway get error
-future version:
-TODO think about status updates when command is given
 """
 
 from nodes import Controller
