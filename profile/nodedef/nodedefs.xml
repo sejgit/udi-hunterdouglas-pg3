@@ -33,16 +33,28 @@
             <st id="GV9" editor="tilt" />
         </sts>
         <cmds>
-            <sends />
-            <accepts>
-                <cmd id="OPEN" />
-                <cmd id="CLOSE" />
-                <cmd id="STOP" />
-                <cmd id="TILTOPEN" />
-                <cmd id="TILTCLOSE" />
-                <cmd id="JOG" />
-                <cmd id="QUERY" />
-            </accepts>
+          <sends>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+          </sends>
+          <accepts>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+            <cmd id="QUERY" />
+            <cmd id="SETPOS" >
+              <p id="SETPRIM" editor="position" optional="T" init='GV7'/>
+              <p id="SETSECO" editor="position" optional="T" init='GV8'/>
+              <p id="SETTILT" editor="tilt" optional="T" init='GV9'/>
+            </cmd>
+          </accepts>
         </cmds>
     </nodeDef>
 	<!-- sceneid -->

@@ -118,6 +118,7 @@ class Shade(udi_interface.Node):
         """
         tilt shade open
         """
+        LOGGER.debug('Shade TiltOpen %s', self.lpfx)
         self.positions["tilt"] = 50
         self.controller.setShadePosition(self.sid, self.positions)
 
@@ -125,6 +126,7 @@ class Shade(udi_interface.Node):
         """
         tilt shade close
         """
+        LOGGER.debug('Shade TiltClose %s', self.lpfx)
         self.positions["tilt"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
 
@@ -144,15 +146,32 @@ class Shade(udi_interface.Node):
         self.updatedata(updatefromserver = True)
         self.reportDrivers()
 
+    def cmd_setpos(self, command):
+        """
+        setting primary, secondary, tilt
+        """
+        try:
+            LOGGER.info('Shade Setpos command %s', command)
+            query = command.get("query")
+            LOGGER.info('Shade Setpos query %s', query)
+            self.positions["primary"] = int(query.get("SETPRIM.uom25"))
+            self.positions["secondary"] = int(query.get("SETSECO.uom25"))
+            self.positions["tilt"] = int(query.get("SETTILT.uom25"))
+            LOGGER.info('Shade Setpos %s', self.positions)
+            self.controller.setShadePosition(self.sid, self.positions)
+        except:
+            LOGGER.error('Shade Setpos failed %s', self.lpfx)
+
+
     """
         {'driver': 'ST', 'value': 0, 'uom': 2} # online
         {'driver': 'GV0', 'value': 0, 'uom': 25}# id
         {'driver': 'GV3', 'value': 0, 'uom': 25}# capabilities
         {'driver': 'GV5', 'value': 0, 'uom': 25)# batteryStatus
         {'driver': 'GV6', 'value': 0, 'uom': 25}# room -> roomId
-        {'driver': 'GV7', 'value': 0, 'uom': 25}# positions {primary, secondary, tilt}
-        {'driver': 'GV8', 'value': 0, 'uom': 25}# positions {primary, secondary, tilt}
-        {'driver': 'GV9', 'value': 0, 'uom': 25}# positions {primary, secondary, tilt}
+        {'driver': 'GV7', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV8', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV9', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
     """
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2}, 
@@ -160,6 +179,9 @@ class Shade(udi_interface.Node):
         {'driver': 'GV3', 'value': 0, 'uom': 25},
         {'driver': 'GV5', 'value': 0, 'uom': 25},
         {'driver': 'GV6', 'value': 0, 'uom': 25},
+        {'driver': 'GV7', 'value': 0, 'uom': 25},
+        {'driver': 'GV8', 'value': 0, 'uom': 25},
+        {'driver': 'GV9', 'value': 0, 'uom': 25},
         {'driver': 'GV7', 'value': 0, 'uom': 25},
         {'driver': 'GV8', 'value': 0, 'uom': 25},
         {'driver': 'GV9', 'value': 0, 'uom': 25},
@@ -176,6 +198,7 @@ class Shade(udi_interface.Node):
                     'TILTOPEN': cmd_tiltopen,
                     'TILTCLOSE': cmd_tiltclose,
                     'JOG': cmd_jog,
+                    'SETPOS': cmd_setpos,
                     'QUERY': query,
                 }
 

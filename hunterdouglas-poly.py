@@ -14,11 +14,12 @@ LOGGER = udi_interface.LOGGER
 VERSION = '0.0.6'
 """
 0.0.6:
-TODO think about status updates when command is given
-TODO remove parameters based on shade capability (primary, secondary, tilt)
-TODO move shade by specific amounts
+DONE move shade by specific amounts
+DONE bug fix scenes not activating
 
 add to future version:
+TODO faster status updates when command is given
+TODO remove parameters based on shade capability (primary, secondary, tilt)
 TODO version update notices ; are they provided by polyglot now?
 
 past versions:

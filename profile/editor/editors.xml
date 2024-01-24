@@ -19,9 +19,9 @@
       <range uom="25" subset="0-4" nls="BATTERYST" />
     </editor>
     <editor id="position">
-      <range uom="25" />
+      <range uom="25" min="0" max="100" />
     </editor>
     <editor id="tilt">
-      <range uom="25" />
+      <range uom="25" min="0" max="100"/>
     </editor>
 </editors>

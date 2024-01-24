@@ -34,6 +34,11 @@ CMD-shade-TILTOPEN-NAME = Tilt Open
 CMD-shade-TILTCLOSE-NAME = Tilt Close
 CMD-shade-JOG-NAME = Jog
 CMD-shade-QUERY-NAME = Query
+CMD-shade-SETPOS-NAME = Set Shade Position
+
+CMDP-SETPRIM-NAME = Primary
+CMDP-SETSECO-NAME = Secondary
+CMDP-SETTILT-NAME = Tilt
 
 SHADECAP-0 = Bottom Up
 SHADECAP-1 = Bottom Up w/ 90° Tilt

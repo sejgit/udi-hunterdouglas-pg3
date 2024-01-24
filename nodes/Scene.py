@@ -63,7 +63,7 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid))
         LOGGER.debug('%s: get GV0=%s',self.lpfx,self.getDriver('GV0'))
 
-    def cmd_activate(self):
+    def cmd_activate(self, command):
         """
         activate scene
         """
@@ -73,7 +73,7 @@ class Scene(udi_interface.Node):
         self.setDriver('ST', 0)
         LOGGER.debug('activate OFF %s: get ST=%s',self.lpfx, self.getDriver('ST'))
                    
-    def query(self):
+    def query(self, command = None):
         """
         Called by ISY to report all drivers for this node. This is done in
         the parent class, so you don't need to override this method unless
