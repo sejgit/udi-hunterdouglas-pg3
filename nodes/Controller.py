@@ -58,6 +58,7 @@ class Controller(udi_interface.Node):
         self.address = address
         self.name = name
         self.last = 0.0
+        self.shortupdate = 0
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -110,6 +111,7 @@ class Controller(udi_interface.Node):
         # Here you may want to send updated values to the ISY rather
         # than wait for a poll interval.  The user will get more 
         # immediate feedback that the node server is running
+        self.shortupdate = 0
 
     """
     Called via the CUSTOMPARAMS event. When the user enters or
@@ -180,12 +182,16 @@ class Controller(udi_interface.Node):
     def poll(self, flag):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll (controller)')
+            self.Notices.clear()
             self.heartbeat()
+            if self.shortupdate <= 0:
+                self.shortupdate = 0
         else:
             LOGGER.debug('shortPoll (controller)')
-            self.Notices.clear()
+            if self.shortupdate > 0:
+                self.shortupdate -= 1
 
-    def query(self):
+    def query(self, command = None):
         """
         The query method will be called when the ISY attempts to query the
         status of the node directly.  You can do one of two things here.
@@ -199,7 +205,7 @@ class Controller(udi_interface.Node):
             for node in nodes:
                 nodes[node].reportDrivers()
 
-    def discover(self):
+    def discover(self, command = None):
         """
         Do discovery here. Does not have to be called discovery. Called from
         example controller start method and from DISCOVER command received
@@ -271,13 +277,13 @@ class Controller(udi_interface.Node):
         if self.gateway == default_gateway:
             self.Notices['gateway'] = 'Please note using default gateway address'
 
-    def remove_notices_all(self):
+    def remove_notices_all(self, command = None):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
         # Remove all existing notices
         self.Notices.clear()
 
     def updateAllFromServer(self):
-        if time.perf_counter() > (self.last + 5.0):
+        if time.perf_counter() > (self.last + 3.0):
             self.last = time.perf_counter()
             homeUrl = URL_HOME.format(g=self.gateway)
             data = self.get(homeUrl)
@@ -324,7 +330,9 @@ class Controller(udi_interface.Node):
 
                     LOGGER.debug(self.sceneIds_array)
                     self.home = data
-                return True
+                    return True
+                else:
+                    return False
             except:
                 LOGGER.error('Update error')
                 return False

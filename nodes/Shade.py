@@ -1,5 +1,6 @@
 
 import udi_interface
+import time
 
 LOGGER = udi_interface.LOGGER
 
@@ -68,12 +69,12 @@ class Shade(udi_interface.Node):
         finally:
             self.setDriver('ST', online)
             self.setDriver('GV0', self.shadedata["shadeId"])
-            self.setDriver('GV3', self.shadedata["capabilities"])
-            self.setDriver('GV5', self.shadedata["batteryStatus"])
-            self.setDriver('GV6', self.shadedata["roomId"])
-            self.setDriver('GV7', self.shadedata["positions"]["primary"])
-            self.setDriver('GV8', self.shadedata["positions"]["secondary"])
-            self.setDriver('GV9', self.shadedata["positions"]["tilt"])
+            self.setDriver('GV1', self.shadedata["roomId"])
+            self.setDriver('GV2', self.shadedata["positions"]["primary"])
+            self.setDriver('GV3', self.shadedata["positions"]["secondary"])
+            self.setDriver('GV4', self.shadedata["positions"]["tilt"])
+            self.setDriver('GV5', self.shadedata["capabilities"])
+            self.setDriver('GV6', self.shadedata["batteryStatus"])
             self.positions = self.shadedata["positions"]
 
     def start(self):
@@ -86,9 +87,13 @@ class Shade(udi_interface.Node):
     def poll(self, flag):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll (shade)')
+            if self.controller.shortupdate <= 0:
+                self.updatedata(updatefromserver = True)
+
         else:
             LOGGER.debug('shortPoll (shade)')
-            self.updatedata(updatefromserver = True)
+            if self.controller.shortupdate > 0:
+                self.updatedata(updatefromserver = True)
                 
     def cmd_open(self, command):
         """
@@ -97,6 +102,7 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
+        self.controller.shortupdate = 5
 
     def cmd_close(self, command):
         """
@@ -105,6 +111,7 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 100
         self.controller.setShadePosition(self.sid, self.positions)
+        self.controller.shortupdate = 5
 
     def cmd_stop(self, command):
         """
@@ -112,7 +119,7 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade Stop %s', self.lpfx)
         self.controller.stopShade(self.sid)
-
+        self.controller.shortupdate = 5
 
     def cmd_tiltopen(self, command):
         """
@@ -121,6 +128,7 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade TiltOpen %s', self.lpfx)
         self.positions["tilt"] = 50
         self.controller.setShadePosition(self.sid, self.positions)
+        self.controller.shortupdate = 5
 
     def cmd_tiltclose(self, command):
         """
@@ -129,6 +137,7 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade TiltClose %s', self.lpfx)
         self.positions["tilt"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
+        self.controller.shortupdate = 5
 
     def cmd_jog(self, command):
         """
@@ -136,6 +145,7 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade JOG %s', self.lpfx)
         self.controller.jogShade(self.sid)
+        self.controller.shortupdate = 5
 
     def query(self, command=None):
         """
@@ -159,6 +169,7 @@ class Shade(udi_interface.Node):
             self.positions["tilt"] = int(query.get("SETTILT.uom25"))
             LOGGER.info('Shade Setpos %s', self.positions)
             self.controller.setShadePosition(self.sid, self.positions)
+            self.controller.shortupdate = 5
         except:
             LOGGER.error('Shade Setpos failed %s', self.lpfx)
 
@@ -166,25 +177,22 @@ class Shade(udi_interface.Node):
     """
         {'driver': 'ST', 'value': 0, 'uom': 2} # online
         {'driver': 'GV0', 'value': 0, 'uom': 25}# id
-        {'driver': 'GV3', 'value': 0, 'uom': 25}# capabilities
-        {'driver': 'GV5', 'value': 0, 'uom': 25)# batteryStatus
-        {'driver': 'GV6', 'value': 0, 'uom': 25}# room -> roomId
-        {'driver': 'GV7', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
-        {'driver': 'GV8', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
-        {'driver': 'GV9', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV1', 'value': 0, 'uom': 25}# room -> roomId
+        {'driver': 'GV2', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV3', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV4', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV5', 'value': 0, 'uom': 25}# capabilities
+        {'driver': 'GV6', 'value': 0, 'uom': 25)# batteryStatus
     """
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2}, 
         {'driver': 'GV0', 'value': 0, 'uom': 25},
+        {'driver': 'GV1', 'value': 0, 'uom': 25},
+        {'driver': 'GV2', 'value': 0, 'uom': 25},
         {'driver': 'GV3', 'value': 0, 'uom': 25},
+        {'driver': 'GV4', 'value': 0, 'uom': 25},
         {'driver': 'GV5', 'value': 0, 'uom': 25},
         {'driver': 'GV6', 'value': 0, 'uom': 25},
-        {'driver': 'GV7', 'value': 0, 'uom': 25},
-        {'driver': 'GV8', 'value': 0, 'uom': 25},
-        {'driver': 'GV9', 'value': 0, 'uom': 25},
-        {'driver': 'GV7', 'value': 0, 'uom': 25},
-        {'driver': 'GV8', 'value': 0, 'uom': 25},
-        {'driver': 'GV9', 'value': 0, 'uom': 25},
                ]
 
     """

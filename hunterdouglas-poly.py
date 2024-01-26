@@ -14,7 +14,9 @@ LOGGER = udi_interface.LOGGER
 VERSION = '0.0.7'
 """
 0.0.7:
-TODO faster status updates when command is given
+DONE faster status updates when command is given
+DONE bug fix
+DONE re-order of parameters displayed
 
 add to future version:
 TODO remove parameters based on shade capability (primary, secondary, tilt)

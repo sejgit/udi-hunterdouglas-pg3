@@ -70,6 +70,7 @@ class Scene(udi_interface.Node):
         self.setDriver('ST', 1)
         LOGGER.debug('activate ON %s: get ST=%s',self.lpfx, self.getDriver('ST'))
         self.controller.activateScene(self.sid)
+        self.controller.shortupdate = 5
         self.setDriver('ST', 0)
         LOGGER.debug('activate OFF %s: get ST=%s',self.lpfx, self.getDriver('ST'))
                    

@@ -25,12 +25,12 @@
         <sts>
             <st id="ST" editor="bool" />
             <st id="GV0" editor="id" />
-            <st id="GV3" editor="shadecap" />
-            <st id="GV5" editor="batteryst" />
-            <st id="GV6" editor="id" />
-            <st id="GV7" editor="position" />
-            <st id="GV8" editor="position" />
-            <st id="GV9" editor="tilt" />
+            <st id="GV1" editor="id" />
+            <st id="GV2" editor="position" />
+            <st id="GV3" editor="position" />
+            <st id="GV4" editor="tilt" />
+            <st id="GV5" editor="shadecap" />
+            <st id="GV6" editor="batteryst" />
         </sts>
         <cmds>
           <sends>
