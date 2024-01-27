@@ -1,27 +1,27 @@
 <editors>
     <!-- Boolean -->
-    <editor id="bool">
+    <editor id="BOOL">
         <range uom="2" subset="0,1" />
     </editor>
     <editor id="I_DEBUG">
       <range uom="25" subset="9,10,20,30,40,50" nls="CDM"/>
     </editor>
-    <editor id="id">
-      <range uom="25" />
+    <editor id="ID">
+      <range uom="78" min="0" max="999"/>
     </editor>
-    <editor id="shadecap">
+    <editor id="SHADECAP">
       <range uom="25" subset="1-10" nls="SHADECAP"/>
     </editor>
-    <editor id="powertype">
+    <editor id="POWERTYPE">
       <range uom="25" subset="1-3" nls="POWERTYPE"/>
     </editor>
-    <editor id="batteryst">
+    <editor id="BATTERYST">
       <range uom="25" subset="0-4" nls="BATTERYST" />
     </editor>
-    <editor id="position">
-      <range uom="25" min="0" max="100" />
+    <editor id="POSITION">
+      <range uom="78" min="0" max="100" />
     </editor>
-    <editor id="tilt">
-      <range uom="25" min="0" max="100"/>
+    <editor id="TILT">
+      <range uom="78" min="0" max="100"/>
     </editor>
 </editors>

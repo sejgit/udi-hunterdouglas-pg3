@@ -178,19 +178,19 @@ class Shade(udi_interface.Node):
         {'driver': 'ST', 'value': 0, 'uom': 2} # online
         {'driver': 'GV0', 'value': 0, 'uom': 25}# id
         {'driver': 'GV1', 'value': 0, 'uom': 25}# room -> roomId
-        {'driver': 'GV2', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
-        {'driver': 'GV3', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
-        {'driver': 'GV4', 'value': 0, 'uom': 25}# actual positions {primary, secondary, tilt}
+        {'driver': 'GV2', 'value': 0, 'uom': 25}# actual positions {primary}
+        {'driver': 'GV3', 'value': 0, 'uom': 25}# actual positions {secondary}
+        {'driver': 'GV4', 'value': 0, 'uom': 25}# actual positions {tilt}
         {'driver': 'GV5', 'value': 0, 'uom': 25}# capabilities
         {'driver': 'GV6', 'value': 0, 'uom': 25)# batteryStatus
     """
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2}, 
-        {'driver': 'GV0', 'value': 0, 'uom': 25},
-        {'driver': 'GV1', 'value': 0, 'uom': 25},
-        {'driver': 'GV2', 'value': 0, 'uom': 25},
-        {'driver': 'GV3', 'value': 0, 'uom': 25},
-        {'driver': 'GV4', 'value': 0, 'uom': 25},
+        {'driver': 'GV0', 'value': 0, 'uom': 78},
+        {'driver': 'GV1', 'value': 0, 'uom': 78},
+        {'driver': 'GV2', 'value': 0, 'uom': 78},
+        {'driver': 'GV3', 'value': 0, 'uom': 78},
+        {'driver': 'GV4', 'value': 0, 'uom': 78},
         {'driver': 'GV5', 'value': 0, 'uom': 25},
         {'driver': 'GV6', 'value': 0, 'uom': 25},
                ]

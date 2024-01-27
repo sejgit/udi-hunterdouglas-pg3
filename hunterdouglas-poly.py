@@ -11,18 +11,23 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.0.7'
+VERSION = '0.0.8'
 """
+0.0.8:
+DONE handling of notices individually
+DONE polling 5s short-poll 30s long-poll
+DONE status for programs (positions etc)
+
+add to future version:
+TODO remove parameters based on shade capability (primary, secondary, tilt)
+TODO version update notices
+
+past versions:
 0.0.7:
 DONE faster status updates when command is given
 DONE bug fix
 DONE re-order of parameters displayed
 
-add to future version:
-TODO remove parameters based on shade capability (primary, secondary, tilt)
-TODO version update notices ; are they provided by polyglot now?
-
-past versions:
 0.0.6:
 DONE move shade by specific amounts
 DONE bug fix scenes not activating

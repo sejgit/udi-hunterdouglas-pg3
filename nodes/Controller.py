@@ -88,6 +88,9 @@ class Controller(udi_interface.Node):
         self.poly.addNode(self)
 
     def start(self):
+        self.Notices.clear()
+        self.Notices['hello'] = 'Start-up'
+
         self.last = 0.0
         # Send the profile files to the ISY if neccessary. The profile version
         # number will be checked and compared. If it has changed since the last
@@ -182,7 +185,7 @@ class Controller(udi_interface.Node):
     def poll(self, flag):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll (controller)')
-            self.Notices.clear()
+            self.Notices.delete('hello')
             self.heartbeat()
             if self.shortupdate <= 0:
                 self.shortupdate = 0
@@ -264,9 +267,6 @@ class Controller(udi_interface.Node):
         """
         This is using custom Params for gateway IP
         """
-        self.Notices.clear()
-        self.Notices['hello'] = 'Start-up'
-
         default_gateway = "powerview-g3.local"
         self.gateway = self.Parameters.gatewayip
         if self.gateway is None:
@@ -275,7 +275,10 @@ class Controller(udi_interface.Node):
 
         # Add a notice if they need to change the user/password from the default.
         if self.gateway == default_gateway:
+            self.Notices.delete('hello')
             self.Notices['gateway'] = 'Please note using default gateway address'
+        else:
+            self.Notices.delete('gateway')            
 
     def remove_notices_all(self, command = None):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
@@ -352,6 +355,7 @@ class Controller(udi_interface.Node):
             return {}
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+        self.Notices.delete('badfetch')
         return res.json()
 
     def activateScene(self, sceneId):
