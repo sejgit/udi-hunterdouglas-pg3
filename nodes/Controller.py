@@ -30,6 +30,7 @@ ISY = udi_interface.ISY
 """
 HunterDouglas PowerViewGen3 url's
 """
+URL_DEFAULT_GATEWAY = 'powerview-g3.local'
 URL_HOME = 'http://{g}/home'
 URL_ROOMS = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
@@ -88,7 +89,6 @@ class Controller(udi_interface.Node):
         self.poly.addNode(self)
 
     def start(self):
-        self.Notices.clear()
         self.Notices['hello'] = 'Start-up'
 
         self.last = 0.0
@@ -208,11 +208,15 @@ class Controller(udi_interface.Node):
             for node in nodes:
                 nodes[node].reportDrivers()
 
+    def update_profile(self,command):
+        LOGGER.info('update profile')
+        st = self.poly.updateProfile()
+        return st
+
     def discover(self, command = None):
         """
-        Do discovery here. Does not have to be called discovery. Called from
-        example controller start method and from DISCOVER command received
-        from ISY as an example.
+        Do shade and scene discovery here. Called from controller start method
+        and from DISCOVER command received from ISY
         """
         if self.updateAllFromServer():
 
@@ -231,7 +235,7 @@ class Controller(udi_interface.Node):
 
     def delete(self):
         """
-        This is call3ed by Polyglot upon deletion of the NodeServer. If the
+        This is called by Polyglot upon deletion of the NodeServer. If the
         process is co-resident and controlled by Polyglot, it will be
         terminiated within 5 seconds of receiving this message.
         """
@@ -243,7 +247,7 @@ class Controller(udi_interface.Node):
         the opportunity here to cleanly disconnect from your device or do
         other shutdown type tasks.
         """
-        LOGGER.debug('NodeServer stopped.')
+        LOGGER.info('NodeServer stopped.')
 
     """
     This is a heartbeat function.  It uses the
@@ -267,15 +271,10 @@ class Controller(udi_interface.Node):
         """
         This is using custom Params for gateway IP
         """
-        default_gateway = "powerview-g3.local"
         self.gateway = self.Parameters.gatewayip
         if self.gateway is None:
-            self.gateway = default_gateway
-            LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(default_gateway))
-
-        # Add a notice if they need to change the user/password from the default.
-        if self.gateway == default_gateway:
-            self.Notices.delete('hello')
+            self.gateway = URL_DEFAULT_GATEWAY
+            LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
             self.Notices['gateway'] = 'Please note using default gateway address'
         else:
             self.Notices.delete('gateway')            
@@ -301,12 +300,14 @@ class Controller(udi_interface.Node):
 
                     for r in data["rooms"]:
                         LOGGER.debug('Update rooms')
-                        self.roomIds_array.append(r["_id"])
+                        self.roomIds_array.append(r['_id'])
                         self.rooms_array.append(r)
+                        room_name = r['name']
                         for sh in r["shades"]:
                             LOGGER.debug('Update shades')
                             sh['shadeId'] = sh.pop('id')
-                            sh['name'] = base64.b64decode(sh.pop('name')).decode()
+                            name = base64.b64decode(sh.pop('name')).decode()
+                            sh['name'] = '%s - %s' % (room_name, name)
                             LOGGER.debug(sh['name'])
                             if 'positions' in sh:
                                 # Convert positions to integer percentages
@@ -424,6 +425,7 @@ class Controller(udi_interface.Node):
     commands = {
         'QUERY': query,
         'DISCOVER': discover,
+        'UPDATE_PROFILE': update_profile,
         'REMOVE_NOTICES_ALL': remove_notices_all,
     }
 

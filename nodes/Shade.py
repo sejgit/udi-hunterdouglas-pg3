@@ -164,9 +164,9 @@ class Shade(udi_interface.Node):
             LOGGER.info('Shade Setpos command %s', command)
             query = command.get("query")
             LOGGER.info('Shade Setpos query %s', query)
-            self.positions["primary"] = int(query.get("SETPRIM.uom25"))
-            self.positions["secondary"] = int(query.get("SETSECO.uom25"))
-            self.positions["tilt"] = int(query.get("SETTILT.uom25"))
+            self.positions["primary"] = int(query.get("SETPRIM.uom100"))
+            self.positions["secondary"] = int(query.get("SETSECO.uom100"))
+            self.positions["tilt"] = int(query.get("SETTILT.uom100"))
             LOGGER.info('Shade Setpos %s', self.positions)
             self.controller.setShadePosition(self.sid, self.positions)
             self.controller.shortupdate = 5
@@ -176,21 +176,21 @@ class Shade(udi_interface.Node):
 
     """
         {'driver': 'ST', 'value': 0, 'uom': 2} # online
-        {'driver': 'GV0', 'value': 0, 'uom': 25}# id
-        {'driver': 'GV1', 'value': 0, 'uom': 25}# room -> roomId
-        {'driver': 'GV2', 'value': 0, 'uom': 25}# actual positions {primary}
-        {'driver': 'GV3', 'value': 0, 'uom': 25}# actual positions {secondary}
-        {'driver': 'GV4', 'value': 0, 'uom': 25}# actual positions {tilt}
+        {'driver': 'GV0', 'value': 0, 'uom': 107}# id
+        {'driver': 'GV1', 'value': 0, 'uom': 107}# room -> roomId
+        {'driver': 'GV2', 'value': 0, 'uom': 79}# actual positions {primary}
+        {'driver': 'GV3', 'value': 0, 'uom': 79}# actual positions {secondary}
+        {'driver': 'GV4', 'value': 0, 'uom': 79}# actual positions {tilt}
         {'driver': 'GV5', 'value': 0, 'uom': 25}# capabilities
         {'driver': 'GV6', 'value': 0, 'uom': 25)# batteryStatus
     """
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2}, 
-        {'driver': 'GV0', 'value': 0, 'uom': 78},
-        {'driver': 'GV1', 'value': 0, 'uom': 78},
-        {'driver': 'GV2', 'value': 0, 'uom': 78},
-        {'driver': 'GV3', 'value': 0, 'uom': 78},
-        {'driver': 'GV4', 'value': 0, 'uom': 78},
+        {'driver': 'GV0', 'value': 0, 'uom': 107},
+        {'driver': 'GV1', 'value': 0, 'uom': 107},
+        {'driver': 'GV2', 'value': 0, 'uom': 100},
+        {'driver': 'GV3', 'value': 0, 'uom': 100},
+        {'driver': 'GV4', 'value': 0, 'uom': 100},
         {'driver': 'GV5', 'value': 0, 'uom': 25},
         {'driver': 'GV6', 'value': 0, 'uom': 25},
                ]

@@ -7,7 +7,7 @@
       <range uom="25" subset="9,10,20,30,40,50" nls="CDM"/>
     </editor>
     <editor id="ID">
-      <range uom="78" min="0" max="999"/>
+      <range uom="107" min="0" max="9999"/>
     </editor>
     <editor id="SHADECAP">
       <range uom="25" subset="1-10" nls="SHADECAP"/>
@@ -19,9 +19,9 @@
       <range uom="25" subset="0-4" nls="BATTERYST" />
     </editor>
     <editor id="POSITION">
-      <range uom="78" min="0" max="100" />
+      <range uom="100" min="0" max="100"/>
     </editor>
     <editor id="TILT">
-      <range uom="78" min="0" max="100"/>
+      <range uom="100" min="0" max="100" />
     </editor>
 </editors>
