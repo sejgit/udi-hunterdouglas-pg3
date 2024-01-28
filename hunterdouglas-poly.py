@@ -17,10 +17,13 @@ VERSION = '0.0.9'
 DONE fix uom for positions(100) & ids(107)
 DONE more notices clean-up
 DONE shade naming to include room as scenes
+DONE remove status based on shade capability (primary, secondary, tilt)
 
 add to future version:
 TODO remove parameters based on shade capability (primary, secondary, tilt)
 TODO handle multiple gateways in case primary switches
+TODO tap into gateway events
+
 past versions:
 0.0.8:
 DONE handling of notices individually

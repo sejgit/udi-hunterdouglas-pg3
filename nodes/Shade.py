@@ -1,6 +1,5 @@
 
 import udi_interface
-import time
 
 LOGGER = udi_interface.LOGGER
 
@@ -68,13 +67,29 @@ class Shade(udi_interface.Node):
             LOGGER.debug('%s: OFFLINE',self.lpfx)
         finally:
             self.setDriver('ST', online)
-            self.setDriver('GV0', self.shadedata["shadeId"])
             self.setDriver('GV1', self.shadedata["roomId"])
-            self.setDriver('GV2', self.shadedata["positions"]["primary"])
-            self.setDriver('GV3', self.shadedata["positions"]["secondary"])
-            self.setDriver('GV4', self.shadedata["positions"]["tilt"])
-            self.setDriver('GV5', self.shadedata["capabilities"])
             self.setDriver('GV6', self.shadedata["batteryStatus"])
+            self.setDriver('GV5', self.shadedata["capabilities"])
+            capabilities = int(self.shadedata["capabilities"])
+            if capabilities == 7 or capabilities == 8:
+                self.setDriver('GV2', self.shadedata["positions"]["primary"])
+                self.setDriver('GV3', self.shadedata["positions"]["secondary"])
+            elif capabilities == 0 or capabilities == 3:
+                self.setDriver('GV2', self.shadedata["positions"]["primary"])
+            elif capabilities == 6:
+                self.setDriver('GV3', self.shadedata["positions"]["secondary"])
+            elif capabilities == 1 or capabilities == 2 or capabilities == 4:
+                self.setDriver('GV2', self.shadedata["positions"]["primary"])
+                self.setDriver('GV4', self.shadedata["positions"]["tilt"])
+            # elif capabilities = 99: # not used
+            #     self.setDriver('GV3', self.shadedata["positions"]["secondary"])
+            #     self.setDriver('GV4', self.shadedata["positions"]["tilt"])
+            elif capabilities == 5:
+                self.setDriver('GV4', self.shadedata["positions"]["tilt"])
+            else: # 9, 10 , unknown
+                self.setDriver('GV2', self.shadedata["positions"]["primary"])
+                self.setDriver('GV3', self.shadedata["positions"]["secondary"])
+                self.setDriver('GV4', self.shadedata["positions"]["tilt"])
             self.positions = self.shadedata["positions"]
 
     def start(self):
@@ -82,18 +97,17 @@ class Shade(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
+        self.setDriver('GV0', self.sid)
         self.updatedata(updatefromserver = False)
+        self.updateDrivers(self.drivers)
 
     def poll(self, flag):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll (shade)')
-            if self.controller.shortupdate <= 0:
-                self.updatedata(updatefromserver = True)
 
         else:
             LOGGER.debug('shortPoll (shade)')
-            if self.controller.shortupdate > 0:
-                self.updatedata(updatefromserver = True)
+            self.updatedata(updatefromserver = True)
                 
     def cmd_open(self, command):
         """
@@ -102,7 +116,6 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
-        self.controller.shortupdate = 5
 
     def cmd_close(self, command):
         """
@@ -111,7 +124,6 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 100
         self.controller.setShadePosition(self.sid, self.positions)
-        self.controller.shortupdate = 5
 
     def cmd_stop(self, command):
         """
@@ -119,7 +131,6 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade Stop %s', self.lpfx)
         self.controller.stopShade(self.sid)
-        self.controller.shortupdate = 5
 
     def cmd_tiltopen(self, command):
         """
@@ -128,7 +139,6 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade TiltOpen %s', self.lpfx)
         self.positions["tilt"] = 50
         self.controller.setShadePosition(self.sid, self.positions)
-        self.controller.shortupdate = 5
 
     def cmd_tiltclose(self, command):
         """
@@ -137,7 +147,6 @@ class Shade(udi_interface.Node):
         LOGGER.debug('Shade TiltClose %s', self.lpfx)
         self.positions["tilt"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
-        self.controller.shortupdate = 5
 
     def cmd_jog(self, command):
         """
@@ -145,7 +154,6 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade JOG %s', self.lpfx)
         self.controller.jogShade(self.sid)
-        self.controller.shortupdate = 5
 
     def query(self, command=None):
         """
@@ -169,7 +177,6 @@ class Shade(udi_interface.Node):
             self.positions["tilt"] = int(query.get("SETTILT.uom100"))
             LOGGER.info('Shade Setpos %s', self.positions)
             self.controller.setShadePosition(self.sid, self.positions)
-            self.controller.shortupdate = 5
         except:
             LOGGER.error('Shade Setpos failed %s', self.lpfx)
 
@@ -184,29 +191,31 @@ class Shade(udi_interface.Node):
         {'driver': 'GV5', 'value': 0, 'uom': 25}# capabilities
         {'driver': 'GV6', 'value': 0, 'uom': 25)# batteryStatus
     """
+
+        # all the drivers - for reference
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2}, 
         {'driver': 'GV0', 'value': 0, 'uom': 107},
         {'driver': 'GV1', 'value': 0, 'uom': 107},
-        {'driver': 'GV2', 'value': 0, 'uom': 100},
-        {'driver': 'GV3', 'value': 0, 'uom': 100},
-        {'driver': 'GV4', 'value': 0, 'uom': 100},
+        {'driver': 'GV2', 'value': None, 'uom': 100},
+        {'driver': 'GV3', 'value': None, 'uom': 100},
+        {'driver': 'GV4', 'value': None, 'uom': 100},
         {'driver': 'GV5', 'value': 0, 'uom': 25},
         {'driver': 'GV6', 'value': 0, 'uom': 25},
-               ]
+        ]
 
     """
     This is a dictionary of commands. If ISY sends a command to the NodeServer,
     this tells it which method to call. DON calls setOn, etc.
     """
     commands = {
-                    'OPEN': cmd_open,
-                    'CLOSE': cmd_close,
-                    'STOP': cmd_stop,
-                    'TILTOPEN': cmd_tiltopen,
-                    'TILTCLOSE': cmd_tiltclose,
-                    'JOG': cmd_jog,
-                    'SETPOS': cmd_setpos,
-                    'QUERY': query,
-                }
-
+    'OPEN': cmd_open,
+    'CLOSE': cmd_close,
+    'STOP': cmd_stop,
+    'TILTOPEN': cmd_tiltopen,
+    'TILTCLOSE': cmd_tiltclose,
+    'JOG': cmd_jog,
+    'SETPOS': cmd_setpos,
+    'QUERY': query,
+    }
+                   

@@ -191,8 +191,6 @@ class Controller(udi_interface.Node):
                 self.shortupdate = 0
         else:
             LOGGER.debug('shortPoll (controller)')
-            if self.shortupdate > 0:
-                self.shortupdate -= 1
 
     def query(self, command = None):
         """
