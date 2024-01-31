@@ -9,6 +9,7 @@ import requests
 import math
 import base64
 import time
+import socket
 
 # Nodes
 from nodes import Scene
@@ -59,7 +60,8 @@ class Controller(udi_interface.Node):
         self.address = address
         self.name = name
         self.last = 0.0
-        self.shortupdate = 0
+        self.gateway_array = []
+
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -270,12 +272,29 @@ class Controller(udi_interface.Node):
         This is using custom Params for gateway IP
         """
         self.gateway = self.Parameters.gatewayip
+        self.gateway_array = []
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
             LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
             self.Notices['gateway'] = 'Please note using default gateway address'
         else:
-            self.Notices.delete('gateway')            
+            self.Notices.delete('gateway')
+            try:
+                socket.inet_aton(self.gateway)
+                LOGGER.info("good ip")
+            except socket.error:
+                try:
+                    if type(eval(self.gateway)) == list:
+                        self.gateway_array = eval(self.gateway)
+                        self.gateway = self.gateway_array[0]
+                        LOGGER.info('we have a list %s', self.gateway_array)
+                        LOGGER.info("self.gateway = %s", self.gateway)
+                    else:
+                        LOGGER.error('we have a bad gateway %s', self.gateway)
+                        self.Notices['gateway'] = 'Please note bad gateway address check customParams'
+                except:
+                    LOGGER.error('we also have a bad gateway %s', self.gateway)
+                    self.Notices['gateway'] = 'Please note bad gateway address check customParams'
 
     def remove_notices_all(self, command = None):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
@@ -285,8 +304,7 @@ class Controller(udi_interface.Node):
     def updateAllFromServer(self):
         if time.perf_counter() > (self.last + 3.0):
             self.last = time.perf_counter()
-            homeUrl = URL_HOME.format(g=self.gateway)
-            data = self.get(homeUrl)
+            data = self.get_home()
             try:
                 if data:
                     self.rooms_array = []
@@ -339,7 +357,34 @@ class Controller(udi_interface.Node):
                 LOGGER.error('Update error')
                 return False
         return True
-        
+
+    def get_home(self):
+        code, data = self.get(URL_HOME.format(g=self.gateway))
+        if self.gateway_array:
+            if code != 400:
+                LOGGER.debug("array good %s, %s", self.gateway, self.gateway_array)
+            else:
+                current = self.gateway
+                gateways = self.gateway_array
+
+                for new in gateways:
+                    gateways.remove(current)
+                    if not gateways:
+                        LOGGER.error("exit get_array early")
+                        return {}
+                    else:
+                        code, data = self.get(URL_HOME.format(g=new))
+                        if code == requests.codes.ok:
+                            LOGGER.info("found primpary gateway %s", new)
+                            self.gateway = new
+                            return data
+                        elif code != 400:
+                            return {}
+                        else: # code is 400
+                            LOGGER.info("search for primary, move on to next %s, %s", new, gateways)
+                            current = new
+        return data
+
     def get(self, url):
         res = None
         try:
@@ -347,15 +392,18 @@ class Controller(udi_interface.Node):
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error {e} fetching {url}")
             self.Notices['badfetch'] = 'Error fetching from gateway, check configuration.'
-            return {}
+            return 300, {}
 
-        if res.status_code != requests.codes.ok:
+        if res.status_code == 400:
+            LOGGER.error(f"Check if not primary {url}: {res.status_code}")
+            return 400, {}
+        elif res.status_code != requests.codes.ok:
             LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
-            return {}
+            return res.status_code, {}
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
         self.Notices.delete('badfetch')
-        return res.json()
+        return 200, res.json()
 
     def activateScene(self, sceneId):
         activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.gateway, id=sceneId)
