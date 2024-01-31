@@ -366,9 +366,9 @@ class Controller(udi_interface.Node):
             else:
                 current = self.gateway
                 gateways = self.gateway_array
+                gateways.remove(current)
 
                 for new in gateways:
-                    gateways.remove(current)
                     if not gateways:
                         LOGGER.error("exit get_array early")
                         return {}
@@ -382,7 +382,7 @@ class Controller(udi_interface.Node):
                             return {}
                         else: # code is 400
                             LOGGER.info("search for primary, move on to next %s, %s", new, gateways)
-                            current = new
+
         return data
 
     def get(self, url):
