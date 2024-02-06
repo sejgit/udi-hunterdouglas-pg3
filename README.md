@@ -11,6 +11,8 @@ This node server can be installed from the PG3 NodeServer Store.
 
 #### Requirements
 
+**IMPORTANT:** This is for HunterDouglas V3 API only, V2 API is out of scope
+
 This node server will only run on Polyglot version 3. You will
 need to have an EISY/Polisy with PG3 installed to run this node server.
 

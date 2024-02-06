@@ -7,7 +7,7 @@ This Poly provides an interface between HunterDouglas window shades and [Polyglo
 
 [This thread](https://forum.universal-devices.com/forum/439-hunter-douglas/) on UDI forums has more details, ask questions there.
 
- 1. This is for HunterDouglas V3 API only, V2 API is out of scope
+ 1. **IMPORTANT:** This is for HunterDouglas V3 API only, V2 API is out of scope
 
  2. Best to set your gateway(s) to a determined IP through your router
 
@@ -18,4 +18,16 @@ This Poly provides an interface between HunterDouglas window shades and [Polyglo
      - this will default to **powerview-g3.local**  when it is not defined
      - although this works well in a browser it does not resolve consistently on the PGx
      - better to use an ip address per #2 or an array of string ip's as per #3
+     
+ 5. Polling:  Full update of shade and scene datae loaded from the gateway
+    - happens at start-up and LongPoll
+    - really should just be the extra belt/suspenders as the Push should catch all/most events.  
+    - program limited to no faster than once per 3s
+    - suggest 60s for LongPoll
+    
+ 6. Pushing: Data is pushed from the gateway and regularly checked
+    - updates are checked for every ShortPoll
+    - includes Motion-Started, Motion-Stopped, Scene-Activated, Scene-Deactivated, and Shade-Online (pushed infrequently, likely as a keep-alive for the push stream)
+    - suggest 5s for ShortPoll
+    
 

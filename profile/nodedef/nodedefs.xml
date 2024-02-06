@@ -23,8 +23,8 @@
     <nodeDef id="shadeid" nls="shade">
         <editors />
         <sts>
-            <st id="ST" editor="BOOL" />
             <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
             <st id="GV1" editor="ID" />
             <st id="GV2" editor="POSITION" />
             <st id="GV3" editor="POSITION" />
@@ -61,8 +61,8 @@
     <nodeDef id="sceneid" nls="scene">
         <editors />
         <sts>
-            <st id="ST" editor="BOOL" />
             <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
         </sts>
         <cmds>
           <sends>

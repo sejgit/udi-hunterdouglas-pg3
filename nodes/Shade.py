@@ -44,6 +44,9 @@ class Shade(udi_interface.Node):
         self.controller = polyglot.getNode(self.primary)
         self.address = address
         self.name = name
+        self.shadedata = {}
+        self.positions = {}
+        self.capabilities = 0
 
         self.lpfx = '%s:%s' % (address,name)
         self.sid = sid
@@ -51,65 +54,120 @@ class Shade(udi_interface.Node):
         self.poly.subscribe(self.poly.START, self.start, address)
         self.poly.subscribe(self.poly.POLL, self.poll)
         
-    def updatedata(self, updatefromserver = True):
-        """
-        update data
-        """
-        if updatefromserver:
-            self.controller.updateAllFromServer()
-
-        try:
-            self.shadedata = self.controller.shades_array[self.controller.shadeIds_array.index(self.sid)]
-            online = 1
-            LOGGER.debug(self.shadedata)
-        except:
-            online = 0              
-            LOGGER.debug('%s: OFFLINE',self.lpfx)
-        finally:
-            self.setDriver('ST', online)
-            self.setDriver('GV1', self.shadedata["roomId"])
-            self.setDriver('GV6', self.shadedata["batteryStatus"])
-            self.setDriver('GV5', self.shadedata["capabilities"])
-            capabilities = int(self.shadedata["capabilities"])
-            if capabilities == 7 or capabilities == 8:
-                self.setDriver('GV2', self.shadedata["positions"]["primary"])
-                self.setDriver('GV3', self.shadedata["positions"]["secondary"])
-            elif capabilities == 0 or capabilities == 3:
-                self.setDriver('GV2', self.shadedata["positions"]["primary"])
-            elif capabilities == 6:
-                self.setDriver('GV3', self.shadedata["positions"]["secondary"])
-            elif capabilities == 1 or capabilities == 2 or capabilities == 4:
-                self.setDriver('GV2', self.shadedata["positions"]["primary"])
-                self.setDriver('GV4', self.shadedata["positions"]["tilt"])
-            # elif capabilities = 99: # not used
-            #     self.setDriver('GV3', self.shadedata["positions"]["secondary"])
-            #     self.setDriver('GV4', self.shadedata["positions"]["tilt"])
-            elif capabilities == 5:
-                self.setDriver('GV4', self.shadedata["positions"]["tilt"])
-            else: # 9, 10 , unknown
-                self.setDriver('GV2', self.shadedata["positions"]["primary"])
-                self.setDriver('GV3', self.shadedata["positions"]["secondary"])
-                self.setDriver('GV4', self.shadedata["positions"]["tilt"])
-            self.positions = self.shadedata["positions"]
-
     def start(self):
         """
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
         self.setDriver('GV0', self.sid)
-        self.updatedata(updatefromserver = False)
-        self.updateDrivers(self.drivers)
+        self.updateData()
+        self.reportDrivers()
 
     def poll(self, flag):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll (shade)')
-
         else:
             LOGGER.debug('shortPoll (shade)')
-            self.updatedata(updatefromserver = True)
+
+            # home update event
+            event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+            if event:
+                event = event[0]
+                if event['shades'].count(self.sid) > 0:
+                    LOGGER.info(f'shortPoll shade {self.sid} update')
+                    if self.updateData():
+                        self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
+                else:
+                    LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
+            else:
+                LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
                 
-    def cmd_open(self, command):
+            # motion-started event
+            event = list(filter(lambda events: (events['evt'] == 'motion-started' and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions(self.positions, self.capabilities):
+                    self.setDriver('ST', 1)
+                    LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
+                    self.controller.gateway_event.remove(event)
+                   
+            # motion-stopped event
+            event = list(filter(lambda events: (events['evt'] == 'motion-stopped' and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions(self.positions, self.capabilities):
+                    self.setDriver('ST', 0)
+                    LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
+                    self.controller.gateway_event.remove(event)
+                   
+            # shade-online event
+            event = list(filter(lambda events: (events['evt'] == 'shade-online' and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions(self.positions, self.capabilities):
+                    LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
+                    self.controller.gateway_event.remove(event)
+                   
+    def updateData(self):
+        if self.controller.no_update == False:
+            LOGGER.debug(self.controller.shades_array)
+            self.shadedata = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
+            LOGGER.debug(f"shade {self.sid} is {self.shadedata}")
+            if self.shadedata:
+                self.shadedata = self.shadedata[0]
+                self.setDriver('GV1', self.shadedata["roomId"])
+                self.setDriver('GV6', self.shadedata["batteryStatus"])
+                self.setDriver('GV5', self.shadedata["capabilities"])
+                self.positions = self.shadedata["positions"]
+                self.capabilities = int(self.shadedata["capabilities"])
+                self.updatePositions(self.positions, self.capabilities)
+                return True
+        else:
+            return False
+
+    def updatePositions(self, positions, capabilities):
+        if capabilities == 7 or capabilities == 8:
+            self.setDriver('GV2', positions["primary"])
+            self.setDriver('GV3', positions["secondary"])
+            self.setDriver('GV4', None)
+        elif capabilities == 0 or capabilities == 3:
+            self.setDriver('GV2', positions["primary"])
+            self.setDriver('GV3', None)
+            self.setDriver('GV4', None)
+        elif capabilities == 6:
+            self.setDriver('GV2', None)
+            self.setDriver('GV3', positions["secondary"])
+            self.setDriver('GV4', None)
+        elif capabilities == 1 or capabilities == 2 or capabilities == 4:
+            self.setDriver('GV2', positions["primary"])
+            self.setDriver('GV3', None)
+            self.setDriver('GV4', positions["tilt"])
+        # elif capabilities = 99: # not used
+        #     self.setDriver('GV2', None)
+        #     self.setDriver('GV3', positions["secondary"], force= True)
+        #     self.setDriver('GV4', positions["tilt"], force= True)
+        elif capabilities == 5:
+            self.setDriver('GV2', None)
+            self.setDriver('GV3', None)
+            self.setDriver('GV4', positions["tilt"])
+        else: # 9, 10 , unknown
+            self.setDriver('GV2', positions["primary"])
+            self.setDriver('GV3', positions["secondary"])
+            self.setDriver('GV4', positions["tilt"])
+        return True
+
+    def posToPercent(self, pos):
+        for key in pos:
+            pos[key] = self.controller.toPercent(pos[key])
+        return pos
+        
+    def cmdOpen(self, command):
         """
         open shade
         """
@@ -117,7 +175,7 @@ class Shade(udi_interface.Node):
         self.positions["primary"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
 
-    def cmd_close(self, command):
+    def cmdClose(self, command):
         """
         close shade
         """
@@ -125,14 +183,14 @@ class Shade(udi_interface.Node):
         self.positions["primary"] = 100
         self.controller.setShadePosition(self.sid, self.positions)
 
-    def cmd_stop(self, command):
+    def cmdStop(self, command):
         """
         stop shade
         """
         LOGGER.debug('Shade Stop %s', self.lpfx)
         self.controller.stopShade(self.sid)
 
-    def cmd_tiltopen(self, command):
+    def cmdTiltOpen(self, command):
         """
         tilt shade open
         """
@@ -140,7 +198,7 @@ class Shade(udi_interface.Node):
         self.positions["tilt"] = 50
         self.controller.setShadePosition(self.sid, self.positions)
 
-    def cmd_tiltclose(self, command):
+    def cmdTiltClose(self, command):
         """
         tilt shade close
         """
@@ -148,7 +206,7 @@ class Shade(udi_interface.Node):
         self.positions["tilt"] = 0
         self.controller.setShadePosition(self.sid, self.positions)
 
-    def cmd_jog(self, command):
+    def cmdJog(self, command):
         """
         jog shade
         """
@@ -161,10 +219,10 @@ class Shade(udi_interface.Node):
         the parent class, so you don't need to override this method unless
         there is a need.
         """
-        self.updatedata(updatefromserver = True)
+        self.updateData()
         self.reportDrivers()
 
-    def cmd_setpos(self, command):
+    def cmdSetpos(self, command):
         """
         setting primary, secondary, tilt
         """
@@ -182,8 +240,8 @@ class Shade(udi_interface.Node):
 
 
     """
-        {'driver': 'ST', 'value': 0, 'uom': 2} # online
         {'driver': 'GV0', 'value': 0, 'uom': 107}# id
+        {'driver': 'ST', 'value': 0, 'uom': 2} # motion
         {'driver': 'GV1', 'value': 0, 'uom': 107}# room -> roomId
         {'driver': 'GV2', 'value': 0, 'uom': 79}# actual positions {primary}
         {'driver': 'GV3', 'value': 0, 'uom': 79}# actual positions {secondary}
@@ -194,8 +252,8 @@ class Shade(udi_interface.Node):
 
         # all the drivers - for reference
     drivers = [
-        {'driver': 'ST', 'value': 0, 'uom': 2}, 
         {'driver': 'GV0', 'value': 0, 'uom': 107},
+        {'driver': 'ST', 'value': 0, 'uom': 2}, 
         {'driver': 'GV1', 'value': 0, 'uom': 107},
         {'driver': 'GV2', 'value': None, 'uom': 100},
         {'driver': 'GV3', 'value': None, 'uom': 100},
@@ -209,13 +267,13 @@ class Shade(udi_interface.Node):
     this tells it which method to call. DON calls setOn, etc.
     """
     commands = {
-    'OPEN': cmd_open,
-    'CLOSE': cmd_close,
-    'STOP': cmd_stop,
-    'TILTOPEN': cmd_tiltopen,
-    'TILTCLOSE': cmd_tiltclose,
-    'JOG': cmd_jog,
-    'SETPOS': cmd_setpos,
+    'OPEN': cmdOpen,
+    'CLOSE': cmdClose,
+    'STOP': cmdStop,
+    'TILTOPEN': cmdTiltOpen,
+    'TILTCLOSE': cmdTiltClose,
+    'JOG': cmdJog,
+    'SETPOS': cmdSetpos,
     'QUERY': query,
     }
                    

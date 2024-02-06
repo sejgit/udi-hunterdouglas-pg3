@@ -11,15 +11,22 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 """
+0.1.1
+DONE tap into gateway events, which allows longPoll update to move from 30s to 60s
+DONE active scene indications from events
+DONE shade motion indicator from events
+DONE shade position update from start, stop, online events
+DONE remove parameters based on shade capability (primary, secondary, tilt)
+DONE update readme & config instructions to highlight G3 scope
+
+add to future version:
+TODO nothing on the todo at moment, just bugfix
+
 0.1.0
 DONE handle multiple gateways automatically, picking primary & switching if required
 DONE updated configuration instructions as well as link to the forums
-
-add to future version:
-TODO tap into gateway events
-TODO remove parameters based on shade capability (primary, secondary, tilt)
 
 past versions:
 0.0.9

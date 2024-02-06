@@ -10,6 +10,7 @@ import math
 import base64
 import time
 import socket
+import json
 
 # Nodes
 from nodes import Scene
@@ -40,6 +41,9 @@ URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
 URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
 URL_SCENES = 'http://{g}/home/scenes/{id}'
 URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
+URL_EVENTS = 'http://{g}/home/events'
+URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
+URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 class Controller(udi_interface.Node):
     id = 'hdctrl'
@@ -60,8 +64,16 @@ class Controller(udi_interface.Node):
         self.address = address
         self.name = name
         self.last = 0.0
+        self.no_update = False
+        self.gateway = URL_DEFAULT_GATEWAY
         self.gateway_array = []
-
+        self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
+        self.rooms_array = []
+        self.roomIds_array = []
+        self.shades_array = []
+        self.shadeIds_array = []
+        self.scenes_array = []
+        self.sceneIds_array = []
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -111,12 +123,9 @@ class Controller(udi_interface.Node):
         # Device discovery. Here you may query for your device(s) and 
         # their capabilities.  Also where you can create nodes that
         # represent the found device(s)
-        self.discover()
-
-        # Here you may want to send updated values to the ISY rather
-        # than wait for a poll interval.  The user will get more 
-        # immediate feedback that the node server is running
-        self.shortupdate = 0
+        self.gateway_sse = self.sseInit()
+        if self.check_params():
+            self.discover() # only do discovery if gateway change
 
     """
     Called via the CUSTOMPARAMS event. When the user enters or
@@ -135,8 +144,9 @@ class Controller(udi_interface.Node):
     def parameterHandler(self, params):
         self.Parameters.load(params)
         LOGGER.debug('Loading parameters now')
-        self.check_params()
-        self.discover()
+        if self.check_params():
+            self.gateway_sse = self.sseInit()
+            self.discover() # only do discovery if gateway change
 
     """
     Called via the CUSTOMTYPEDPARAMS event. This event is sent When
@@ -186,13 +196,51 @@ class Controller(udi_interface.Node):
     """
     def poll(self, flag):
         if 'longPoll' in flag:
-            LOGGER.debug('longPoll (controller)')
-            self.Notices.delete('hello')
+            LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
+            self.updateAllFromServer()
+
+            event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
+            if event:
+                event = event[0]
+                self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
+                self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
+                LOGGER.debug('longpoll trigger nodes {}'.format(self.gateway_event))
+            else:
+                self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
+                LOGGER.debug('long poll reset {}'.format(self.gateway_event))
+
+            if self.Notices['hello']:
+                self.Notices.delete('hello')
             self.heartbeat()
-            if self.shortupdate <= 0:
-                self.shortupdate = 0
+            LOGGER.info("event(total) = {}".format(self.gateway_event))
         else:
-            LOGGER.debug('shortPoll (controller)')
+            LOGGER.debug('shortPoll check for events (controller)')
+            try:
+                if self.gateway_sse:
+                    x = self.gateway_sse
+                    y = next(x)
+                    try:
+                        yy = json.loads(y)
+                    except:
+                        yy = json.loads(y + next(x))
+                    self.gateway_event.append(yy)
+                    LOGGER.info(f"new event = {yy}")
+            except:
+                LOGGER.debug('shortPoll nothing to do')
+
+    def sseInit(self):
+        """
+        connect and pull from the gateway stream of events
+        """
+        url = URL_EVENTS.format(g=self.gateway)
+        try:
+           sse = requests.get(url, headers={"Accept": "application/x-ldjson"}, stream=True)
+           x = (s.rstrip() for s in sse)
+           y = str("raw = {}".format(next(x)))
+           LOGGER.info(y)
+        except:
+            x = False
+        return x
 
     def query(self, command = None):
         """
@@ -208,7 +256,7 @@ class Controller(udi_interface.Node):
             for node in nodes:
                 nodes[node].reportDrivers()
 
-    def update_profile(self,command):
+    def updateProfile(self,command):
         LOGGER.info('update profile')
         st = self.poly.updateProfile()
         return st
@@ -219,7 +267,6 @@ class Controller(udi_interface.Node):
         and from DISCOVER command received from ISY
         """
         if self.updateAllFromServer():
-
             for shade in self.shades_array:
                 self.poly.addNode(Shade(self.poly, \
                                         self.address, \
@@ -249,13 +296,13 @@ class Controller(udi_interface.Node):
         """
         LOGGER.info('NodeServer stopped.')
 
-    """
-    This is a heartbeat function.  It uses the
-    long poll interval to alternately send a ON and OFF command back to
-    the ISY.  Programs on the ISY can then monitor this and take action
-    when the heartbeat fails to update.
-    """
     def heartbeat(self,init=False):
+        """
+        This is a heartbeat function.  It uses the
+        long poll interval to alternately send a ON and OFF command back to
+        the ISY.  Programs on the ISY can then monitor this and take action
+        when the heartbeat fails to update.
+        """
         LOGGER.debug('heartbeat: init={}'.format(init))
         if init is not False:
             self.hb = init
@@ -271,8 +318,8 @@ class Controller(udi_interface.Node):
         """
         This is using custom Params for gateway IP
         """
+        gatewaycheck = self.gateway
         self.gateway = self.Parameters.gatewayip
-        self.gateway_array = []
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
             LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
@@ -295,16 +342,22 @@ class Controller(udi_interface.Node):
                 except:
                     LOGGER.error('we also have a bad gateway %s', self.gateway)
                     self.Notices['gateway'] = 'Please note bad gateway address check customParams'
-
-    def remove_notices_all(self, command = None):
+        if gatewaycheck != self.gateway:
+            return True # gateway changed
+        else:
+            return False # no gateway change
+                    
+    def removeNoticesAll(self, command = None):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
         # Remove all existing notices
         self.Notices.clear()
 
     def updateAllFromServer(self):
         if time.perf_counter() > (self.last + 3.0):
+            # if True:
+            self.no_update = True
             self.last = time.perf_counter()
-            data = self.get_home()
+            data = self.getHome()
             try:
                 if data:
                     self.rooms_array = []
@@ -320,49 +373,52 @@ class Controller(udi_interface.Node):
                         self.rooms_array.append(r)
                         room_name = r['name']
                         for sh in r["shades"]:
-                            LOGGER.debug('Update shades')
-                            sh['shadeId'] = sh.pop('id')
+                            LOGGER.debug(f"Update shade {sh['id']}")
+                            sh['shadeId'] = sh['id']
                             name = base64.b64decode(sh.pop('name')).decode()
                             sh['name'] = '%s - %s' % (room_name, name)
                             LOGGER.debug(sh['name'])
                             if 'positions' in sh:
                                 # Convert positions to integer percentages
-                                sh['positions']['primary'] = self.to_percent(sh['positions']['primary'])
-                                sh['positions']['secondary'] = self.to_percent(sh['positions']['secondary'])
-                                sh['positions']['tilt'] = self.to_percent(sh['positions']['tilt'])
-                                sh['positions']['velocity'] = self.to_percent(sh['positions']['velocity'])
+                                sh['positions']['primary'] = self.toPercent(sh['positions']['primary'])
+                                sh['positions']['secondary'] = self.toPercent(sh['positions']['secondary'])
+                                sh['positions']['tilt'] = self.toPercent(sh['positions']['tilt'])
+                                sh['positions']['velocity'] = self.toPercent(sh['positions']['velocity'])
                             self.shadeIds_array.append(sh["shadeId"])
                             self.shades_array.append(sh)
 
-                    LOGGER.debug(self.roomIds_array)
-                    LOGGER.debug(self.shadeIds_array)
+                    LOGGER.info(f"rooms = {self.roomIds_array}")
+                    LOGGER.info(f"shades = {self.shadeIds_array}")
 
                     for sc in data["scenes"]:
-                        LOGGER.debug('Update scenes-1')
-                        LOGGER.debug(sc)
+                        LOGGER.debug(f"update scenes {sc}")
                         self.sceneIds_array.append(sc["_id"])
                         self.scenes_array.append(sc)
-                        name = sc.pop('name')
+                        name = sc['name']
                         LOGGER.debug("scenes-3")
                         room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
                         sc['name'] = '%s - %s' % (room_name, name)
                         LOGGER.debug('Update scenes-1')
 
-                    LOGGER.debug(self.sceneIds_array)
+                    LOGGER.info(f"scenes = {self.sceneIds_array}")
                     self.home = data
+                    self.no_update = False
                     return True
                 else:
+                    self.no_update = False
                     return False
             except:
                 LOGGER.error('Update error')
+                self.no_update = False
                 return False
+        self.no_update = False
         return True
 
-    def get_home(self):
+    def getHome(self):
         code, data = self.get(URL_HOME.format(g=self.gateway))
         if self.gateway_array:
             if code != 400:
-                LOGGER.debug("array good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("array good %s, %s", self.gateway, self.gateway_array)
             else:
                 current = self.gateway
                 gateways = self.gateway_array
@@ -377,6 +433,7 @@ class Controller(udi_interface.Node):
                         if code == requests.codes.ok:
                             LOGGER.info("found primpary gateway %s", new)
                             self.gateway = new
+                            self.gateway_sse = self.sseInit()
                             return data
                         elif code != 400:
                             return {}
@@ -393,12 +450,11 @@ class Controller(udi_interface.Node):
             LOGGER.error(f"Error {e} fetching {url}")
             self.Notices['badfetch'] = 'Error fetching from gateway, check configuration.'
             return 300, {}
-
         if res.status_code == 400:
-            LOGGER.error(f"Check if not primary {url}: {res.status_code}")
+            LOGGER.info(f"Check if not primary {url}: {res.status_code}")
             return 400, {}
         elif res.status_code != requests.codes.ok:
-            LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
+            LOGGER.warn(f"Unexpected response fetching {url}: {res.status_code}")
             return res.status_code, {}
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
@@ -423,16 +479,16 @@ class Controller(udi_interface.Node):
     def setShadePosition(self, shadeId, pos):
         positions = {}
 
-        if pos.get('primary', '0') in range(0, 101):
+        if pos.get('primary') in range(0, 101):
             positions["primary"] = float(pos.get('primary', '0')) / 100.0
 
-        if pos.get('secondary', '0') in range(0, 101):
+        if pos.get('secondary') in range(0, 101):
             positions["secondary"] = float(pos.get('secondary', '0')) / 100.0
 
-        if pos.get('tilt', '0') in range(0, 101):
+        if pos.get('tilt') in range(0, 101):
             positions["tilt"] = float(pos.get('tilt', '0')) / 100.0
 
-        if pos.get('velocity', '0') in range(0, 101):
+        if pos.get('velocity') in range(0, 101):
             positions["velocity"] = float(pos.get('velocity', '0')) / 100.0
 
         shade_url = URL_SHADES_POSITIONS.format(g=self.gateway, id=shadeId)
@@ -440,8 +496,8 @@ class Controller(udi_interface.Node):
         self.put(shade_url, pos)
         return True
 
-    def to_percent(self, pos, divr=1.0):
-        LOGGER.debug(f"to_percent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
+    def toPercent(self, pos, divr=1.0):
+        LOGGER.debug(f"toPercent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
         return math.trunc((float(pos) / divr * 100.0) + 0.5)
 
     def put(self, url, data=None):
@@ -471,8 +527,8 @@ class Controller(udi_interface.Node):
     commands = {
         'QUERY': query,
         'DISCOVER': discover,
-        'UPDATE_PROFILE': update_profile,
-        'REMOVE_NOTICES_ALL': remove_notices_all,
+        'UPDATE_PROFILE': updateProfile,
+        'REMOVE_NOTICES_ALL': removeNoticesAll,
     }
 
     # Status that this node has. Should match the 'sts' section

@@ -51,6 +51,7 @@ class Scene(udi_interface.Node):
         self.sid = sid
 
         self.poly.subscribe(self.poly.START, self.start, address)
+        self.poly.subscribe(self.poly.POLL, self.poll)
 
     def start(self):
         """
@@ -63,16 +64,32 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid))
         LOGGER.debug('%s: get GV0=%s',self.lpfx,self.getDriver('GV0'))
 
-    def cmd_activate(self, command):
+    def poll(self, flag):
+        if 'longPoll' in flag:
+            LOGGER.debug(f"longPoll {self.lpfx}")
+        else:
+            LOGGER.debug(f"shortPoll {self.lpfx}")
+            event = list(filter(lambda events: (events['evt'] == 'scene-activated' or events['evt'] == 'scene-deactivated'), \
+                                self.controller.gateway_event))
+            if event:
+                event = event[0]
+                LOGGER.debug(f"shortpoll scene {self.sid} - {event['id']} - {event}")
+                if int(event['id']) == int(self.sid):
+                    act = event['evt'] == 'scene-activated'
+                    if act:
+                        self.setDriver('ST', 1)
+                    else:
+                        self.setDriver('ST', 0)
+                    LOGGER.info(f"shortPoll {self.lpfx} activate = {act}")
+                    self.controller.gateway_event.remove(event)
+                
+    def cmdActivate(self, command):
         """
         activate scene
         """
-        self.setDriver('ST', 1)
-        LOGGER.debug('activate ON %s: get ST=%s',self.lpfx, self.getDriver('ST'))
         self.controller.activateScene(self.sid)
-        self.setDriver('ST', 0)
-        LOGGER.debug('activate OFF %s: get ST=%s',self.lpfx, self.getDriver('ST'))
-                   
+        LOGGER.debug(f"cmdActivate initiate {self.lpfx}")
+
     def query(self, command = None):
         """
         Called by ISY to report all drivers for this node. This is done in
@@ -88,8 +105,8 @@ class Scene(udi_interface.Node):
     UOM 2 is boolean so the ISY will display 'True/False'
     """
     drivers = [
-        {'driver': 'ST', 'value': 0, 'uom': 2},
         {'driver': 'GV0', 'value': 0, 'uom': 25},
+        {'driver': 'ST', 'value': 0, 'uom': 2},
                ]
 
     """
@@ -97,7 +114,7 @@ class Scene(udi_interface.Node):
     this tells it which method to call. DON calls setOn, etc.
     """
     commands = {
-                    'ACTIVATE': cmd_activate,
+                    'ACTIVATE': cmdActivate,
                     'QUERY': query,
                 }
 
