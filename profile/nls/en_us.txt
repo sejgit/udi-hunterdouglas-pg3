@@ -65,3 +65,4 @@ ST-scene-ST-NAME = Activated
 ST-scene-GV0-NAME = Id
 CMD-scene-ACTIVATE-NAME = Activate
 CMD-scene-QUERY-NAME = Query
+
