@@ -18,7 +18,7 @@ CDM-50 = Critical
 
 # shade
 ND-shadeid-NAME = Shade
-ND-shadeid-ICON = GenericCtl
+ND-shadeid-ICON = GenericRspCtl
 ST-shade-ST-NAME = Motion
 ST-shade-GV0-NAME = Id
 ST-shade-GV1-NAME = RoomID
@@ -60,7 +60,7 @@ BATTERYST-4 = Plugged In
 
 # scene
 ND-sceneid-NAME = Scene
-ND-sceneid-ICON = GenericCtl
+ND-sceneid-ICON = Output
 ST-scene-ST-NAME = Activated
 ST-scene-GV0-NAME = Id
 CMD-scene-ACTIVATE-NAME = Activate
