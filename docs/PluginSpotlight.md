@@ -24,7 +24,7 @@ You can be alerted using Instant Notifications and see/control everything on UD 
 - Program any combination of devices with the above to the limits of your imagination!
 - Get instant push notifications of any/all events you desire
 - Works great in UD Mobile Android and iOS
-- Checkout everything you can do with this Plugin **[here](screenshots.md)**
+- Checkout everything you can do with this **[Plugin here](screenshots.md)**
 
 ## COST
 
@@ -53,8 +53,6 @@ Hunter Douglas Plugin also has a
 
 Perhaps we can help!
 
-- Enjoy a $25.00 discount on eisy by using coupon code GVSNHDBJ at checkout.
-Offer expires on xx/xx/2024
 - If your hesitation is because of the requirement to upgrade your 994 firmware
 from 4.9 to 5.3.4, please contact us and we’ll help you migrate your backup
 
