@@ -24,7 +24,7 @@ You can be alerted using Instant Notifications and see/control everything on UD 
 - Program any combination of devices with the above to the limits of your imagination!
 - Get instant push notifications of any/all events you desire
 - Works great in UD Mobile Android and iOS
-- Checkout everything you can do with this Plugin **[here](screenshots.mg)**
+- Checkout everything you can do with this Plugin **[here](screenshots.md)**
 
 ## COST
 
