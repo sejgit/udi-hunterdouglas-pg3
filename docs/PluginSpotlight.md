@@ -44,7 +44,9 @@ $10 one-time fee.
 
 For instructions and help, please visit the Hunter Douglas Plugin’s GitHub site
 **[github site](https://github.com/sejgit/udi-hunterdouglas-pg3 "udi-hunterdouglas-pg3")**.
- Hunter Douglas Plugin also has a
+There is also
+**[configuration help](https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/POLYGLOT_CONFIG.md)**.
+Hunter Douglas Plugin also has a
 **[dedicated forum](https://forum.universal-devices.com/forum/439-hunter-douglas/)**.
 
 ## ARE YOU STILL HESITANT UPGRADING YOUR 994 TO EISY?
