@@ -47,18 +47,17 @@ URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
 HunterDouglas PowerViewGen2 url's
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
 """
-URL_HOME = 'http://{g}/home'
-URL_ROOMS = 'http://{g}/home/rooms/{id}'
-URL_SHADES = 'http://{g}/home/shades/{id}'
-URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
-URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
-URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
-URL_SCENES = 'http://{g}/home/scenes/{id}'
-URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
-URL_EVENTS = 'http://{g}/home/events'
-URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
-URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
+URL_v2_HUB = 'http://{g}/api/userdata/'
+URL_v2_ROOMS = 'http://{g}/api/rooms'
+URL_v2_ROOM = 'http://{g}/api/rooms/{id}'
+URL_v2_SHADES = 'http://{g}/api/shades'
+URL_v2_SHADE = 'http://{g}/api/shade/{id}'
+URL_v2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
+URL_v2_SCENES = 'http://{g}/api/scenes'
+URL_v2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
+URL_v2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
 
 class Controller(udi_interface.Node):
     id = 'hdctrl'
