@@ -45,6 +45,21 @@ URL_EVENTS = 'http://{g}/home/events'
 URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
 URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
+"""
+HunterDouglas PowerViewGen2 url's
+"""
+URL_HOME = 'http://{g}/home'
+URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_SHADES = 'http://{g}/home/shades/{id}'
+URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
+URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
+URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
+URL_SCENES = 'http://{g}/home/scenes/{id}'
+URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
+URL_EVENTS = 'http://{g}/home/events'
+URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
+URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
+
 class Controller(udi_interface.Node):
     id = 'hdctrl'
 
