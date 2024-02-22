@@ -417,13 +417,17 @@ class Controller(udi_interface.Node):
     def getHome(self):
         code, data = self.get(URL_HOME.format(g=self.gateway))
         if self.gateway_array:
-            if code != 400:
+            if code == requests.codes.ok:
                 LOGGER.info("array good %s, %s", self.gateway, self.gateway_array)
             else:
                 current = self.gateway
                 gateways = self.gateway_array
-                gateways.remove(current)
-
+                try:
+                    gateways.remove(current)
+                except Exception as e:
+                    LOGGER.error(f"Error {e} with gateways array, none good found {gateways}")
+                    self.Notices['badfetch'] = 'Error with gateways none good found, check configuration format.'
+                    return {}
                 for new in gateways:
                     if not gateways:
                         LOGGER.error("exit get_array early")
