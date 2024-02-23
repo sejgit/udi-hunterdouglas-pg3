@@ -33,6 +33,7 @@ ISY = udi_interface.ISY
 HunterDouglas PowerViewGen3 url's
 """
 URL_DEFAULT_GATEWAY = 'powerview-g3.local'
+URL_GATEWAY = 'http://{g}/gateway'
 URL_HOME = 'http://{g}/home'
 URL_ROOMS = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
@@ -88,6 +89,7 @@ class Controller(udi_interface.Node):
         self.shadeIds_array = []
         self.scenes_array = []
         self.sceneIds_array = []
+        self.version = 99
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -198,6 +200,74 @@ class Controller(udi_interface.Node):
     def handleLevelChange(self, level):
         LOGGER.info('New log level: {}'.format(level))
 
+    def check_params(self):
+        """
+        This is using custom Params for gateway IP
+        """
+        self.Notices.delete('gateway')
+        gatewaycheck = self.gateway
+        self.gateway = self.Parameters.gatewayip
+        if self.gateway is None:
+            self.gateway = URL_DEFAULT_GATEWAY
+            LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
+            self.Notices['gateway'] = 'Please note using default gateway address'
+            return (gatewaycheck != self.gateway)
+        try:
+            if type(eval(self.gateway)) == list:
+                self.gateway_array = eval(self.gateway)
+                self.gateway = self.gateway_array[0]
+        except:
+            if type(self.gateway) == str:
+                self.gateway_array.append(self.gateway)
+            else:
+                LOGGER.error('we have a bad gateway %s', self.gateway)
+                self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
+                return False
+        if (self.goodip() and (self.versionCheck3() or self.versionCheck2())):
+            LOGGER.info('good self.gateway_array %s', self.gateway_array)
+            LOGGER.info("good self.gateway = %s", self.gateway)
+            self.Notices.delete('gateway')
+            self.Notices.delete('notPrimary')
+            return (gatewaycheck != self.gateway)
+        else:
+            LOGGER.warn(f"check_params: no gateway found in {self.gateway_array}")
+            self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
+            return False
+                                
+    def goodip(self):
+        good = True
+        for ip in self.gateway_array:
+            try:
+                socket.inet_aton(ip)
+            except socket.error:
+                good = False
+                LOGGER.error('we have a bad gateway ip address %s', ip)
+                self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
+        return good
+    
+    def versionCheck3(self):
+        for ip in self.gateway_array:
+            res = self.get(URL_GATEWAY.format(g=ip))
+            if res.status_code == requests.codes.ok:
+                LOGGER.info(f"{ip} is PowerView 3")
+                res = self.get(URL_HOME.format(g=ip))
+                if res.status_code == requests.codes.ok:
+                    LOGGER.info(f"{ip} is PowerView 3 Primary")
+                    self.gateway = ip
+                    self.version = 3
+                    return True
+        return False
+
+    def versionCheck2(self):
+        for ip in self.gateway_array:
+            res = self.get(URL_v2_HUB.format(g=ip))
+            if res.status_code == requests.codes.ok:
+                LOGGER.info(f"{ip} is PowerView 2")
+                self.gateway = ip
+                self.version = 2
+                return True
+        return False
+            
     """
     Called via the POLL event.  The POLL event is triggerd at
     the intervals specified in the node server configuration. There
@@ -328,156 +398,190 @@ class Controller(udi_interface.Node):
             self.reportCmd("DOF",2)
             self.hb = 0
 
-    def check_params(self):
-        """
-        This is using custom Params for gateway IP
-        """
-        gatewaycheck = self.gateway
-        self.gateway = self.Parameters.gatewayip
-        if self.gateway is None:
-            self.gateway = URL_DEFAULT_GATEWAY
-            LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
-            self.Notices['gateway'] = 'Please note using default gateway address'
-        else:
-            self.Notices.delete('gateway')
-            try:
-                socket.inet_aton(self.gateway)
-                LOGGER.info("good ip")
-            except socket.error:
-                try:
-                    if type(eval(self.gateway)) == list:
-                        self.gateway_array = eval(self.gateway)
-                        self.gateway = self.gateway_array[0]
-                        LOGGER.info('we have a list %s', self.gateway_array)
-                        LOGGER.info("self.gateway = %s", self.gateway)
-                    else:
-                        LOGGER.error('we have a bad gateway %s', self.gateway)
-                        self.Notices['gateway'] = 'Please note bad gateway address check customParams'
-                except:
-                    LOGGER.error('we also have a bad gateway %s', self.gateway)
-                    self.Notices['gateway'] = 'Please note bad gateway address check customParams'
-        if gatewaycheck != self.gateway:
-            return True # gateway changed
-        else:
-            return False # no gateway change
-                    
     def removeNoticesAll(self, command = None):
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
         # Remove all existing notices
         self.Notices.clear()
 
     def updateAllFromServer(self):
+        success = True
         if time.perf_counter() > (self.last + 3.0):
-            # if True:
             self.no_update = True
             self.last = time.perf_counter()
-            data = self.getHome()
-            try:
-                if data:
-                    self.rooms_array = []
-                    self.roomIds_array = []
-                    self.shades_array = []
-                    self.shadeIds_array = []
-                    self.scenes_array = []
-                    self.sceneIds_array = []
+            if self.version == 3:
+                success = self.updateAllFromServerV3(self.getHomeV3())
+            elif self.version == 2:
+                success = self.updateAllFromServerV2(self.getHomeV2())
+            else:
+                success = False
+        self.no_update = False
+        return success
+        
+    def updateAllFromServerV3(self, data):
+        try:
+            if data:
+                self.rooms_array = []
+                self.roomIds_array = []
+                self.shades_array = []
+                self.shadeIds_array = []
+                self.scenes_array = []
+                self.sceneIds_array = []
 
-                    for r in data["rooms"]:
-                        LOGGER.debug('Update rooms')
-                        self.roomIds_array.append(r['_id'])
-                        self.rooms_array.append(r)
-                        room_name = r['name']
-                        for sh in r["shades"]:
-                            LOGGER.debug(f"Update shade {sh['id']}")
-                            sh['shadeId'] = sh['id']
-                            name = base64.b64decode(sh.pop('name')).decode()
-                            sh['name'] = '%s - %s' % (room_name, name)
-                            LOGGER.debug(sh['name'])
-                            if 'positions' in sh:
-                                # Convert positions to integer percentages
-                                sh['positions']['primary'] = self.toPercent(sh['positions']['primary'])
-                                sh['positions']['secondary'] = self.toPercent(sh['positions']['secondary'])
-                                sh['positions']['tilt'] = self.toPercent(sh['positions']['tilt'])
-                                sh['positions']['velocity'] = self.toPercent(sh['positions']['velocity'])
-                            self.shadeIds_array.append(sh["shadeId"])
-                            self.shades_array.append(sh)
+                for r in data["rooms"]:
+                    LOGGER.debug('Update rooms')
+                    self.roomIds_array.append(r['_id'])
+                    self.rooms_array.append(r)
+                    room_name = r['name']
+                    for sh in r["shades"]:
+                        LOGGER.debug(f"Update shade {sh['id']}")
+                        sh['shadeId'] = sh['id']
+                        name = base64.b64decode(sh.pop('name')).decode()
+                        sh['name'] = '%s - %s' % (room_name, name)
+                        LOGGER.debug(sh['name'])
+                        if 'positions' in sh:
+                            # Convert positions to integer percentages
+                            sh['positions']['primary'] = self.toPercent(sh['positions']['primary'])
+                            sh['positions']['secondary'] = self.toPercent(sh['positions']['secondary'])
+                            sh['positions']['tilt'] = self.toPercent(sh['positions']['tilt'])
+                            sh['positions']['velocity'] = self.toPercent(sh['positions']['velocity'])
+                        self.shadeIds_array.append(sh["shadeId"])
+                        self.shades_array.append(sh)
 
-                    LOGGER.info(f"rooms = {self.roomIds_array}")
-                    LOGGER.info(f"shades = {self.shadeIds_array}")
+                LOGGER.info(f"rooms = {self.roomIds_array}")
+                LOGGER.info(f"shades = {self.shadeIds_array}")
 
-                    for sc in data["scenes"]:
-                        LOGGER.debug(f"update scenes {sc}")
-                        self.sceneIds_array.append(sc["_id"])
-                        self.scenes_array.append(sc)
-                        name = sc['name']
-                        LOGGER.debug("scenes-3")
-                        room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
-                        sc['name'] = '%s - %s' % (room_name, name)
-                        LOGGER.debug('Update scenes-1')
+                for sc in data["scenes"]:
+                    LOGGER.debug(f"update scenes {sc}")
+                    self.sceneIds_array.append(sc["_id"])
+                    self.scenes_array.append(sc)
+                    name = sc['name']
+                    LOGGER.debug("scenes-3")
+                    room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                    sc['name'] = '%s - %s' % (room_name, name)
+                    LOGGER.debug('Update scenes-1')
 
-                    LOGGER.info(f"scenes = {self.sceneIds_array}")
-                    self.home = data
-                    self.no_update = False
-                    return True
-                else:
-                    self.no_update = False
-                    return False
-            except:
-                LOGGER.error('Update error')
+                LOGGER.info(f"scenes = {self.sceneIds_array}")
+                self.home = data
+                self.no_update = False
+                return True
+            else:
                 self.no_update = False
                 return False
-        self.no_update = False
-        return True
+        except:
+            LOGGER.error('Update error')
+            self.no_update = False
+            return False
+        
+    def updateAllFromServerV2(self, data):  # TODO need to write for V2
+        try:
+            if data:
+                self.rooms_array = []
+                self.roomIds_array = []
+                self.shades_array = []
+                self.shadeIds_array = []
+                self.scenes_array = []
+                self.sceneIds_array = []
 
-    def getHome(self):
-        code, data = self.get(URL_HOME.format(g=self.gateway))
+                for r in data["rooms"]:
+                    LOGGER.debug('Update rooms')
+                    self.roomIds_array.append(r['_id'])
+                    self.rooms_array.append(r)
+                    room_name = r['name']
+                    for sh in r["shades"]:
+                        LOGGER.debug(f"Update shade {sh['id']}")
+                        sh['shadeId'] = sh['id']
+                        name = base64.b64decode(sh.pop('name')).decode()
+                        sh['name'] = '%s - %s' % (room_name, name)
+                        LOGGER.debug(sh['name'])
+                        if 'positions' in sh:
+                            # Convert positions to integer percentages
+                            sh['positions']['primary'] = self.toPercent(sh['positions']['primary'])
+                            sh['positions']['secondary'] = self.toPercent(sh['positions']['secondary'])
+                            sh['positions']['tilt'] = self.toPercent(sh['positions']['tilt'])
+                            sh['positions']['velocity'] = self.toPercent(sh['positions']['velocity'])
+                        self.shadeIds_array.append(sh["shadeId"])
+                        self.shades_array.append(sh)
+
+                LOGGER.info(f"rooms = {self.roomIds_array}")
+                LOGGER.info(f"shades = {self.shadeIds_array}")
+
+                for sc in data["scenes"]:
+                    LOGGER.debug(f"update scenes {sc}")
+                    self.sceneIds_array.append(sc["_id"])
+                    self.scenes_array.append(sc)
+                    name = sc['name']
+                    LOGGER.debug("scenes-3")
+                    room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                    sc['name'] = '%s - %s' % (room_name, name)
+                    LOGGER.debug('Update scenes-1')
+
+                LOGGER.info(f"scenes = {self.sceneIds_array}")
+                self.home = data
+                self.no_update = False
+                return True
+            else:
+                self.no_update = False
+                return False
+        except:
+            LOGGER.error('Update error')
+            self.no_update = False
+            return False
+        
+    def getHomeV3(self):
+        res = self.get(URL_HOME.format(g=self.gateway))
+        code = res.status_code
+        data = res.json()
         if self.gateway_array:
             if code == requests.codes.ok:
-                LOGGER.info("array good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeV3 gateway good %s, %s", self.gateway, self.gateway_array)
             else:
-                current = self.gateway
-                gateways = self.gateway_array
-                try:
-                    gateways.remove(current)
-                except Exception as e:
-                    LOGGER.error(f"Error {e} with gateways array, none good found {gateways}")
-                    self.Notices['badfetch'] = 'Error with gateways none good found, check configuration format.'
-                    return {}
-                for new in gateways:
-                    if not gateways:
-                        LOGGER.error("exit get_array early")
-                        return {}
-                    else:
-                        code, data = self.get(URL_HOME.format(g=new))
-                        if code == requests.codes.ok:
-                            LOGGER.info("found primpary gateway %s", new)
-                            self.gateway = new
-                            self.gateway_sse = self.sseInit()
-                            return data
-                        elif code != 400:
-                            return {}
-                        else: # code is 400
-                            LOGGER.info("search for primary, move on to next %s, %s", new, gateways)
-
+                LOGGER.info("getHomeV3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                if self.versionCheck3():
+                    LOGGER.info("getHomeV3 fixed %s, %s", self.gateway, self.gateway_array)
+                else:
+                    LOGGER.info("getHomeV3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
         return data
 
+    def getHomeV2(self):
+        res = self.get(URL_v2_HUB.format(g=self.gateway))
+        code = res.status_code
+        data = res.json()
+        if self.gateway_array:
+            if code == requests.codes.ok:
+                LOGGER.info("getHomeV2 gateway good %s, %s", self.gateway, self.gateway_array)
+            else:
+                LOGGER.info("getHomeV2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                if self.versionCheck2():
+                    LOGGER.info("getHomeV2 fixed %s, %s", self.gateway, self.gateway_array)
+                else:
+                    LOGGER.info("getHomeV2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+        return data
+    
     def get(self, url):
         res = None
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error {e} fetching {url}")
-            self.Notices['badfetch'] = 'Error fetching from gateway, check configuration.'
-            return 300, {}
+            res = requests.Response()
+            res.status_code = 300
+            res.raw = {"errMsg":"Error fetching from gateway, check configuration"}
+            self.Notices['badfetch'] = "Error fetching from gateway"
+            return res
         if res.status_code == 400:
             LOGGER.info(f"Check if not primary {url}: {res.status_code}")
-            return 400, {}
+            self.Notices['notPrimary'] = "Multi-Gateway environment - this is not primary"
+            return res
+        if res.status_code == 404:
+            LOGGER.info(f"Gateway wrong {url}: {res.status_code}")
+            return res
         elif res.status_code != requests.codes.ok:
             LOGGER.warn(f"Unexpected response fetching {url}: {res.status_code}")
-            return res.status_code, {}
+            return res
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
         self.Notices.delete('badfetch')
-        return 200, res.json()
+        return res
 
     def activateScene(self, sceneId):
         activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.gateway, id=sceneId)
