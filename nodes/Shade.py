@@ -252,14 +252,14 @@ class Shade(udi_interface.Node):
 
         # all the drivers - for reference
     drivers = [
-        {'driver': 'GV0', 'value': 0, 'uom': 107},
-        {'driver': 'ST', 'value': 0, 'uom': 2}, 
-        {'driver': 'GV1', 'value': 0, 'uom': 107},
-        {'driver': 'GV2', 'value': None, 'uom': 100},
-        {'driver': 'GV3', 'value': None, 'uom': 100},
-        {'driver': 'GV4', 'value': None, 'uom': 100},
-        {'driver': 'GV5', 'value': 0, 'uom': 25},
-        {'driver': 'GV6', 'value': 0, 'uom': 25},
+        {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+        {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+        {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+        {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+        {'driver': 'GV3', 'value': None, 'uom': 100, 'name': "Secondary"},
+        {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
+        {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+        {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
     """

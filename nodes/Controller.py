@@ -461,7 +461,6 @@ class Controller(udi_interface.Node):
                     LOGGER.debug('Update scenes-1')
 
                 LOGGER.info(f"scenes = {self.sceneIds_array}")
-                self.home = data
                 self.no_update = False
                 return True
             else:
@@ -482,41 +481,42 @@ class Controller(udi_interface.Node):
                 self.scenes_array = []
                 self.sceneIds_array = []
 
-                for r in data["rooms"]:
-                    LOGGER.debug('Update rooms')
-                    self.roomIds_array.append(r['_id'])
-                    self.rooms_array.append(r)
-                    room_name = r['name']
-                    for sh in r["shades"]:
-                        LOGGER.debug(f"Update shade {sh['id']}")
-                        sh['shadeId'] = sh['id']
-                        name = base64.b64decode(sh.pop('name')).decode()
-                        sh['name'] = '%s - %s' % (room_name, name)
-                        LOGGER.debug(sh['name'])
-                        if 'positions' in sh:
+                res = self.get(URL_v2_ROOMS.format(g=self.gateway))
+                if res.status_code == requests.codes.ok:
+                    data = res.json()
+                    self.rooms_array = data['roomData']
+                    self.roomIds_array = data['roomIds']
+                    for room in self.rooms_array:
+                        room['name'] = base64.b64decode(room['name']).decode()
+                    
+                res = self.get(URL_v2_SHADES.format(g=self.gateway))
+                if res.status_code == requests.codes.ok:
+                    data = res.json()
+                    self.shades_array = data['shadeData']
+                    self.shadeIds_array = data['shadeIds']
+                    for shade in self.shades_array:
+                        name = base64.b64decode(shade['name']).decode()
+                        room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
+                        shade['name'] = '%s - %s' % (room_name, name)
+                        if 'positions' in shade:
                             # Convert positions to integer percentages
-                            sh['positions']['primary'] = self.toPercent(sh['positions']['primary'])
-                            sh['positions']['secondary'] = self.toPercent(sh['positions']['secondary'])
-                            sh['positions']['tilt'] = self.toPercent(sh['positions']['tilt'])
-                            sh['positions']['velocity'] = self.toPercent(sh['positions']['velocity'])
-                        self.shadeIds_array.append(sh["shadeId"])
-                        self.shades_array.append(sh)
+                            divr = 65535
+                            shade['positions']['position1'] = self.toPercent(shade['positions']['position1'], divr)
+                            shade['positions']['position2'] = self.toPercent(shade['positions']['position2'], divr)
+                    
+                res = self.get(URL_v2_SCENES.format(g=self.gateway))
+                if res.status_code == requests.codes.ok:
+                    data = res.json()
+                    self.scenes_array = data['sceneData']
+                    self.sceneIds_array = data['sceneIds']
+                    for scene in self.scenes_array:
+                        name = base64.b64decode(scene['name']).decode()
+                        room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
+                        scene['name'] = '%s - %s' % (room_name, name)
 
                 LOGGER.info(f"rooms = {self.roomIds_array}")
                 LOGGER.info(f"shades = {self.shadeIds_array}")
-
-                for sc in data["scenes"]:
-                    LOGGER.debug(f"update scenes {sc}")
-                    self.sceneIds_array.append(sc["_id"])
-                    self.scenes_array.append(sc)
-                    name = sc['name']
-                    LOGGER.debug("scenes-3")
-                    room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
-                    sc['name'] = '%s - %s' % (room_name, name)
-                    LOGGER.debug('Update scenes-1')
-
                 LOGGER.info(f"scenes = {self.sceneIds_array}")
-                self.home = data
                 self.no_update = False
                 return True
             else:
@@ -534,13 +534,14 @@ class Controller(udi_interface.Node):
         if self.gateway_array:
             if code == requests.codes.ok:
                 LOGGER.info("getHomeV3 gateway good %s, %s", self.gateway, self.gateway_array)
+                return data
             else:
                 LOGGER.info("getHomeV3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
                 if self.versionCheck3():
                     LOGGER.info("getHomeV3 fixed %s, %s", self.gateway, self.gateway_array)
                 else:
                     LOGGER.info("getHomeV3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
-        return data
+        return None
 
     def getHomeV2(self):
         res = self.get(URL_v2_HUB.format(g=self.gateway))
@@ -549,13 +550,14 @@ class Controller(udi_interface.Node):
         if self.gateway_array:
             if code == requests.codes.ok:
                 LOGGER.info("getHomeV2 gateway good %s, %s", self.gateway, self.gateway_array)
+                return data
             else:
                 LOGGER.info("getHomeV2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
                 if self.versionCheck2():
                     LOGGER.info("getHomeV2 fixed %s, %s", self.gateway, self.gateway_array)
                 else:
                     LOGGER.info("getHomeV2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
-        return data
+        return None
     
     def get(self, url):
         res = None
@@ -575,12 +577,18 @@ class Controller(udi_interface.Node):
         if res.status_code == 404:
             LOGGER.info(f"Gateway wrong {url}: {res.status_code}")
             return res
+        if res.status_code == 503:
+            LOGGER.info(f"HomeDoc not set-up {url}: {res.status_code}")
+            self.Notices['HomeDoc'] = "PowerView Set-up not Complete See TroubleShooting Guide"
+            return res
         elif res.status_code != requests.codes.ok:
             LOGGER.warn(f"Unexpected response fetching {url}: {res.status_code}")
             return res
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
         self.Notices.delete('badfetch')
+        self.Notices.delete('notPrimary')
+        self.Notices.delete('HomeDoc')
         return res
 
     def activateScene(self, sceneId):
@@ -656,7 +664,7 @@ class Controller(udi_interface.Node):
     # Status that this node has. Should match the 'sts' section
     # of the nodedef file.
     drivers = [
-        {'driver': 'ST', 'value': 1, 'uom': 2},
+        {'driver': 'ST', 'value': 1, 'uom': 2, 'name': "Controller Status"},
     ]
 
     
