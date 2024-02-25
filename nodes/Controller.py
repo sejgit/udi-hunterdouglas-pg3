@@ -1,7 +1,9 @@
 """
-udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/PolISY
+udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 
 (C) 2024 Stephen Jenkins
+
+Controller class
 """
 
 import udi_interface
@@ -28,9 +30,8 @@ LOG_HANDLER = udi_interface.LOG_HANDLER
 Custom = udi_interface.Custom
 ISY = udi_interface.ISY
 
-
 """
-HunterDouglas PowerViewGen3 url's
+HunterDouglas PowerView G3 url's
 """
 URL_DEFAULT_GATEWAY = 'powerview-g3.local'
 URL_GATEWAY = 'http://{g}/gateway'
@@ -47,18 +48,19 @@ URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
 URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
-HunterDouglas PowerViewGen2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
+HunterDouglas PowerView G2 url's
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
 """
-URL_v2_HUB = 'http://{g}/api/userdata/'
-URL_v2_ROOMS = 'http://{g}/api/rooms'
-URL_v2_ROOM = 'http://{g}/api/rooms/{id}'
-URL_v2_SHADES = 'http://{g}/api/shades'
-URL_v2_SHADE = 'http://{g}/api/shade/{id}'
-URL_v2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
-URL_v2_SCENES = 'http://{g}/api/scenes'
-URL_v2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
-URL_v2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
+URL_G2_HUB = 'http://{g}/api/userdata/'
+URL_G2_ROOMS = 'http://{g}/api/rooms'
+URL_G2_ROOM = 'http://{g}/api/rooms/{id}'
+URL_G2_SHADES = 'http://{g}/api/shades'
+URL_G2_SHADE = 'http://{g}/api/shade/{id}'
+URL_G2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
+URL_G2_SCENES = 'http://{g}/api/scenes'
+URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
+URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
+G2_DIVR = 65535
 
 class Controller(udi_interface.Node):
     id = 'hdctrl'
@@ -89,7 +91,7 @@ class Controller(udi_interface.Node):
         self.shadeIds_array = []
         self.scenes_array = []
         self.sceneIds_array = []
-        self.version = 99
+        self.generation = 99 # start with unknown
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -223,7 +225,7 @@ class Controller(udi_interface.Node):
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
-        if (self.goodip() and (self.versionCheck3() or self.versionCheck2())):
+        if (self.goodip() and (self.genCheck3() or self.genCheck2())):
             LOGGER.info('good self.gateway_array %s', self.gateway_array)
             LOGGER.info("good self.gateway = %s", self.gateway)
             self.Notices.delete('gateway')
@@ -245,26 +247,26 @@ class Controller(udi_interface.Node):
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
         return good
     
-    def versionCheck3(self):
+    def genCheck3(self):
         for ip in self.gateway_array:
             res = self.get(URL_GATEWAY.format(g=ip))
             if res.status_code == requests.codes.ok:
-                LOGGER.info(f"{ip} is PowerView 3")
+                LOGGER.info(f"{ip} is PowerView G3")
                 res = self.get(URL_HOME.format(g=ip))
                 if res.status_code == requests.codes.ok:
-                    LOGGER.info(f"{ip} is PowerView 3 Primary")
+                    LOGGER.info(f"{ip} is PowerView G3 Primary")
                     self.gateway = ip
-                    self.version = 3
+                    self.generation = 3
                     return True
         return False
 
-    def versionCheck2(self):
+    def genCheck2(self):
         for ip in self.gateway_array:
-            res = self.get(URL_v2_HUB.format(g=ip))
+            res = self.get(URL_G2_HUB.format(g=ip))
             if res.status_code == requests.codes.ok:
                 LOGGER.info(f"{ip} is PowerView 2")
                 self.gateway = ip
-                self.version = 2
+                self.generation = 2
                 return True
         return False
             
@@ -314,15 +316,18 @@ class Controller(udi_interface.Node):
 
     def sseInit(self):
         """
-        connect and pull from the gateway stream of events
+        connect and pull from the gateway stream of events ONLY FOR G3
         """
-        url = URL_EVENTS.format(g=self.gateway)
-        try:
-           sse = requests.get(url, headers={"Accept": "application/x-ldjson"}, stream=True)
-           x = (s.rstrip() for s in sse)
-           y = str("raw = {}".format(next(x)))
-           LOGGER.info(y)
-        except:
+        if self.generation == 3:
+            url = URL_EVENTS.format(g=self.gateway)
+            try:
+               sse = requests.get(url, headers={"Accept": "application/x-ldjson"}, stream=True)
+               x = (s.rstrip() for s in sse)
+               y = str("raw = {}".format(next(x)))
+               LOGGER.info(y)
+            except:
+                x = False
+        else:
             x = False
         return x
 
@@ -352,17 +357,28 @@ class Controller(udi_interface.Node):
         """
         if self.updateAllFromServer():
             for shade in self.shades_array:
+                if self.generation == 2:
+                    shadeId = shade['id']
+                else:
+                    shadeId = shade['shadeId']
+                    
                 self.poly.addNode(Shade(self.poly, \
                                         self.address, \
                                         'shade{}'.format(shade['shadeId']), \
                                         shade["name"], \
-                                        shade['shadeId']))
+                                        shadeId))
+                
             for scene in self.scenes_array:
+                if self.generation == 2:
+                    sceneId = scene['id']
+                else:
+                    sceneId = scene['_id']
+                
                 self.poly.addNode(Scene(self.poly, \
                                         self.address, \
                                         "scene{}".format(scene["_id"]), \
                                         scene["name"], \
-                                        scene["_id"]))
+                                        sceneId))
 
     def delete(self):
         """
@@ -408,16 +424,16 @@ class Controller(udi_interface.Node):
         if time.perf_counter() > (self.last + 3.0):
             self.no_update = True
             self.last = time.perf_counter()
-            if self.version == 3:
-                success = self.updateAllFromServerV3(self.getHomeV3())
-            elif self.version == 2:
-                success = self.updateAllFromServerV2(self.getHomeV2())
+            if self.generation == 3:
+                success = self.updateAllFromServerG3(self.getHomeG3())
+            elif self.generation == 2:
+                success = self.updateAllFromServerG2(self.getHomeG2())
             else:
                 success = False
         self.no_update = False
         return success
         
-    def updateAllFromServerV3(self, data):
+    def updateAllFromServerG3(self, data):
         try:
             if data:
                 self.rooms_array = []
@@ -471,7 +487,7 @@ class Controller(udi_interface.Node):
             self.no_update = False
             return False
         
-    def updateAllFromServerV2(self, data):  # TODO need to write for V2
+    def updateAllFromServerG2(self, data):
         try:
             if data:
                 self.rooms_array = []
@@ -481,7 +497,7 @@ class Controller(udi_interface.Node):
                 self.scenes_array = []
                 self.sceneIds_array = []
 
-                res = self.get(URL_v2_ROOMS.format(g=self.gateway))
+                res = self.get(URL_G2_ROOMS.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
                     self.rooms_array = data['roomData']
@@ -489,7 +505,7 @@ class Controller(udi_interface.Node):
                     for room in self.rooms_array:
                         room['name'] = base64.b64decode(room['name']).decode()
                     
-                res = self.get(URL_v2_SHADES.format(g=self.gateway))
+                res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
                     self.shades_array = data['shadeData']
@@ -500,11 +516,10 @@ class Controller(udi_interface.Node):
                         shade['name'] = '%s - %s' % (room_name, name)
                         if 'positions' in shade:
                             # Convert positions to integer percentages
-                            divr = 65535
-                            shade['positions']['position1'] = self.toPercent(shade['positions']['position1'], divr)
-                            shade['positions']['position2'] = self.toPercent(shade['positions']['position2'], divr)
+                            shade['positions']['position1'] = self.toPercent(shade['positions']['position1'], G2_DIVR)
+                            shade['positions']['position2'] = self.toPercent(shade['positions']['position2'], G2_DIVR)
                     
-                res = self.get(URL_v2_SCENES.format(g=self.gateway))
+                res = self.get(URL_G2_SCENES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
                     self.scenes_array = data['sceneData']
@@ -527,36 +542,36 @@ class Controller(udi_interface.Node):
             self.no_update = False
             return False
         
-    def getHomeV3(self):
+    def getHomeG3(self):
         res = self.get(URL_HOME.format(g=self.gateway))
         code = res.status_code
         data = res.json()
         if self.gateway_array:
             if code == requests.codes.ok:
-                LOGGER.info("getHomeV3 gateway good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
-                LOGGER.info("getHomeV3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
-                if self.versionCheck3():
-                    LOGGER.info("getHomeV3 fixed %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                if self.genCheck3():
+                    LOGGER.info("getHomeG3 fixed %s, %s", self.gateway, self.gateway_array)
                 else:
-                    LOGGER.info("getHomeV3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.info("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
         return None
 
-    def getHomeV2(self):
-        res = self.get(URL_v2_HUB.format(g=self.gateway))
+    def getHomeG2(self):
+        res = self.get(URL_G2_HUB.format(g=self.gateway))
         code = res.status_code
         data = res.json()
         if self.gateway_array:
             if code == requests.codes.ok:
-                LOGGER.info("getHomeV2 gateway good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
-                LOGGER.info("getHomeV2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
-                if self.versionCheck2():
-                    LOGGER.info("getHomeV2 fixed %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                if self.genCheck2():
+                    LOGGER.info("getHomeG2 fixed %s, %s", self.gateway, self.gateway_array)
                 else:
-                    LOGGER.info("getHomeV2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.info("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
         return None
     
     def get(self, url):
@@ -591,44 +606,10 @@ class Controller(udi_interface.Node):
         self.Notices.delete('HomeDoc')
         return res
 
-    def activateScene(self, sceneId):
-        activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.gateway, id=sceneId)
-        self.put(activateSceneUrl)
-
-    def jogShade(self, shadeId):
-        shadeUrl = URL_SHADES_MOTION.format(g=self.gateway, id=shadeId)
-        body = {
-            "motion": "jog"
-        }
-        self.put(shadeUrl, data=body)
-
-    def stopShade(self, shadeId):
-        shadeUrl = URL_SHADES_STOP.format(g=self.gateway, id=shadeId)
-        self.put(shadeUrl)
-
-    def setShadePosition(self, shadeId, pos):
-        positions = {}
-
-        if pos.get('primary') in range(0, 101):
-            positions["primary"] = float(pos.get('primary', '0')) / 100.0
-
-        if pos.get('secondary') in range(0, 101):
-            positions["secondary"] = float(pos.get('secondary', '0')) / 100.0
-
-        if pos.get('tilt') in range(0, 101):
-            positions["tilt"] = float(pos.get('tilt', '0')) / 100.0
-
-        if pos.get('velocity') in range(0, 101):
-            positions["velocity"] = float(pos.get('velocity', '0')) / 100.0
-
-        shade_url = URL_SHADES_POSITIONS.format(g=self.gateway, id=shadeId)
-        pos = {'positions': positions}
-        self.put(shade_url, pos)
-        return True
-
     def toPercent(self, pos, divr=1.0):
-        LOGGER.debug(f"toPercent: pos={pos}, becomes {math.trunc((float(pos) / divr * 100.0) + 0.5)}")
-        return math.trunc((float(pos) / divr * 100.0) + 0.5)
+        newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
+        LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
+        return newpos
 
     def put(self, url, data=None):
         res = None
@@ -652,6 +633,13 @@ class Controller(udi_interface.Node):
         response = res.json()
         return response
 
+
+    # Status that this node has. Should match the 'sts' section
+    # of the nodedef file.
+    drivers = [
+        {'driver': 'ST', 'value': 1, 'uom': 2, 'name': "Controller Status"},
+    ]
+    
     # Commands that this node can handle.  Should match the
     # 'accepts' section of the nodedef file.
     commands = {
@@ -660,67 +648,3 @@ class Controller(udi_interface.Node):
         'UPDATE_PROFILE': updateProfile,
         'REMOVE_NOTICES_ALL': removeNoticesAll,
     }
-
-    # Status that this node has. Should match the 'sts' section
-    # of the nodedef file.
-    drivers = [
-        {'driver': 'ST', 'value': 1, 'uom': 2, 'name': "Controller Status"},
-    ]
-
-    
-    """
-Shade Capabilities:
-
-Type 0 - Bottom Up 
-Examples: Standard roller/screen shades, Duette bottom up 
-Uses the “primary” control type
-
-Type 1 - Bottom Up w/ 90° Tilt 
-Examples: Silhouette, Pirouette 
-Uses the “primary” and “tilt” control types
-
-Type 2 - Bottom Up w/ 180° Tilt 
-Example: Silhouette Halo 
-Uses the “primary” and “tilt” control types
-
-Type 3 - Vertical (Traversing) 
-Examples: Skyline, Duette Vertiglide, Design Studio Drapery 
-Uses the “primary” control type
-
-Type 4 - Vertical (Traversing) w/ 180° Tilt 
-Example: Luminette 
-Uses the “primary” and “tilt” control types
-
-Type 5 - Tilt Only 180° 
-Examples: Palm Beach Shutters, Parkland Wood Blinds 
-Uses the “tilt” control type
-
-Type 6 - Top Down 
-Example: Duette Top Down 
-Uses the “primary” control type
-
-Type 7 - Top-Down/Bottom-Up (can open either from the bottom or from the top) 
-Examples: Duette TDBU, Vignette TDBU 
-Uses the “primary” and “secondary” control types
-
-Type 8 - Duolite (front and rear shades) 
-Examples: Roller Duolite, Vignette Duolite, Dual Roller
-Uses the “primary” and “secondary” control types 
-Note: In some cases the front and rear shades are
-controlled by a single motor and are on a single tube so they cannot operate independently - the
-front shade must be down before the rear shade can deploy. In other cases, they are independent with
-two motors and two tubes. Where they are dependent, the shade firmware will force the appropriate
-front shade position when the rear shade is controlled - there is no need for the control system to
-take this into account.
-
-Type 9 - Duolite with 90° Tilt 
-(front bottom up shade that also tilts plus a rear blackout (non-tilting) shade) 
-Example: Silhouette Duolite, Silhouette Adeux 
-Uses the “primary,” “secondary,” and “tilt” control types Note: Like with Type 8, these can be
-either dependent or independent.
-
-Type 10 - Duolite with 180° Tilt 
-Example: Silhouette Halo Duolite 
-Uses the “primary,” “secondary,” and “tilt” control types
-"""
-

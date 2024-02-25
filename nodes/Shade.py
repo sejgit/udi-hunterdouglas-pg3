@@ -1,7 +1,48 @@
 
+"""
+udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
+
+(C) 2024 Stephen Jenkins
+
+Shade class
+"""
+
 import udi_interface
+import math
 
 LOGGER = udi_interface.LOGGER
+
+"""
+HunterDouglas PowerView G3 url's
+"""
+URL_DEFAULT_GATEWAY = 'powerview-g3.local'
+URL_GATEWAY = 'http://{g}/gateway'
+URL_HOME = 'http://{g}/home'
+URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_SHADES = 'http://{g}/home/shades/{id}'
+URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
+URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
+URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
+URL_SCENES = 'http://{g}/home/scenes/{id}'
+URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
+URL_EVENTS = 'http://{g}/home/events'
+URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
+URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
+
+"""
+HunterDouglas PowerView G2 url's
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+"""
+URL_G2_HUB = 'http://{g}/api/userdata/'
+URL_G2_ROOMS = 'http://{g}/api/rooms'
+URL_G2_ROOM = 'http://{g}/api/rooms/{id}'
+URL_G2_SHADES = 'http://{g}/api/shades'
+URL_G2_SHADE = 'http://{g}/api/shade/{id}'
+URL_G2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
+URL_G2_SCENES = 'http://{g}/api/scenes'
+URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
+URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
+G2_DIVR = 65535
 
 class Shade(udi_interface.Node):
     id = 'shadeid'
@@ -68,51 +109,55 @@ class Shade(udi_interface.Node):
             LOGGER.debug('longPoll (shade)')
         else:
             LOGGER.debug('shortPoll (shade)')
+            self.events()
 
-            # home update event
-            event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
-            if event:
-                event = event[0]
-                if event['shades'].count(self.sid) > 0:
-                    LOGGER.info(f'shortPoll shade {self.sid} update')
-                    if self.updateData():
-                        self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
-                else:
-                    LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
+    def events(self):
+        # home update event
+        event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+        if event:
+            event = event[0]
+            if event['shades'].count(self.sid) > 0:
+                LOGGER.info(f'shortPoll shade {self.sid} update')
+                if self.updateData():
+                    self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
             else:
-                LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
-                
-            # motion-started event
-            event = list(filter(lambda events: (events['evt'] == 'motion-started' and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions(self.positions, self.capabilities):
-                    self.setDriver('ST', 1)
-                    LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
-                    self.controller.gateway_event.remove(event)
+                LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
+        else:
+            LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
+
+        # NOTE rest of the events below are only for G3, will not fire for G2
+
+        # motion-started event
+        event = list(filter(lambda events: (events['evt'] == 'motion-started' and events['id'] == self.sid), \
+                            self.controller.gateway_event))
+        if event:
+            event = event[0]
+            self.positions = self.posToPercent(event['currentPositions'])
+            if self.updatePositions(self.positions, self.capabilities):
+                self.setDriver('ST', 1)
+                LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
+                self.controller.gateway_event.remove(event)
                    
-            # motion-stopped event
-            event = list(filter(lambda events: (events['evt'] == 'motion-stopped' and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions(self.positions, self.capabilities):
-                    self.setDriver('ST', 0)
-                    LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
-                    self.controller.gateway_event.remove(event)
+        # motion-stopped event
+        event = list(filter(lambda events: (events['evt'] == 'motion-stopped' and events['id'] == self.sid), \
+                            self.controller.gateway_event))
+        if event:
+            event = event[0]
+            self.positions = self.posToPercent(event['currentPositions'])
+            if self.updatePositions(self.positions, self.capabilities):
+                self.setDriver('ST', 0)
+                LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
+                self.controller.gateway_event.remove(event)
                    
-            # shade-online event
-            event = list(filter(lambda events: (events['evt'] == 'shade-online' and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions(self.positions, self.capabilities):
-                    LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
-                    self.controller.gateway_event.remove(event)
+        # shade-online event
+        event = list(filter(lambda events: (events['evt'] == 'shade-online' and events['id'] == self.sid), \
+                            self.controller.gateway_event))
+        if event:
+            event = event[0]
+            self.positions = self.posToPercent(event['currentPositions'])
+            if self.updatePositions(self.positions, self.capabilities):
+                LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
+                self.controller.gateway_event.remove(event)
                    
     def updateData(self):
         if self.controller.no_update == False:
@@ -123,9 +168,17 @@ class Shade(udi_interface.Node):
                 self.shadedata = self.shadedata[0]
                 self.setDriver('GV1', self.shadedata["roomId"])
                 self.setDriver('GV6', self.shadedata["batteryStatus"])
-                self.setDriver('GV5', self.shadedata["capabilities"])
+
+                if self.controller.generation == 2:
+                    self.setDriver('GV5', self.shadedata["type"])
+                    self.capabilities = int(8)
+                    # self.capabilities = int(self.shadedata["type"])
+                    # use 8 which excludes tilt for PowerView G2
+                else:
+                    self.setDriver('GV5', self.shadedata["capabilities"])
+                    self.capabilities = int(self.shadedata["capabilities"])
+
                 self.positions = self.shadedata["positions"]
-                self.capabilities = int(self.shadedata["capabilities"])
                 self.updatePositions(self.positions, self.capabilities)
                 return True
         else:
@@ -163,6 +216,9 @@ class Shade(udi_interface.Node):
         return True
 
     def posToPercent(self, pos):
+        """
+        only used for PowerView G3 events
+        """
         for key in pos:
             pos[key] = self.controller.toPercent(pos[key])
         return pos
@@ -173,7 +229,7 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 0
-        self.controller.setShadePosition(self.sid, self.positions)
+        self.setShadePosition(self.positions)
 
     def cmdClose(self, command):
         """
@@ -181,38 +237,73 @@ class Shade(udi_interface.Node):
         """
         LOGGER.debug('Shade Open %s', self.lpfx)
         self.positions["primary"] = 100
-        self.controller.setShadePosition(self.sid, self.positions)
+        self.setShadePosition(self.positions)
 
     def cmdStop(self, command):
         """
         stop shade
+        only available in PowerView G3
         """
-        LOGGER.debug('Shade Stop %s', self.lpfx)
-        self.controller.stopShade(self.sid)
+        if self.controller.generation == 3:
+            shadeUrl = URL_SHADES_STOP.format(g=self.controller.gateway, id=self.sid)
+            self.controller.put(shadeUrl)
+            LOGGER.debug('Shade Stop %s', self.lpfx)
 
     def cmdTiltOpen(self, command):
         """
         tilt shade open
+        excluded from PowerView G2
         """
-        LOGGER.debug('Shade TiltOpen %s', self.lpfx)
-        self.positions["tilt"] = 50
-        self.controller.setShadePosition(self.sid, self.positions)
+        if self.controller.generation == 3:
+            LOGGER.debug('Shade TiltOpen %s', self.lpfx)
+            self.positions["tilt"] = 50
+            self.setShadePosition(self.positions)
 
     def cmdTiltClose(self, command):
         """
         tilt shade close
+        excluded from PowerView G2
         """
-        LOGGER.debug('Shade TiltClose %s', self.lpfx)
-        self.positions["tilt"] = 0
-        self.controller.setShadePosition(self.sid, self.positions)
+        if self.controller.generation == 3:
+            LOGGER.debug('Shade TiltClose %s', self.lpfx)
+            self.positions['tilt'] = 0
+            self.setShadePosition(self.positions)
 
     def cmdJog(self, command):
         """
         jog shade
+        PowerView G2 will send updateBatteryLevel which also jogs shade
+        Battery level updates are automatic in PowerView G3
         """
-        LOGGER.debug('Shade JOG %s', self.lpfx)
-        self.controller.jogShade(self.sid)
+        if self.controller.generation == 2:
+            shadeUrl = URL_G2_SHADE_BATTERY.format(g=self.controller.gateway, id=self.sid)
+            body = {}
+        else:
+            shadeUrl = URL_SHADES_MOTION.format(g=self.controller.gateway, id=self.sid)
+            body = {
+                "motion": "jog"
+            }
 
+        self.controller.put(shadeUrl, data=body)
+        LOGGER.debug('Shade JOG %s', self.lpfx)
+
+    def cmdCalibrate(self, command):
+        """
+        calibrate shade
+        only available in PowerView G2, automatic in PowerView G3
+        TODO not implemented
+        """
+        if self.controller.generation == 2:
+            shadeUrl = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
+            body = {
+                'shade': {
+                    "motion": 'calibrate'
+                }
+            }
+
+            self.controller.put(shadeUrl, data=body)
+            LOGGER.debug('Shade CALIBRATE %s', self.lpfx)
+                
     def query(self, command=None):
         """
         Called by ISY to report all drivers for this node. This is done in
@@ -234,23 +325,59 @@ class Shade(udi_interface.Node):
             self.positions["secondary"] = int(query.get("SETSECO.uom100"))
             self.positions["tilt"] = int(query.get("SETTILT.uom100"))
             LOGGER.info('Shade Setpos %s', self.positions)
-            self.controller.setShadePosition(self.sid, self.positions)
+            self.setShadePosition(self.positions)
         except:
             LOGGER.error('Shade Setpos failed %s', self.lpfx)
 
+    def setShadePosition(self, pos):
+        positions = {}
 
-    """
-        {'driver': 'GV0', 'value': 0, 'uom': 107}# id
-        {'driver': 'ST', 'value': 0, 'uom': 2} # motion
-        {'driver': 'GV1', 'value': 0, 'uom': 107}# room -> roomId
-        {'driver': 'GV2', 'value': 0, 'uom': 79}# actual positions {primary}
-        {'driver': 'GV3', 'value': 0, 'uom': 79}# actual positions {secondary}
-        {'driver': 'GV4', 'value': 0, 'uom': 79}# actual positions {tilt}
-        {'driver': 'GV5', 'value': 0, 'uom': 25}# capabilities
-        {'driver': 'GV6', 'value': 0, 'uom': 25)# batteryStatus
-    """
+        if self.controller.generation == 2:
+            pos1 = 1
+            pos2 = 1
+            if pos.get('primary') in range(0, 101):
+                pos1 = self.fromPercent(pos.get('primary', '0'))
 
-        # all the drivers - for reference
+            if pos.get('secondary') in range(0, 101):
+                pos2 = self.fromPercent(pos.get('secondary', '0'))
+
+            shade_url = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
+            pos = {
+                "shade": {
+                    "positions": {
+                        "posKind1": 1,
+                        "posKind2": 2,
+                        "position1": pos1,
+                        "position2": pos2,
+                    }
+                }
+            }
+        else:
+            if pos.get('primary') in range(0, 101):
+                positions["primary"] = self.fromPercent(pos.get('primary', '0'))
+
+            if pos.get('secondary') in range(0, 101):
+                positions["secondary"] = self.fromPercent(pos.get('secondary', '0'))
+
+            if pos.get('tilt') in range(0, 101):
+                positions["tilt"] = self.fromPercent(pos.get('tilt', '0'))
+
+            if pos.get('velocity') in range(0, 101):
+                positions["velocity"] = self.fromPercent(pos.get('velocity', '0'))
+
+            shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
+            pos = {'positions': positions}
+
+        self.controller.put(shade_url, pos)
+        return True
+
+    def fromPercent(self, pos, divr=1.0):
+        newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
+        LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
+        return newpos
+
+    # all the drivers - for reference
+            # TODO velocity not implemented
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
@@ -267,13 +394,69 @@ class Shade(udi_interface.Node):
     this tells it which method to call. DON calls setOn, etc.
     """
     commands = {
-    'OPEN': cmdOpen,
-    'CLOSE': cmdClose,
-    'STOP': cmdStop,
-    'TILTOPEN': cmdTiltOpen,
-    'TILTCLOSE': cmdTiltClose,
-    'JOG': cmdJog,
-    'SETPOS': cmdSetpos,
-    'QUERY': query,
+        'OPEN': cmdOpen,
+        'CLOSE': cmdClose,
+        'STOP': cmdStop,
+        'TILTOPEN': cmdTiltOpen,
+        'TILTCLOSE': cmdTiltClose,
+        'JOG': cmdJog,
+        'SETPOS': cmdSetpos,
+        'QUERY': query,
     }
-                   
+
+    """
+    Shade Capabilities:
+
+    Type 0 - Bottom Up 
+    Examples: Standard roller/screen shades, Duette bottom up 
+    Uses the “primary” control type
+
+    Type 1 - Bottom Up w/ 90° Tilt 
+    Examples: Silhouette, Pirouette 
+    Uses the “primary” and “tilt” control types
+
+    Type 2 - Bottom Up w/ 180° Tilt 
+    Example: Silhouette Halo 
+    Uses the “primary” and “tilt” control types
+
+    Type 3 - Vertical (Traversing) 
+    Examples: Skyline, Duette Vertiglide, Design Studio Drapery 
+    Uses the “primary” control type
+
+    Type 4 - Vertical (Traversing) w/ 180° Tilt 
+    Example: Luminette 
+    Uses the “primary” and “tilt” control types
+
+    Type 5 - Tilt Only 180° 
+    Examples: Palm Beach Shutters, Parkland Wood Blinds 
+    Uses the “tilt” control type
+
+    Type 6 - Top Down 
+    Example: Duette Top Down 
+    Uses the “primary” control type
+
+    Type 7 - Top-Down/Bottom-Up (can open either from the bottom or from the top) 
+    Examples: Duette TDBU, Vignette TDBU 
+    Uses the “primary” and “secondary” control types
+
+    Type 8 - Duolite (front and rear shades) 
+    Examples: Roller Duolite, Vignette Duolite, Dual Roller
+    Uses the “primary” and “secondary” control types 
+    Note: In some cases the front and rear shades are
+    controlled by a single motor and are on a single tube so they cannot operate independently - the
+    front shade must be down before the rear shade can deploy. In other cases, they are independent with
+    two motors and two tubes. Where they are dependent, the shade firmware will force the appropriate
+    front shade position when the rear shade is controlled - there is no need for the control system to
+    take this into account.
+
+    Type 9 - Duolite with 90° Tilt 
+    (front bottom up shade that also tilts plus a rear blackout (non-tilting) shade) 
+    Example: Silhouette Duolite, Silhouette Adeux 
+    Uses the “primary,” “secondary,” and “tilt” control types Note: Like with Type 8, these can be
+    either dependent or independent.
+
+    Type 10 - Duolite with 180° Tilt 
+    Example: Silhouette Halo Duolite 
+    Uses the “primary,” “secondary,” and “tilt” control types
+    """
+      

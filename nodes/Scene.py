@@ -1,7 +1,47 @@
 
+"""
+udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
+
+(C) 2024 Stephen Jenkins
+
+Scene class
+"""
+
 import udi_interface
 
 LOGGER = udi_interface.LOGGER
+
+"""
+HunterDouglas PowerView G3 url's
+"""
+URL_DEFAULT_GATEWAY = 'powerview-g3.local'
+URL_GATEWAY = 'http://{g}/gateway'
+URL_HOME = 'http://{g}/home'
+URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_SHADES = 'http://{g}/home/shades/{id}'
+URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
+URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
+URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
+URL_SCENES = 'http://{g}/home/scenes/{id}'
+URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
+URL_EVENTS = 'http://{g}/home/events'
+URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
+URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
+
+"""
+HunterDouglas PowerView G2 url's
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+"""
+URL_G2_HUB = 'http://{g}/api/userdata/'
+URL_G2_ROOMS = 'http://{g}/api/rooms'
+URL_G2_ROOM = 'http://{g}/api/rooms/{id}'
+URL_G2_SHADES = 'http://{g}/api/shades'
+URL_G2_SHADE = 'http://{g}/api/shade/{id}'
+URL_G2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
+URL_G2_SCENES = 'http://{g}/api/scenes'
+URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
+URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
+G2_DIVR = 65535
 
 class Scene(udi_interface.Node):
     id = 'sceneid'
@@ -67,28 +107,46 @@ class Scene(udi_interface.Node):
     def poll(self, flag):
         if 'longPoll' in flag:
             LOGGER.debug(f"longPoll {self.lpfx}")
+            if self.controller.generation == 2:
+                self.setDriver('ST', 0)
+                # manually turn off activation for G2
         else:
             LOGGER.debug(f"shortPoll {self.lpfx}")
-            event = list(filter(lambda events: (events['evt'] == 'scene-activated' or events['evt'] == 'scene-deactivated'), \
-                                self.controller.gateway_event))
-            if event:
-                event = event[0]
-                LOGGER.debug(f"shortpoll scene {self.sid} - {event['id']} - {event}")
-                if int(event['id']) == int(self.sid):
-                    act = event['evt'] == 'scene-activated'
-                    if act:
-                        self.setDriver('ST', 1)
-                    else:
-                        self.setDriver('ST', 0)
-                    LOGGER.info(f"shortPoll {self.lpfx} activate = {act}")
-                    self.controller.gateway_event.remove(event)
+            self.events()
+            self.setDriver('ST', None)
+
+    def events(self):
+        event = list(filter(lambda events: (events['evt'] == 'scene-activated' or events['evt'] == 'scene-deactivated'), \
+                            self.controller.gateway_event))
+        if event:
+            event = event[0]
+            LOGGER.debug(f"shortpoll scene {self.sid} - {event['id']} - {event}")
+            if int(event['id']) == int(self.sid):
+                act = event['evt'] == 'scene-activated'
+                if act:
+                    self.setDriver('ST', 1)
+                else:
+                    self.setDriver('ST', 0)
+                LOGGER.info(f"shortPoll {self.lpfx} activate = {act}")
+                self.controller.gateway_event.remove(event)
                 
     def cmdActivate(self, command):
         """
         activate scene
         """
-        self.controller.activateScene(self.sid)
+        if self.controller.generation == 2:
+            activateSceneUrl = URL_G2_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
+        else:
+            activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
+
+        self.controller.put(activateSceneUrl)
         LOGGER.debug(f"cmdActivate initiate {self.lpfx}")
+
+        # for PowerView G2 gateway there is no event so manually trigger activate
+        # PowerView G3 will receive an activate event when the motion is complete
+        if self.controller.generation == 2:
+            self.setDriver('ST', 1)
+            # manually turn on for G2, turn off on the next longPoll
 
     def query(self, command = None):
         """
@@ -107,7 +165,7 @@ class Scene(udi_interface.Node):
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
-               ]
+    ]
 
     """
     This is a dictionary of commands. If ISY sends a command to the NodeServer,
