@@ -25,7 +25,7 @@ DONE add troubleshooting document
 DONE add some support for G2 gateways (no gateway push, only polling)
 
 add to future version:
-TODO nothing on the todo at moment, just bugfix
+TODO bugfix & test
 
 0.1.1
 DONE tap into gateway events, which allows longPoll update to move from 30s to 60s
