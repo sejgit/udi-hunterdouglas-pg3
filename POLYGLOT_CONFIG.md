@@ -4,7 +4,7 @@
 udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy\
 (C) 2024 Stephen Jenkins
 
-[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/LICENSE)
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg)][license]
 
 ## Intro & Help
 
@@ -84,6 +84,7 @@ gateways you have\
 - Calibrate:  NOT IMPLEMENTED likely should just stay on the PowerView app
 - Scene Activate:  Activation result is manually turned on as no event
 
+[license]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/LICENSE
 [polyglot]: https://github.com/UniversalDevicesInc/pg3-dist
 [forum]: https://forum.universal-devices.com/forum/439-hunter-douglas/
-[troubleshoot]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/api-v2/docs/troubleshooting.md
+[troubleshoot]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/docs/troubleshooting.md
