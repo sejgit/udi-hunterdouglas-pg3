@@ -504,6 +504,8 @@ class Controller(udi_interface.Node):
                     self.roomIds_array = data['roomIds']
                     for room in self.rooms_array:
                         room['name'] = base64.b64decode(room['name']).decode()
+                    LOGGER.info(f"rooms = {self.roomIds_array}")
+
                     
                 res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
@@ -516,8 +518,11 @@ class Controller(udi_interface.Node):
                         shade['name'] = '%s - %s' % (room_name, name)
                         if 'positions' in shade:
                             # Convert positions to integer percentages
-                            shade['positions']['position1'] = self.toPercent(shade['positions']['position1'], G2_DIVR)
-                            shade['positions']['position2'] = self.toPercent(shade['positions']['position2'], G2_DIVR)
+                            if 'position1' in shade['positions']:
+                                shade['positions']['position1'] = self.toPercent(shade['positions']['position1'], G2_DIVR)
+                            if 'position2' in shade['positions']:
+                                shade['positions']['position2'] = self.toPercent(shade['positions']['position2'], G2_DIVR)
+                    LOGGER.info(f"shades = {self.shadeIds_array}")
                     
                 res = self.get(URL_G2_SCENES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
@@ -528,17 +533,17 @@ class Controller(udi_interface.Node):
                         name = base64.b64decode(scene['name']).decode()
                         room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
                         scene['name'] = '%s - %s' % (room_name, name)
+                    LOGGER.info(f" {self.sceneIds_array}")
 
-                LOGGER.info(f"rooms = {self.roomIds_array}")
-                LOGGER.info(f"shades = {self.shadeIds_array}")
-                LOGGER.info(f"scenes = {self.sceneIds_array}")
                 self.no_update = False
+                LOGGER.info(f"updateAllfromServerG2 = OK")
                 return True
             else:
                 self.no_update = False
+                LOGGER.error(f"updateAllfromServerG2 = NO DATA")
                 return False
         except:
-            LOGGER.error('Update error')
+            LOGGER.error('updateAllfromServerG2 = except')
             self.no_update = False
             return False
         
