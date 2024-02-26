@@ -364,7 +364,7 @@ class Controller(udi_interface.Node):
                     
                 self.poly.addNode(Shade(self.poly, \
                                         self.address, \
-                                        'shade{}'.format(shade['shadeId']), \
+                                        'shade{}'.format(shadeId), \
                                         shade["name"], \
                                         shadeId))
                 
@@ -376,7 +376,7 @@ class Controller(udi_interface.Node):
                 
                 self.poly.addNode(Scene(self.poly, \
                                         self.address, \
-                                        "scene{}".format(scene["_id"]), \
+                                        "scene{}".format(sceneId), \
                                         scene["name"], \
                                         sceneId))
 
