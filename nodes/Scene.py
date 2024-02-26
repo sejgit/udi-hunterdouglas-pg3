@@ -79,7 +79,7 @@ class Scene(udi_interface.Node):
         :param name: This nodes name
         :param sid: scene id
         """
-        super(Scene, self).__init__(polyglot, primary, address, name)
+        super().__init__(polyglot, primary, address, name)
 
         self.poly = polyglot
         self.primary = primary

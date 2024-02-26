@@ -74,7 +74,7 @@ class Controller(udi_interface.Node):
         ready
         we exist!
         """
-        super(Controller, self).__init__(polyglot, primary, address, name)
+        super().__init__(polyglot, primary, address, name)
 
         self.poly = polyglot
         self.parent = primary

@@ -79,7 +79,7 @@ class Shade(udi_interface.Node):
         :param address: This nodes address
         :param name: This nodes name
         """
-        super(Shade, self).__init__(polyglot, primary, address, name)
+        super().__init__(polyglot, primary, address, name)
         self.poly = polyglot
         self.primary = primary
         self.controller = polyglot.getNode(self.primary)
