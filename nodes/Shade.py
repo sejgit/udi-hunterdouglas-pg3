@@ -394,8 +394,11 @@ class Shade(udi_interface.Node):
         return True
 
     def fromPercent(self, pos, divr=1.0):
-        newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
-        LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
+        if self.controller.generation == 2:
+            newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
+        else:
+            newpos = (float(pos) / 100.0) * divr
+        LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")
         return newpos
 
     # all the drivers - for reference
