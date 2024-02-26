@@ -200,6 +200,7 @@ class Shade(udi_interface.Node):
                 t1 = positions['tilt']
             else:
                 t1 = None
+        LOGGER.debug(f"updatePositions {p1} {p2} {t1}")
             
         if capabilities == 7 or capabilities == 8:
             self.setDriver('GV2', p1)
@@ -389,6 +390,7 @@ class Shade(udi_interface.Node):
             shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
 
         self.controller.put(shade_url, pos)
+        LOGGER.debug(f"setShadePosition = {shade_url} , {pos}")
         return True
 
     def fromPercent(self, pos, divr=1.0):
