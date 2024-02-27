@@ -119,7 +119,10 @@ class Shade(udi_interface.Node):
             if event['shades'].count(self.sid) > 0:
                 LOGGER.info(f'shortPoll shade {self.sid} update')
                 if self.updateData():
-                    self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
+                    try:
+                        self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
+                    except:
+                        LOGGER.error(f"shade event error sid = {self.sid}")
             else:
                 LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
         else:

@@ -17,6 +17,7 @@ import json
 # Nodes
 from nodes import Scene
 from nodes import Shade
+import nodes
 
 """
 Some shortcuts for udi interface components
@@ -82,6 +83,7 @@ class Controller(udi_interface.Node):
         self.name = name
         self.last = 0.0
         self.no_update = False
+        self.discovery = False
         self.gateway = URL_DEFAULT_GATEWAY
         self.gateway_array = []
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
@@ -142,8 +144,8 @@ class Controller(udi_interface.Node):
         # their capabilities.  Also where you can create nodes that
         # represent the found device(s)
         self.gateway_sse = self.sseInit()
-        if self.check_params():
-            self.discover() # only do discovery if gateway change
+        # if self.check_params():
+        #     self.discover() # only do discovery if gateway change
 
     """
     Called via the CUSTOMPARAMS event. When the user enters or
@@ -163,8 +165,8 @@ class Controller(udi_interface.Node):
         self.Parameters.load(params)
         LOGGER.debug('Loading parameters now')
         if self.check_params():
-            self.gateway_sse = self.sseInit()
             self.discover() # only do discovery if gateway change
+            self.gateway_sse = self.sseInit()
 
     """
     Called via the CUSTOMTYPEDPARAMS event. This event is sent When
@@ -318,6 +320,8 @@ class Controller(udi_interface.Node):
         """
         connect and pull from the gateway stream of events ONLY FOR G3
         """
+        self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
+
         if self.generation == 3:
             url = URL_EVENTS.format(g=self.gateway)
             try:
@@ -355,18 +359,35 @@ class Controller(udi_interface.Node):
         Do shade and scene discovery here. Called from controller start method
         and from DISCOVER command received from ISY
         """
+        if self.discovery:
+            LOGGER.info('Discover already running.')
+            return
+
+        self.discovery = True
+        LOGGER.info("In Discovery...")
+
+        nodes = self.poly.getNodes()
+        LOGGER.info(f"current nodes = {nodes}")
+        for node in nodes:
+            LOGGER.info(f"node = {node}")
+            if node != 'hdctrl':
+                pass
+                # self.poly.delNode(node)
+
         if self.updateAllFromServer():
             for shade in self.shades_array:
                 if self.generation == 2:
                     shadeId = shade['id']
                 else:
                     shadeId = shade['shadeId']
-                    
-                self.poly.addNode(Shade(self.poly, \
-                                        self.address, \
-                                        'shade{}'.format(shadeId), \
-                                        shade["name"], \
-                                        shadeId))
+
+                shTxt = 'shade{}'.format(shadeId)
+                if shTxt not in nodes:
+                    self.poly.addNode(Shade(self.poly, \
+                                            self.address, \
+                                            shTxt, \
+                                            shade["name"], \
+                                            shadeId))
                 
             for scene in self.scenes_array:
                 if self.generation == 2:
@@ -374,11 +395,16 @@ class Controller(udi_interface.Node):
                 else:
                     sceneId = scene['_id']
                 
-                self.poly.addNode(Scene(self.poly, \
-                                        self.address, \
-                                        "scene{}".format(sceneId), \
-                                        scene["name"], \
-                                        sceneId))
+                scTxt = 'scene{}'.format(sceneId)
+                if scTxt not in nodes:
+                    self.poly.addNode(Scene(self.poly, \
+                                            self.address, \
+                                            scTxt, \
+                                            scene["name"], \
+                                            sceneId))
+
+        self.discovery = False
+        LOGGER.info('Discovery complete.')
 
     def delete(self):
         """
