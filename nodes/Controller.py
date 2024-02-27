@@ -142,10 +142,13 @@ class Controller(udi_interface.Node):
         # Device discovery. Here you may query for your device(s) and 
         # their capabilities.  Also where you can create nodes that
         # represent the found device(s)
+        # NOTE discovery happening at parameterHandler in start-up
+
         self.gateway_sse = self.sseInit()
         # if self.check_params():
         #     self.discover() # only do discovery if gateway change
-        self.discover() # do discovery every start
+        # self.check_params()
+        # self.discover() # do discovery every start
 
     """
     Called via the CUSTOMPARAMS event. When the user enters or
@@ -364,29 +367,35 @@ class Controller(udi_interface.Node):
         self.discovery = True
         LOGGER.info("In Discovery...")
 
-        config = self.poly.getConfig()
-        if config == None or config['nodes'] == None:
-            pass
-        else:
-            for node in config['nodes']:
-                nodeDef = node['nodeDefId']
-                if nodeDef == "hdctrl":
-                    continue
-                self.poly.delNode(node)
+        nodes = self.poly.getNodes()
+        for node in nodes:
+            t = type(node)
+            LOGGER.info(f"discovery delNode {t}")
+            if type(node) == t:
+                continue
+            self.poly.delNode(node.address)
 
         if self.updateAllFromServer():
+            LOGGER.info(f"discovery adding back in")
+            LOGGER.debug(f"discovery pre-shade {self.shades_array}")
+            LOGGER.debug(f"discovery pre-shade {self.scenes_array}")
+            LOGGER.debug(f"discovery pre-shade {self.generation}")
+
             for shade in self.shades_array:
                 if self.generation == 2:
+                    LOGGER.info(f"discovery shades G2")
                     shadeId = shade['id']
                 else:
+                    LOGGER.info(f"discovery shades G3")
                     shadeId = shade['shadeId']
 
                 LOGGER.info(f"discover shade {shadeId}")
-                self.poly.addNode(Shade(self.poly, \
+                node = self.poly.addNode(Shade(self.poly, \
                                         self.address, \
                                         'shade{}'.format(shadeId), \
                                         shade["name"], \
                                         shadeId))
+                LOGGER.info(f"new shade node {node}")
                 
             for scene in self.scenes_array:
                 if self.generation == 2:
@@ -395,11 +404,15 @@ class Controller(udi_interface.Node):
                     sceneId = scene['_id']
                 
                 LOGGER.info(f"discover scene {sceneId}")
-                self.poly.addNode(Scene(self.poly, \
+                node = self.poly.addNode(Scene(self.poly, \
                                         self.address, \
                                         "scene{}".format(sceneId), \
                                         scene["name"], \
                                         sceneId))
+                LOGGER.info(f"new shade node {node}")
+        else:
+            LOGGER.info('False updateFromServer...')
+
         self.discovery = False
         LOGGER.info('Done Discovery...')
 
