@@ -17,7 +17,6 @@ import json
 # Nodes
 from nodes import Scene
 from nodes import Shade
-import nodes
 
 """
 Some shortcuts for udi interface components
@@ -114,6 +113,7 @@ class Controller(udi_interface.Node):
         self.poly.subscribe(self.poly.CUSTOMTYPEDDATA, self.typedDataHandler)
         self.poly.subscribe(self.poly.POLL, self.poll)
         self.poly.subscribe(self.poly.STOP, self.stop)
+        self.poly.subscribe(self.poly.DISCOVER, self.discover)
 
         # Tell the interface we have subscribed to all the events we need.
         # Once we call ready(), the interface will start publishing data.
@@ -287,15 +287,21 @@ class Controller(udi_interface.Node):
             LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
             self.updateAllFromServer()
 
+            event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
+            if event:
+                event = event[0]
+                LOGGER.debug('longPoll event - no action {}'.format(event))
+                self.gateway_event.remove(event)
+                
             event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
             if event:
                 event = event[0]
                 self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
                 self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
-                LOGGER.debug('longpoll trigger nodes {}'.format(self.gateway_event))
+                LOGGER.debug('longPoll trigger nodes {}'.format(self.gateway_event))
             else:
                 self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
-                LOGGER.debug('long poll reset {}'.format(self.gateway_event))
+                LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
 
             if self.Notices['hello']:
                 self.Notices.delete('hello')
@@ -367,13 +373,14 @@ class Controller(udi_interface.Node):
         LOGGER.info("In Discovery...")
 
         nodes = self.poly.getNodes()
-        LOGGER.info(f"current nodes = {nodes}")
+        LOGGER.debug(f"current nodes = {nodes}")
+        nodes_old = []
         for node in nodes:
-            LOGGER.info(f"node = {node}")
+            LOGGER.debug(f"current node = {node}")
             if node != 'hdctrl':
-                pass
-                # self.poly.delNode(node)
+                nodes_old.append(node)
 
+        nodes_new = []
         if self.updateAllFromServer():
             for shade in self.shades_array:
                 if self.generation == 2:
@@ -382,6 +389,7 @@ class Controller(udi_interface.Node):
                     shadeId = shade['shadeId']
 
                 shTxt = 'shade{}'.format(shadeId)
+                nodes_new.append(shTxt)
                 if shTxt not in nodes:
                     self.poly.addNode(Shade(self.poly, \
                                             self.address, \
@@ -396,12 +404,29 @@ class Controller(udi_interface.Node):
                     sceneId = scene['_id']
                 
                 scTxt = 'scene{}'.format(sceneId)
+                nodes_new.append(scTxt)
                 if scTxt not in nodes:
                     self.poly.addNode(Scene(self.poly, \
                                             self.address, \
                                             scTxt, \
                                             scene["name"], \
                                             sceneId))
+
+        nodes_get = []
+        nodes = self.poly.getNodes()
+        LOGGER.debug(f"pre-delete poly.getNodes = {nodes}")
+        for node in nodes:
+            LOGGER.debug(f"poly.getNode = {node}")
+            if node != 'hdctrl':
+                nodes_get.append(node)
+
+        LOGGER.info(f"old nodes = {nodes_old}")
+        LOGGER.info(f"new nodes = {nodes_new}")
+        LOGGER.info(f"pre-delete nodes = {nodes_get}")
+        for node in nodes_get:
+            if node not in nodes_new:
+                LOGGER.info(f"need to delete node {node}")
+                # self.poly.delNode(node)
 
         self.discovery = False
         LOGGER.info('Discovery complete.')

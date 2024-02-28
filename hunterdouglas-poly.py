@@ -16,16 +16,21 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.2'
+VERSION = '0.1.3'
 """
+0.1.3
+FIXME G2 bug fixes
+DONE node discover rewrite to allow add/remove
+DONE add event 'homedoc-updated' currently no actions
+
+add to future version:
+TODO bugfix & test
+
 0.1.2
 DONE change icons to nicer ones
 DONE docs with screenshots & description for udi spotlight
 DONE add troubleshooting document
 DONE add some support for G2 gateways (no gateway push, only polling)
-
-add to future version:
-TODO bugfix & test
 
 0.1.1
 DONE tap into gateway events, which allows longPoll update to move from 30s to 60s
