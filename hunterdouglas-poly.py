@@ -19,9 +19,11 @@ LOGGER = udi_interface.LOGGER
 VERSION = '0.1.3'
 """
 0.1.3
-FIXME G2 bug fixes
 DONE node discover rewrite to allow add/remove
 DONE add event 'homedoc-updated' currently no actions
+DONE limit room label size to 15 as room - shade/scene < 30 for ISY
+DONE clean up LOGGING.debug messages
+FIXME G2 bug fixes
 
 add to future version:
 TODO bugfix & test

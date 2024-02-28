@@ -29,6 +29,8 @@ LOGGER = udi_interface.LOGGER
 LOG_HANDLER = udi_interface.LOG_HANDLER
 Custom = udi_interface.Custom
 ISY = udi_interface.ISY
+# limit the room label length as room - shade/scene must be < 30
+ROOM_NAME_LIMIT = 15
 
 """
 HunterDouglas PowerView G3 url's
@@ -206,7 +208,7 @@ class Controller(udi_interface.Node):
 
     def check_params(self):
         """
-        This is using custom Params for gateway IP
+        This is using custom Params for gatewayip
         """
         self.Notices.delete('gateway')
         gatewaycheck = self.gateway
@@ -320,7 +322,8 @@ class Controller(udi_interface.Node):
                     self.gateway_event.append(yy)
                     LOGGER.info(f"new event = {yy}")
             except:
-                LOGGER.debug('shortPoll nothing to do')
+                pass
+                # LOGGER.debug('shortPoll nothing to do')
 
     def sseInit(self):
         """
@@ -499,6 +502,7 @@ class Controller(udi_interface.Node):
                     self.roomIds_array.append(r['_id'])
                     self.rooms_array.append(r)
                     room_name = r['name']
+                    room_name = room_name[0:ROOM_NAME_LIMIT]
                     for sh in r["shades"]:
                         LOGGER.debug(f"Update shade {sh['id']}")
                         sh['shadeId'] = sh['id']
@@ -524,6 +528,7 @@ class Controller(udi_interface.Node):
                     name = sc['name']
                     LOGGER.debug("scenes-3")
                     room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                    room_name = room_name[0:ROOM_NAME_LIMIT]
                     sc['name'] = '%s - %s' % (room_name, name)
                     LOGGER.debug('Update scenes-1')
 
@@ -566,6 +571,7 @@ class Controller(udi_interface.Node):
                     for shade in self.shades_array:
                         name = base64.b64decode(shade['name']).decode()
                         room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
+                        room_name = room_name[0:ROOM_NAME_LIMIT]
                         shade['name'] = '%s - %s' % (room_name, name)
                         if 'positions' in shade:
                             # Convert positions to integer percentages
@@ -583,6 +589,7 @@ class Controller(udi_interface.Node):
                     for scene in self.scenes_array:
                         name = base64.b64decode(scene['name']).decode()
                         room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
+                        room_name = room_name[0:ROOM_NAME_LIMIT]
                         scene['name'] = '%s - %s' % (room_name, name)
                     LOGGER.info(f" {self.sceneIds_array}")
 

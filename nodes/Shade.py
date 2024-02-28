@@ -124,9 +124,11 @@ class Shade(udi_interface.Node):
                     except:
                         LOGGER.error(f"shade event error sid = {self.sid}")
             else:
-                LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
+                pass
+                # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
         else:
-            LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
+            pass
+            # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
 
         # NOTE rest of the events below are only for G3, will not fire for G2
 
@@ -164,11 +166,11 @@ class Shade(udi_interface.Node):
                    
     def updateData(self):
         if self.controller.no_update == False:
-            LOGGER.debug(self.controller.shades_array)
-            self.shadedata = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
-            LOGGER.debug(f"shade {self.sid} is {self.shadedata}")
-            if self.shadedata:
-                self.shadedata = self.shadedata[0]
+            # LOGGER.debug(self.controller.shades_array)
+            data = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
+            LOGGER.debug(f"shade {self.sid} is {data}")
+            if data:
+                self.shadedata = data[0]
                 self.setDriver('GV1', self.shadedata["roomId"])
                 self.setDriver('GV6', self.shadedata["batteryStatus"])
                 self.setDriver('GV5', self.shadedata["capabilities"])
@@ -362,12 +364,12 @@ class Shade(udi_interface.Node):
             if pos.get('secondary') in range(0, 101):
                 pos2 = self.fromPercent(pos.get('secondary', '0'), G2_DIVR)
 
-            if 'position1' in self.shadedata[0]['positions']:
-                posk1 = self.shadedata[0]['positions']['posKind1']
+            if 'position1' in self.shadedata['positions']:
+                posk1 = self.shadedata['positions']['posKind1']
                 positions_array.update({'posKind': posk1, 'position1': pos1})
 
-            if 'position2' in self.shadedata[0]['positions']:
-                posk2 = self.shadedata[0]['positions']['posKind2']
+            if 'position2' in self.shadedata['positions']:
+                posk2 = self.shadedata['positions']['posKind2']
                 positions_array.update({'posKind': posk2, 'position2': pos2})
 
             pos = {

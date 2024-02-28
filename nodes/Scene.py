@@ -120,7 +120,7 @@ class Scene(udi_interface.Node):
                             self.controller.gateway_event))
         if event:
             event = event[0]
-            LOGGER.debug(f"shortpoll scene {self.sid} - {event['id']} - {event}")
+            # LOGGER.debug(f"shortpoll scene {self.sid} - {event['id']} - {event}")
             if int(event['id']) == int(self.sid):
                 act = event['evt'] == 'scene-activated'
                 if act:
