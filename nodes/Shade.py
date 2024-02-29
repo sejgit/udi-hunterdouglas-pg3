@@ -41,7 +41,7 @@ URL_G2_SHADE = 'http://{g}/api/shade/{id}'
 URL_G2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
 URL_G2_SCENES = 'http://{g}/api/scenes'
 URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
-URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
+URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes?sceneid={id}'
 G2_DIVR = 65535
 
 class Shade(udi_interface.Node):

@@ -27,6 +27,7 @@ FIXME G2 bug fixes
 
 add to future version:
 TODO bugfix & test
+MAYBE room label length as a parameter or shade/scene nodes as children of rooms
 
 0.1.2
 DONE change icons to nicer ones

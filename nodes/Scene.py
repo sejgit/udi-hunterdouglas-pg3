@@ -40,7 +40,7 @@ URL_G2_SHADE = 'http://{g}/api/shade/{id}'
 URL_G2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
 URL_G2_SCENES = 'http://{g}/api/scenes'
 URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
-URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes/{id}/activate'
+URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes?sceneid={id}'
 G2_DIVR = 65535
 
 class Scene(udi_interface.Node):
@@ -136,10 +136,11 @@ class Scene(udi_interface.Node):
         """
         if self.controller.generation == 2:
             activateSceneUrl = URL_G2_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
+            self.controller.get(activateSceneUrl)
         else:
             activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
+            self.controller.put(activateSceneUrl)
 
-        self.controller.put(activateSceneUrl)
         LOGGER.debug(f"cmdActivate initiate {self.lpfx}")
 
         # for PowerView G2 gateway there is no event so manually trigger activate
