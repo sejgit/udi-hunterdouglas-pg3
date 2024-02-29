@@ -108,7 +108,7 @@ class Shade(udi_interface.Node):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll (shade)')
         else:
-            LOGGER.debug('shortPoll (shade)')
+            # LOGGER.debug('shortPoll (shade)')
             self.events()
 
     def events(self):
@@ -366,11 +366,11 @@ class Shade(udi_interface.Node):
 
             if 'position1' in self.shadedata['positions']:
                 posk1 = self.shadedata['positions']['posKind1']
-                positions_array.update({'posKind': posk1, 'position1': pos1})
+                positions_array.update({'posKind1': posk1, 'position1': pos1})
 
             if 'position2' in self.shadedata['positions']:
                 posk2 = self.shadedata['positions']['posKind2']
-                positions_array.update({'posKind': posk2, 'position2': pos2})
+                positions_array.update({'posKind2': posk2, 'position2': pos2})
 
             pos = {
                 "shade": {
@@ -394,7 +394,7 @@ class Shade(udi_interface.Node):
             pos = {'positions': positions_array}
             shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
 
-        self.controller.put(shade_url, pos)
+        self.controller.put(shade_url, data=pos)
         LOGGER.debug(f"setShadePosition = {shade_url} , {pos}")
         return True
 

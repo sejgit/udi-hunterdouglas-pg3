@@ -111,7 +111,7 @@ class Scene(udi_interface.Node):
                 self.setDriver('ST', 0)
                 # manually turn off activation for G2
         else:
-            LOGGER.debug(f"shortPoll {self.lpfx}")
+            # LOGGER.debug(f"shortPoll {self.lpfx}")
             self.events()
             self.setDriver('ST', None)
 

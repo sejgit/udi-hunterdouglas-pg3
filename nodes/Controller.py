@@ -685,15 +685,16 @@ class Controller(udi_interface.Node):
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error {e} in put {url} with data {data}:", exc_info=True)
             if res:
-                LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+                LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
 
         if res and res.status_code != requests.codes.ok:
             LOGGER.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
-            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+            LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
 
         response = res.json()
+        LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
         return response
 
 
