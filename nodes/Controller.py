@@ -57,11 +57,11 @@ URL_G2_HUB = 'http://{g}/api/userdata/'
 URL_G2_ROOMS = 'http://{g}/api/rooms'
 URL_G2_ROOM = 'http://{g}/api/rooms/{id}'
 URL_G2_SHADES = 'http://{g}/api/shades'
-URL_G2_SHADE = 'http://{g}/api/shade/{id}'
+URL_G2_SHADE = 'http://{g}/api/shades/{id}'
 URL_G2_SHADE_BATTERY = 'http://{g}/api/shades/{id}?updateBatteryLevel=true'
 URL_G2_SCENES = 'http://{g}/api/scenes'
 URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
-URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes?sceneid={id}'
+URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes?sceneId={id}'
 G2_DIVR = 65535
 
 class Controller(udi_interface.Node):
