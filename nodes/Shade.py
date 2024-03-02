@@ -250,7 +250,10 @@ class Shade(udi_interface.Node):
         open shade
         """
         LOGGER.debug('Shade Open %s', self.lpfx)
-        self.positions["primary"] = 0
+        if self.controller.generation == 2:
+            self.positions["primary"] = 100
+        else:
+            self.positions["primary"] = 0
         self.setShadePosition(self.positions)
 
     def cmdClose(self, command):
@@ -258,7 +261,10 @@ class Shade(udi_interface.Node):
         close shade
         """
         LOGGER.debug('Shade Open %s', self.lpfx)
-        self.positions["primary"] = 100
+        if self.controller.generation == 2:
+            self.positions["primary"] = 0
+        else:
+            self.positions["primary"] = 100
         self.setShadePosition(self.positions)
 
     def cmdStop(self, command):
@@ -400,9 +406,7 @@ class Shade(udi_interface.Node):
 
     def fromPercent(self, pos, divr=1.0):
         if self.controller.generation == 2:
-            #FIXME change below to reverse numbers
-            # newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
-            newpos = math.trunc((float(pos - 100) / -100.0) * divr + 0.5)
+            newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
         else:
             newpos = (float(pos) / 100.0) * divr
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")

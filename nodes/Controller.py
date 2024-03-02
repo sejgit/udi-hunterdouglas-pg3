@@ -146,7 +146,7 @@ class Controller(udi_interface.Node):
         # their capabilities.  Also where you can create nodes that
         # represent the found device(s)
         self.gateway_sse = self.sseInit()
-        # if self.check_params():
+        # if self.checkParams():
         #     self.discover() # only do discovery if gateway change
 
     """
@@ -166,13 +166,13 @@ class Controller(udi_interface.Node):
     def parameterHandler(self, params):
         self.Parameters.load(params)
         LOGGER.debug('Loading parameters now')
-        if self.check_params():
+        if self.checkParams():
             self.discover() # only do discovery if gateway change
             self.gateway_sse = self.sseInit()
 
     """
     Called via the CUSTOMTYPEDPARAMS event. This event is sent When
-    the Custom Typed Parameters are created.  See the check_params()
+    the Custom Typed Parameters are created.  See the checkParams()
     below.  Generally, this event can be ignored.
 
     Here we're re-load the parameters into our local storage.
@@ -206,7 +206,7 @@ class Controller(udi_interface.Node):
     def handleLevelChange(self, level):
         LOGGER.info('New log level: {}'.format(level))
 
-    def check_params(self):
+    def checkParams(self):
         """
         This is using custom Params for gatewayip
         """
@@ -215,7 +215,7 @@ class Controller(udi_interface.Node):
         self.gateway = self.Parameters.gatewayip
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
-            LOGGER.warn('check_params: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
+            LOGGER.warn('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
             self.Notices['gateway'] = 'Please note using default gateway address'
             return (gatewaycheck != self.gateway)
         try:
@@ -236,7 +236,7 @@ class Controller(udi_interface.Node):
             self.Notices.delete('notPrimary')
             return (gatewaycheck != self.gateway)
         else:
-            LOGGER.warn(f"check_params: no gateway found in {self.gateway_array}")
+            LOGGER.warn(f"checkParams: no gateway found in {self.gateway_array}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
             return False
                                 
@@ -670,12 +670,7 @@ class Controller(udi_interface.Node):
         return res
 
     def toPercent(self, pos, divr=1.0):
-        if self.generation == 2:
-            #FIXME change below to reverse numbers
-            # newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
-            newpos = math.trunc((float(pos) / divr * -100.0) + 100.5)
-        else:
-            newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
+        newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
