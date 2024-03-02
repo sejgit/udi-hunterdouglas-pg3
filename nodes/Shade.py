@@ -400,7 +400,9 @@ class Shade(udi_interface.Node):
 
     def fromPercent(self, pos, divr=1.0):
         if self.controller.generation == 2:
-            newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
+            #FIXME change below to reverse numbers
+            # newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
+            newpos = math.trunc((float(pos - 100) / -100.0) * divr + 0.5)
         else:
             newpos = (float(pos) / 100.0) * divr
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")

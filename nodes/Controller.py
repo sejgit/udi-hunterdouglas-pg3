@@ -670,7 +670,12 @@ class Controller(udi_interface.Node):
         return res
 
     def toPercent(self, pos, divr=1.0):
-        newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
+        if self.generation == 2:
+            #FIXME change below to reverse numbers
+            # newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
+            newpos = math.trunc((float(pos) / divr * -100.0) + 100.5)
+        else:
+            newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
