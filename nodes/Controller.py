@@ -79,7 +79,7 @@ class Controller(udi_interface.Node):
         super().__init__(polyglot, primary, address, name)
 
         self.poly = polyglot
-        self.parent = primary
+        self.primary = primary
         self.address = address
         self.name = name
         self.last = 0.0
@@ -429,7 +429,7 @@ class Controller(udi_interface.Node):
         for node in nodes_get:
             if node not in nodes_new:
                 LOGGER.info(f"need to delete node {node}")
-                # self.poly.delNode(node)
+                self.poly.delNode(node)
 
         self.discovery = False
         LOGGER.info('Discovery complete.')
