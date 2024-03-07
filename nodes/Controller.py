@@ -82,6 +82,7 @@ class Controller(udi_interface.Node):
         self.primary = primary
         self.address = address
         self.name = name
+        self.n_queue = []
         self.last = 0.0
         self.no_update = False
         self.discovery = False
@@ -116,6 +117,7 @@ class Controller(udi_interface.Node):
         self.poly.subscribe(self.poly.POLL, self.poll)
         self.poly.subscribe(self.poly.STOP, self.stop)
         self.poly.subscribe(self.poly.DISCOVER, self.discover)
+        self.poly.subscribe(self.poly.ADDNODEDONE, self.node_queue)
 
         # Tell the interface we have subscribed to all the events we need.
         # Once we call ready(), the interface will start publishing data.
@@ -123,6 +125,20 @@ class Controller(udi_interface.Node):
 
         # Tell the interface we exist.  
         self.poly.addNode(self)
+
+        '''
+        node_queue() and wait_for_node_event() create a simple way to wait
+        for a node to be created.  The nodeAdd() API call is asynchronous and
+        will return before the node is fully created. Using this, we can wait
+        until it is fully created before we try to use it.
+        '''
+    def node_queue(self, data):
+        self.n_queue.append(data['address'])
+
+    def wait_for_node_done(self):
+        while len(self.n_queue) == 0:
+            time.sleep(0.1)
+        self.n_queue.pop()
 
     def start(self):
         self.Notices['hello'] = 'Start-up'
@@ -285,6 +301,9 @@ class Controller(udi_interface.Node):
     intervals.
     """
     def poll(self, flag):
+        # pause updates when in discovery
+        if self.discovery == True:
+            return
         if 'longPoll' in flag:
             LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
             self.updateAllFromServer()
@@ -399,6 +418,7 @@ class Controller(udi_interface.Node):
                                             shTxt, \
                                             shade["name"], \
                                             shadeId))
+                    self.wait_for_node_done()
                 
             for scene in self.scenes_array:
                 if self.generation == 2:
@@ -414,6 +434,7 @@ class Controller(udi_interface.Node):
                                             scTxt, \
                                             scene["name"], \
                                             sceneId))
+                    self.wait_for_node_done()
 
         nodes_get = []
         nodes = self.poly.getNodes()
