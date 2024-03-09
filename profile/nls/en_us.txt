@@ -3,7 +3,7 @@
 ND-hdctrl-NAME = Hunter Douglas Controller
 ND-hdctrl-ICON = GenericRspCtl
 CMD-ctl-QUERY-NAME = Query
-CMD-ctl-DISCOVER-NAME = Re-Discover
+CMD-ctl-DISCOVER-NAME = Discover
 CMD-ctl-UPDATE_PROFILE-NAME = Update Profile
 CMD-ctl-REMOVE_NOTICES_ALL-NAME = Remove All Notices
 CMD-ctl-SET_DM-NAME = Set Logger Level

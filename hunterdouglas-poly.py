@@ -20,16 +20,7 @@ VERSION = '0.1.4'
 """
 0.1.4
 DONE add node_queue & as result need pause updates while in discovery
-TODO G2 tilt feature
-1. G2 uses PosKind1: 3 to indicate tilt.
-2. The shade first has to be at bottom to use tilt
-3. The shade has to be at zero tilt to move up
-4. The shade has to be told #2 & #3 ; they do not happen on their own (unknown but indicated by your experiences ; can you put a scene which goes to bottom then a tilt?)
-5. I will need to move the data to/from the tilt slot based on #1
-6. Somehow need to either automate based on #4 (move down then tilt or tilt and move up ) or get a message to user if the shade is being asked to do something it cannot.  Otherwise open will not work & tilt will not work as understood.
-
-add to future version:
-MAYBE room label length as a parameter or shade/scene nodes as children of rooms
+FIRSTTRY G2 tilt feature
 
 0.1.3
 DONE node discover rewrite to allow add/remove

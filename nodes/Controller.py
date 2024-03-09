@@ -436,19 +436,14 @@ class Controller(udi_interface.Node):
                                             sceneId))
                     self.wait_for_node_done()
 
-        nodes_get = []
+        # remove nodes which do not exist in gateway
         nodes = self.poly.getNodes()
-        LOGGER.debug(f"pre-delete poly.getNodes = {nodes}")
-        for node in nodes:
-            LOGGER.debug(f"poly.getNode = {node}")
-            if node != 'hdctrl':
-                nodes_get.append(node)
-
+        nodes_get = {key: nodes[key] for key in nodes if key != self.id}
         LOGGER.info(f"old nodes = {nodes_old}")
         LOGGER.info(f"new nodes = {nodes_new}")
         LOGGER.info(f"pre-delete nodes = {nodes_get}")
         for node in nodes_get:
-            if node not in nodes_new:
+            if (node not in nodes_new):
                 LOGGER.info(f"need to delete node {node}")
                 self.poly.delNode(node)
 
@@ -582,7 +577,6 @@ class Controller(udi_interface.Node):
                     for room in self.rooms_array:
                         room['name'] = base64.b64decode(room['name']).decode()
                     LOGGER.info(f"rooms = {self.roomIds_array}")
-
                     
                 res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
@@ -595,11 +589,17 @@ class Controller(udi_interface.Node):
                         room_name = room_name[0:ROOM_NAME_LIMIT]
                         shade['name'] = '%s - %s' % (room_name, name)
                         if 'positions' in shade:
-                            # Convert positions to integer percentages
-                            if 'position1' in shade['positions']:
-                                shade['positions']['position1'] = self.toPercent(shade['positions']['position1'], G2_DIVR)
-                            if 'position2' in shade['positions']:
-                                shade['positions']['position2'] = self.toPercent(shade['positions']['position2'], G2_DIVR)
+                            pos = shade['positions']
+                            # Convert positions to integer percentages & handle tilt
+                            if pos['posKind1'] == 1:
+                                if 'position1' in pos:
+                                    shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
+                            if pos['posKind1'] == 3:
+                                shade['positions']['primary'] = 100
+                                if 'position1' in pos:
+                                    shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
+                            if 'position2' in pos:
+                                shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
                     LOGGER.info(f"shades = {self.shadeIds_array}")
                     
                 res = self.get(URL_G2_SCENES.format(g=self.gateway))

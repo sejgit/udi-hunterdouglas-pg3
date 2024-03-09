@@ -50,9 +50,9 @@
             <cmd id="JOG" />
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETPRIM" editor="POSITION" optional="T" init='GV2'/>
-              <p id="SETSECO" editor="POSITION" optional="T" init='GV3'/>
-              <p id="SETTILT" editor="TILT" optional="T" init='GV4'/>
+              <p id="SETPRIM" editor="POSITION" optional="T" />
+              <p id="SETSECO" editor="POSITION" optional="T" />
+              <p id="SETTILT" editor="TILT" optional="T" />
             </cmd>
           </accepts>
         </cmds>

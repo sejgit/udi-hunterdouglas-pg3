@@ -9,6 +9,7 @@ Shade class
 
 import udi_interface
 import math
+import time
 
 LOGGER = udi_interface.LOGGER
 
@@ -89,6 +90,8 @@ class Shade(udi_interface.Node):
         self.positions = {}
         self.capabilities = 0
 
+        self.tiltCapable = [1, 2, 4, 5, 9, 10]
+ 
         self.lpfx = '%s:%s' % (address,name)
         self.sid = sid
 
@@ -182,29 +185,18 @@ class Shade(udi_interface.Node):
             return False
 
     def updatePositions(self, positions, capabilities):
-        if self.controller.generation == 2:
-            if 'position1' in positions:
-                p1 = positions['position1']
-            else:
-                p1 = None
-            if 'position2' in positions:
-                p2 = positions['position2']
-            else:
-                p2 = None
-            t1 = None
+        if 'primary' in positions:
+            p1 = positions['primary']
         else:
-            if 'primary' in positions:
-                p1 = positions['primary']
-            else:
-                p1 = None
-            if 'secondary' in positions:
-                p2 = positions['secondary']
-            else:
-                p2 = None
-            if 'tilt' in positions:
-                t1 = positions['tilt']
-            else:
-                t1 = None
+            p1 = None
+        if 'secondary' in positions:
+            p2 = positions['secondary']
+        else:
+            p2 = None
+        if 'tilt' in positions:
+            t1 = positions['tilt']
+        else:
+            t1 = None
         LOGGER.debug(f"updatePositions {p1} {p2} {t1}")
             
         if capabilities == 7 or capabilities == 8:
@@ -364,19 +356,26 @@ class Shade(udi_interface.Node):
             posk1 = int
             pos2 = int
             posk2 = int
+            tilt = int
             if pos.get('primary') in range(0, 101):
                 pos1 = self.fromPercent(pos.get('primary', '0'), G2_DIVR)
+                posk1 = 1
+                positions_array.update({'posKind1': posk1, 'position1': pos1})
+
+            if self.capabilities in self.tiltCapable:
+                if pos.get('tilt') in range(0, 101):
+                    tilt = self.fromPercent(pos.get('tilt', '0'), G2_DIVR)
+                    posk1 = 3
+                    if pos1 == G2_DIVR:
+                        positions_array.update({'posKind1': posk1, 'position1': tilt})
+            else:
+                self.setDriver('GV4', None)
 
             if pos.get('secondary') in range(0, 101):
                 pos2 = self.fromPercent(pos.get('secondary', '0'), G2_DIVR)
-
-            if 'position1' in self.shadedata['positions']:
-                posk1 = self.shadedata['positions']['posKind1']
-                positions_array.update({'posKind1': posk1, 'position1': pos1})
-
-            if 'position2' in self.shadedata['positions']:
-                posk2 = self.shadedata['positions']['posKind2']
-                positions_array.update({'posKind2': posk2, 'position2': pos2})
+                if 'poskind2' in self.shadedata['positions']:
+                    posk2 = self.shadedata['positions']['posKind2']
+                    positions_array.update({'posKind2': posk2, 'position2': pos2})
 
             pos = {
                 "shade": {
@@ -391,8 +390,11 @@ class Shade(udi_interface.Node):
             if pos.get('secondary') in range(0, 101):
                 positions_array["secondary"] = self.fromPercent(pos.get('secondary', '0'))
 
-            if pos.get('tilt') in range(0, 101):
-                positions_array["tilt"] = self.fromPercent(pos.get('tilt', '0'))
+            if self.capabilities in self.tiltCapable:
+                if pos.get('tilt') in range(0, 101):
+                    positions_array["tilt"] = self.fromPercent(pos.get('tilt', '0'))
+            else:
+                self.setDriver('GV4', None)
 
             if pos.get('velocity') in range(0, 101):
                 positions_array["velocity"] = self.fromPercent(pos.get('velocity', '0'))
