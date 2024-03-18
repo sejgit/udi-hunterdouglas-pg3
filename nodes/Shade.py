@@ -272,22 +272,18 @@ class Shade(udi_interface.Node):
     def cmdTiltOpen(self, command):
         """
         tilt shade open
-        excluded from PowerView G2
         """
-        if self.controller.generation == 3:
-            LOGGER.debug('Shade TiltOpen %s', self.lpfx)
-            self.positions["tilt"] = 50
-            self.setShadePosition(self.positions)
+        LOGGER.debug('Shade TiltOpen %s', self.lpfx)
+        self.positions["tilt"] = 50
+        self.setShadePosition(self.positions)
 
     def cmdTiltClose(self, command):
         """
         tilt shade close
-        excluded from PowerView G2
         """
-        if self.controller.generation == 3:
-            LOGGER.debug('Shade TiltClose %s', self.lpfx)
-            self.positions['tilt'] = 0
-            self.setShadePosition(self.positions)
+        LOGGER.debug('Shade TiltClose %s', self.lpfx)
+        self.positions['tilt'] = 0
+        self.setShadePosition(self.positions)
 
     def cmdJog(self, command):
         """
@@ -366,8 +362,7 @@ class Shade(udi_interface.Node):
                 if pos.get('tilt') in range(0, 101):
                     tilt = self.fromPercent(pos.get('tilt', '0'), G2_DIVR)
                     posk1 = 3
-                    if pos1 == G2_DIVR:
-                        positions_array.update({'posKind1': posk1, 'position1': tilt})
+                    positions_array.update({'posKind1': posk1, 'position1': tilt})
             else:
                 self.setDriver('GV4', None)
 

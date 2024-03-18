@@ -307,25 +307,27 @@ class Controller(udi_interface.Node):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
             self.updateAllFromServer()
-
-            event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
-            if event:
-                event = event[0]
-                LOGGER.debug('longPoll event - no action {}'.format(event))
-                self.gateway_event.remove(event)
+            try:
+                event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
+                if event:
+                    event = event[0]
+                    LOGGER.debug('longPoll event - no action {}'.format(event))
+                    self.gateway_event.remove(event)
                 
-            event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
-            if event:
-                event = event[0]
-                self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
-                self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
-                LOGGER.debug('longPoll trigger nodes {}'.format(self.gateway_event))
-            else:
-                self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
-                LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
+                event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
+                if event:
+                    event = event[0]
+                    self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
+                    self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
+                    LOGGER.debug('longPoll trigger nodes {}'.format(self.gateway_event))
+                else:
+                    self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
+                    LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
 
-            if self.Notices['hello']:
-                self.Notices.delete('hello')
+                if self.Notices['hello']:
+                    self.Notices.delete('hello')
+            except:
+                LOGGER.error("LongPoll event error")
             self.heartbeat()
             LOGGER.info("event(total) = {}".format(self.gateway_event))
         else:
@@ -337,7 +339,10 @@ class Controller(udi_interface.Node):
                     try:
                         yy = json.loads(y)
                     except:
-                        yy = json.loads(y + next(x))
+                        try:
+                            yy = json.loads(y + next(x))
+                        except:
+                            yy = {}
                     self.gateway_event.append(yy)
                     LOGGER.info(f"new event = {yy}")
             except:
