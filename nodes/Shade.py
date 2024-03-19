@@ -365,8 +365,8 @@ class Shade(udi_interface.Node):
                 if pos.get('tilt') in range(0, 101):
                     tilt = self.fromPercent(pos.get('tilt', '0'), G2_DIVR)
                     if self.capabilities in self.tiltOnly90Capable:
-                        if tilt > 50:
-                            tilt = 50
+                        if tilt >= 50:
+                            tilt = 49
                     posk1 = 3
                     positions_array.update({'posKind1': posk1, 'position1': tilt})
             else:
@@ -395,8 +395,8 @@ class Shade(udi_interface.Node):
                 if pos.get('tilt') in range(0, 101):
                     tilt = self.fromPercent(pos.get('tilt', '0'))
                     if self.capabilities in self.tiltOnly90Capable:
-                        if tilt > 50:
-                            tilt = 50                    
+                        if tilt >= 50:
+                            tilt = 49                    
                     positions_array["tilt"] = tilt
             else:
                 self.setDriver('GV4', None)
