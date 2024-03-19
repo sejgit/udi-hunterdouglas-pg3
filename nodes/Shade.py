@@ -9,7 +9,6 @@ Shade class
 
 import udi_interface
 import math
-import time
 
 LOGGER = udi_interface.LOGGER
 
@@ -91,6 +90,7 @@ class Shade(udi_interface.Node):
         self.capabilities = 0
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
+        self.tiltOnly90Capable = [1, 9]
  
         self.lpfx = '%s:%s' % (address,name)
         self.sid = sid
@@ -196,7 +196,10 @@ class Shade(udi_interface.Node):
         if 'tilt' in positions:
             t1 = positions['tilt']
         else:
-            t1 = None
+            if self.capabilities in self.tiltCapable:
+                t1 = 0
+            else:
+                t1 = None
         LOGGER.debug(f"updatePositions {p1} {p2} {t1}")
             
         if capabilities == 7 or capabilities == 8:
@@ -252,7 +255,7 @@ class Shade(udi_interface.Node):
         """
         close shade
         """
-        LOGGER.debug('Shade Open %s', self.lpfx)
+        LOGGER.debug('Shade Close %s', self.lpfx)
         if self.controller.generation == 2:
             self.positions["primary"] = 0
         else:
@@ -361,6 +364,9 @@ class Shade(udi_interface.Node):
             if self.capabilities in self.tiltCapable:
                 if pos.get('tilt') in range(0, 101):
                     tilt = self.fromPercent(pos.get('tilt', '0'), G2_DIVR)
+                    if self.capabilities in self.tiltOnly90Capable:
+                        if tilt > 50:
+                            tilt = 50
                     posk1 = 3
                     positions_array.update({'posKind1': posk1, 'position1': tilt})
             else:
@@ -387,7 +393,11 @@ class Shade(udi_interface.Node):
 
             if self.capabilities in self.tiltCapable:
                 if pos.get('tilt') in range(0, 101):
-                    positions_array["tilt"] = self.fromPercent(pos.get('tilt', '0'))
+                    tilt = self.fromPercent(pos.get('tilt', '0'))
+                    if self.capabilities in self.tiltOnly90Capable:
+                        if tilt > 50:
+                            tilt = 50                    
+                    positions_array["tilt"] = tilt
             else:
                 self.setDriver('GV4', None)
 
@@ -403,7 +413,7 @@ class Shade(udi_interface.Node):
 
     def fromPercent(self, pos, divr=1.0):
         if self.controller.generation == 2:
-            newpos = math.trunc((float(pos) / 100.0) * divr + 0.5)
+            newpos = math.trunc((float(pos) / 100.0) * divr)
         else:
             newpos = (float(pos) / 100.0) * divr
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")
