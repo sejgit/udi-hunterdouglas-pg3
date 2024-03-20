@@ -351,29 +351,30 @@ class Shade(udi_interface.Node):
     def setShadePosition(self, pos):
         positions_array = {}
         if self.controller.generation == 2:
-            pos1 = int
+            pos1 = pos.get('primary', '0')
             posk1 = int
-            pos2 = int
+            pos2 = pos.get('secondary', '0')
             posk2 = int
-            tilt = int
-            if pos.get('primary') in range(0, 101):
-                pos1 = self.fromPercent(pos.get('primary', '0'), G2_DIVR)
-                posk1 = 1
-                positions_array.update({'posKind1': posk1, 'position1': pos1})
-
+            tilt = pos.get('tilt', '0')
+            
             if self.capabilities in self.tiltCapable:
-                if pos.get('tilt') in range(0, 101):
-                    tilt = self.fromPercent(pos.get('tilt', '0'), G2_DIVR)
+                if tilt in range(0, 101):
                     if self.capabilities in self.tiltOnly90Capable:
                         if tilt >= 50:
                             tilt = 49
+                    tilt = self.fromPercent(tilt, G2_DIVR)
                     posk1 = 3
                     positions_array.update({'posKind1': posk1, 'position1': tilt})
             else:
                 self.setDriver('GV4', None)
 
-            if pos.get('secondary') in range(0, 101):
-                pos2 = self.fromPercent(pos.get('secondary', '0'), G2_DIVR)
+            if (pos1 in range(0, 101)) and (pos1 != self.positions["primary"]):
+                pos1 = self.fromPercent(pos1, G2_DIVR)
+                posk1 = 1
+                positions_array.update({'posKind1': posk1, 'position1': pos1})
+
+            if pos2 in range(0, 101):
+                pos2 = self.fromPercent(pos2, G2_DIVR)
                 if 'poskind2' in self.shadedata['positions']:
                     posk2 = self.shadedata['positions']['posKind2']
                     positions_array.update({'posKind2': posk2, 'position2': pos2})
