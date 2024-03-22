@@ -600,7 +600,7 @@ class Controller(udi_interface.Node):
                                 if 'position1' in pos:
                                     shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
                             if pos['posKind1'] == 3:
-                                shade['positions']['primary'] = 100
+                                shade['positions']['primary'] = 0
                                 if 'position1' in pos:
                                     shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
                             if 'position2' in pos:

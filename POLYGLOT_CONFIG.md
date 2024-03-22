@@ -67,19 +67,16 @@ gateways you have\
 - Open / Close
 - Query
 - Jog: PowerView G2 also does battery update, automatic in PowerView G3
+- Tilt Open / Close:  Open set at 50% (flat), Close is 100% (down)
 
 #### PowerView G3 Commands
 
 - Stop
-- Tilt Open / Close:  Open set at 50% (flat), Close is 100% (down)
-  - TODO: could add a parameter for choice of 0% (up) if desired
-- Scene Activate:  Activation turns on after movement completion (can take a bit)
 - Battery Updates are automatic
+- Scene Activate:  Activation turns on after movement completion (can take a bit)
 
 #### PowerView G2 Commands
 
-- Tilt Open / Close:  UNKNOWN feature, fired by primary or secondary position?
-  - therefore buttons do not do anything in PowerView G2
 - Battery Update:  implemented as part of jog as it does both
 - Calibrate:  NOT IMPLEMENTED likely should just stay on the PowerView app
 - Scene Activate:  Activation result is manually turned on as no event
