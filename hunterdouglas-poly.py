@@ -16,11 +16,15 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.4'
+VERSION = '0.1.5'
 """
+0.1.5
+DONE set Shade Position change using False to define which parameters to change
+DONE more debug on G2 so it acts as expected
+
 0.1.4
 DONE add node_queue & as result need pause updates while in discovery
-FIRSTTRY G2 tilt feature
+DONE FIRST TRY G2 tilt feature
 
 0.1.3
 DONE node discover rewrite to allow add/remove

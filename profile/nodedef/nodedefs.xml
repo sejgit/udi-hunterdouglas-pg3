@@ -26,9 +26,9 @@
             <st id="GV0" editor="ID" />
             <st id="ST" editor="BOOL" />
             <st id="GV1" editor="ID" />
-            <st id="GV2" editor="POSITION" />
-            <st id="GV3" editor="POSITION" />
-            <st id="GV4" editor="TILT" />
+            <st id="GV2" editor="POSITION" uom="100" />
+            <st id="GV3" editor="POSITION" uom="100" />
+            <st id="GV4" editor="TILT" uom="100" />
             <st id="GV5" editor="SHADECAP" />
             <st id="GV6" editor="BATTERYST" />
         </sts>

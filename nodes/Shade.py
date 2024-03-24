@@ -337,47 +337,44 @@ class Shade(udi_interface.Node):
         setting primary, secondary, tilt
         """
         try:
+            pos = {}
             LOGGER.info('Shade Setpos command %s', command)
             query = command.get("query")
             LOGGER.info('Shade Setpos query %s', query)
-            self.positions["primary"] = int(query.get("SETPRIM.uom100"))
-            self.positions["secondary"] = int(query.get("SETSECO.uom100"))
-            self.positions["tilt"] = int(query.get("SETTILT.uom100"))
-            LOGGER.info('Shade Setpos %s', self.positions)
-            self.setShadePosition(self.positions)
+            if "SETPRIM.uom100" in query:
+                pos["primary"] = int(query["SETPRIM.uom100"])
+            if "SETSECO.uom100" in query:
+                pos["secondary"] = int(query["SETSECO.uom100"])
+            if "SETTILT.uom100" in query:
+                pos["tilt"] = int(query["SETTILT.uom100"])
+            LOGGER.info('Shade Setpos %s', pos)
+            self.setShadePosition(pos)
+            self.positions.update(pos)
         except:
             LOGGER.error('Shade Setpos failed %s', self.lpfx)
 
     def setShadePosition(self, pos):
         positions_array = {}
         if self.controller.generation == 2:
-            pos1 = pos.get('primary', '0')
-            posk1 = int
-            pos2 = pos.get('secondary', '0')
-            posk2 = int
-            tilt = pos.get('tilt', '0')
-            
             if self.capabilities in self.tiltCapable:
-                if tilt in range(0, 101):
+                if 'tilt' in pos:
+                    tilt = pos['tilt']
                     if self.capabilities in self.tiltOnly90Capable:
                         if tilt >= 50:
                             tilt = 49
                     tilt = self.fromPercent(tilt, G2_DIVR)
                     posk1 = 3
                     positions_array.update({'posKind1': posk1, 'position1': tilt})
-            else:
-                self.setDriver('GV4', None)
 
-            if (pos1 in range(0, 101)) and (pos1 != self.positions["primary"]):
-                pos1 = self.fromPercent(pos1, G2_DIVR)
+            if 'primary' in pos:
+                pos1 = self.fromPercent(pos['primary'], G2_DIVR)
                 posk1 = 1
                 positions_array.update({'posKind1': posk1, 'position1': pos1})
 
-            if pos2 in range(0, 101):
-                pos2 = self.fromPercent(pos2, G2_DIVR)
-                if 'poskind2' in self.shadedata['positions']:
-                    posk2 = self.shadedata['positions']['posKind2']
-                    positions_array.update({'posKind2': posk2, 'position2': pos2})
+            if 'secondary' in pos:
+                pos2 = self.fromPercent(pos['secondary'], G2_DIVR)
+                posk2 = 2 #unknown if this is the only possible number
+                positions_array.update({'posKind2': posk2, 'position2': pos2})
 
             pos = {
                 "shade": {
@@ -386,30 +383,28 @@ class Shade(udi_interface.Node):
             }
             shade_url = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
         else:
-            if pos.get('primary') in range(0, 101):
-                positions_array["primary"] = self.fromPercent(pos.get('primary', '0'))
+            if 'primary' in pos:
+                positions_array["primary"] = self.fromPercent(pos['primary'])
 
-            if pos.get('secondary') in range(0, 101):
-                positions_array["secondary"] = self.fromPercent(pos.get('secondary', '0'))
+            if 'secondary' in pos:
+                positions_array["secondary"] = self.fromPercent(pos['secondary'])
 
             if self.capabilities in self.tiltCapable:
-                if pos.get('tilt') in range(0, 101):
-                    tilt = self.fromPercent(pos.get('tilt', '0'))
+                if 'tilt' in pos:
+                    tilt = pos['tilt']
                     if self.capabilities in self.tiltOnly90Capable:
                         if tilt >= 50:
                             tilt = 49                    
-                    positions_array["tilt"] = tilt
-            else:
-                self.setDriver('GV4', None)
+                    positions_array["tilt"] = self.fromPercent(tilt)
 
-            if pos.get('velocity') in range(0, 101):
-                positions_array["velocity"] = self.fromPercent(pos.get('velocity', '0'))
+            if 'velocity' in pos:
+                positions_array["velocity"] = self.fromPercent(pos['velocity'])
 
             pos = {'positions': positions_array}
             shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
 
         self.controller.put(shade_url, data=pos)
-        LOGGER.debug(f"setShadePosition = {shade_url} , {pos}")
+        LOGGER.info(f"setShadePosition = {shade_url} , {pos}")
         return True
 
     def fromPercent(self, pos, divr=1.0):
@@ -421,7 +416,7 @@ class Shade(udi_interface.Node):
         return newpos
 
     # all the drivers - for reference
-            # TODO velocity not implemented
+    # TODO velocity not implemented
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
