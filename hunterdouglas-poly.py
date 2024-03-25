@@ -19,6 +19,7 @@ LOGGER = udi_interface.LOGGER
 VERSION = '0.1.5'
 """
 0.1.5
+DONE format for program setShadePosition
 DONE set Shade Position change using False to define which parameters to change
 DONE more debug on G2 so it acts as expected
 

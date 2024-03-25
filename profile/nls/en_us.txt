@@ -40,6 +40,8 @@ CMDP-SETPRIM-NAME = Primary
 CMDP-SETSECO-NAME = Secondary
 CMDP-SETTILT-NAME = Tilt
 
+PGM-CMD-SETPOS-FMT = /SETPRIM/${c}/->Primary to ${v} / /SETSECO//->Secondary to ${v} / /SETTILT//->Tilt to ${v} /
+
 SHADECAP-0 = Bottom Up
 SHADECAP-1 = Bottom Up w/ 90° Tilt
 SHADECAP-2 = Bottom Up w/ 180° Tilt
