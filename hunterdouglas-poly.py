@@ -16,8 +16,12 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.5'
+VERSION = '0.1.6'
 """
+0.1.6
+DONE parameters based on shade capabilities
+
+past versions:
 0.1.5
 DONE format for program setShadePosition
 DONE set Shade Position change using False to define which parameters to change
@@ -33,7 +37,6 @@ DONE add event 'homedoc-updated' currently no actions
 DONE limit room label size to 15 as room - shade/scene < 30 for ISY
 DONE clean up LOGGING.debug messages
 DONE G2 bug fixes
-
 
 0.1.2
 DONE change icons to nicer ones
@@ -53,7 +56,6 @@ DONE update readme & config instructions to highlight G3 scope
 DONE handle multiple gateways automatically, picking primary & switching if required
 DONE updated configuration instructions as well as link to the forums
 
-past versions:
 0.0.9
 DONE fix uom for positions(100) & ids(107)
 DONE more notices clean-up

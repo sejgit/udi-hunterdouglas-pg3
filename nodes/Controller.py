@@ -15,8 +15,7 @@ import socket
 import json
 
 # Nodes
-from nodes import Scene
-from nodes import Shade
+from nodes import *
 
 """
 Some shortcuts for udi interface components
@@ -96,6 +95,9 @@ class Controller(udi_interface.Node):
         self.scenes_array = []
         self.sceneIds_array = []
         self.generation = 99 # start with unknown
+
+        self.tiltCapable = [1, 2, 4, 5, 9, 10]
+        self.tiltOnly90Capable = [1, 9]
 
         # Create data storage classes to hold specific data that we need
         # to interact with.  
@@ -417,12 +419,44 @@ class Controller(udi_interface.Node):
 
                 shTxt = 'shade{}'.format(shadeId)
                 nodes_new.append(shTxt)
+                capabilities = int(shade['capabilities'])
                 if shTxt not in nodes:
-                    self.poly.addNode(Shade(self.poly, \
-                                            self.address, \
-                                            shTxt, \
-                                            shade["name"], \
-                                            shadeId))
+                    if capabilities in [7, 8]:
+                        self.poly.addNode(ShadeNoTilt(self.poly, \
+                                                self.address, \
+                                                shTxt, \
+                                                shade["name"], \
+                                                shade))
+                    elif capabilities in [0, 3]:
+                        self.poly.addNode(ShadeOnlyPrimary(self.poly, \
+                                                self.address, \
+                                                shTxt, \
+                                                shade["name"], \
+                                                shade))
+                    elif capabilities in [6]:
+                        self.poly.addNode(ShadeOnlySecondary(self.poly, \
+                                                self.address, \
+                                                shTxt, \
+                                                shade["name"], \
+                                                shade))
+                    elif capabilities in [1, 2, 4]:
+                        self.poly.addNode(ShadeNoSecondary(self.poly, \
+                                                self.address, \
+                                                shTxt, \
+                                                shade["name"], \
+                                                shade))
+                    elif capabilities in [5]:
+                        self.poly.addNode(ShadeOnlyTilt(self.poly, \
+                                                self.address, \
+                                                shTxt, \
+                                                shade["name"], \
+                                                shade))
+                    else: # [9, 10] or else
+                        self.poly.addNode(Shade(self.poly, \
+                                                self.address, \
+                                                shTxt, \
+                                                shade["name"], \
+                                                shade))
                     self.wait_for_node_done()
                 
             for scene in self.scenes_array:

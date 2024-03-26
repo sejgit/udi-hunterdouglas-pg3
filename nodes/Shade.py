@@ -68,7 +68,7 @@ class Shade(udi_interface.Node):
     query(): Called when ISY sends a query request to Polyglot for this
         specific node
     """
-    def __init__(self, polyglot, primary, address, name, sid):
+    def __init__(self, polyglot, primary, address, name, shade):
         """
         Optional.
         Super runs all the parent class necessities. You do NOT have
@@ -85,15 +85,19 @@ class Shade(udi_interface.Node):
         self.controller = polyglot.getNode(self.primary)
         self.address = address
         self.name = name
-        self.shadedata = {}
-        self.positions = {}
-        self.capabilities = 0
+        self.shadedata = shade
+        self.positions = shade['positions']
+        self.capabilities = int(shade['capabilities'])
+
+        if self.controller.generation == 2:
+            self.sid = shade['id']
+        else:
+            self.sid = shade['shadeId']
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
  
         self.lpfx = '%s:%s' % (address,name)
-        self.sid = sid
 
         self.poly.subscribe(self.poly.START, self.start, address)
         self.poly.subscribe(self.poly.POLL, self.poll)
@@ -141,7 +145,7 @@ class Shade(udi_interface.Node):
         if event:
             event = event[0]
             self.positions = self.posToPercent(event['currentPositions'])
-            if self.updatePositions(self.positions, self.capabilities):
+            if self.updatePositions():
                 self.setDriver('ST', 1)
                 LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
                 self.controller.gateway_event.remove(event)
@@ -152,7 +156,7 @@ class Shade(udi_interface.Node):
         if event:
             event = event[0]
             self.positions = self.posToPercent(event['currentPositions'])
-            if self.updatePositions(self.positions, self.capabilities):
+            if self.updatePositions():
                 self.setDriver('ST', 0)
                 LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
                 self.controller.gateway_event.remove(event)
@@ -163,7 +167,7 @@ class Shade(udi_interface.Node):
         if event:
             event = event[0]
             self.positions = self.posToPercent(event['currentPositions'])
-            if self.updatePositions(self.positions, self.capabilities):
+            if self.updatePositions():
                 LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
                 self.controller.gateway_event.remove(event)
                    
@@ -179,22 +183,22 @@ class Shade(udi_interface.Node):
                 self.setDriver('GV5', self.shadedata["capabilities"])
                 self.capabilities = int(self.shadedata["capabilities"])
                 self.positions = self.shadedata["positions"]
-                self.updatePositions(self.positions, self.capabilities)
+                self.updatePositions()
                 return True
         else:
             return False
 
-    def updatePositions(self, positions, capabilities):
-        if 'primary' in positions:
-            p1 = positions['primary']
+    def updatePositions(self):
+        if 'primary' in self.positions:
+            p1 = self.positions['primary']
         else:
             p1 = None
-        if 'secondary' in positions:
-            p2 = positions['secondary']
+        if 'secondary' in self.positions:
+            p2 = self.positions['secondary']
         else:
             p2 = None
-        if 'tilt' in positions:
-            t1 = positions['tilt']
+        if 'tilt' in self.positions:
+            t1 = self.positions['tilt']
         else:
             if self.capabilities in self.tiltCapable:
                 t1 = 0
@@ -202,29 +206,17 @@ class Shade(udi_interface.Node):
                 t1 = None
         LOGGER.debug(f"updatePositions {p1} {p2} {t1}")
             
-        if capabilities == 7 or capabilities == 8:
+        if self.capabilities in [7, 8]:
             self.setDriver('GV2', p1)
             self.setDriver('GV3', p2)
-            self.setDriver('GV4', None)
-        elif capabilities == 0 or capabilities == 3:
+        elif self.capabilities in [0, 3]:
             self.setDriver('GV2', p1)
-            self.setDriver('GV3', None)
-            self.setDriver('GV4', None)
-        elif capabilities == 6:
-            self.setDriver('GV2', None)
+        elif self.capabilities == 6:
             self.setDriver('GV3', p2)
-            self.setDriver('GV4', None)
-        elif capabilities == 1 or capabilities == 2 or capabilities == 4:
+        elif self.capabilities in [1, 2, 4]:
             self.setDriver('GV2', p1)
-            self.setDriver('GV3', None)
             self.setDriver('GV4', t1)
-        # elif capabilities = 99: # not used
-        #     self.setDriver('GV2', None)
-        #     self.setDriver('GV3', positions["secondary"], force= True)
-        #     self.setDriver('GV4', positions["tilt"], force= True)
-        elif capabilities == 5:
-            self.setDriver('GV2', None)
-            self.setDriver('GV3', None)
+        elif self.capabilities == 5:
             self.setDriver('GV4', t1)
         else: # 9, 10 , unknown
             self.setDriver('GV2', p1)
@@ -443,12 +435,134 @@ class Shade(udi_interface.Node):
         'QUERY': query,
     }
 
+class ShadeNoTilt(Shade):
+    id = 'shadenotiltid'
+
+    def __init__(self, polyglot, primary, address, name, shade):
+        super().__init__(polyglot, primary, address, name, shade)
+
+        self.drivers = [
+            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+            {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+            {'driver': 'GV3', 'value': None, 'uom': 100, 'name': "Secondary"},
+            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+            ]
+
+        self.commands = {
+            'OPEN': super().cmdOpen,
+            'CLOSE': super().cmdClose,
+            'STOP': super().cmdStop,
+            'JOG': super().cmdJog,
+            'SETPOS': super().cmdSetpos,
+            'QUERY': super().query,
+        }
+
+class ShadeOnlyPrimary(Shade):
+    id = 'shadeonlyprimid'
+
+    def __init__(self, polyglot, primary, address, name, shade):
+        super().__init__(polyglot, primary, address, name, shade)
+
+        self.drivers = [
+            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+            {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+            ]
+
+        self.commands = {
+            'OPEN': super().cmdOpen,
+            'CLOSE': super().cmdClose,
+            'STOP': super().cmdStop,
+            'JOG': super().cmdJog,
+            'SETPOS': super().cmdSetpos,
+            'QUERY': super().query,
+        }
+
+class ShadeOnlySecondary(Shade):
+    id = 'shadeonlysecondid'
+
+    def __init__(self, polyglot, primary, address, name, shade):
+        super().__init__(polyglot, primary, address, name, shade)
+
+        self.drivers = [
+            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+            {'driver': 'GV3', 'value': None, 'uom': 100, 'name': "Secondary"},
+            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+            ]
+
+        self.commands = {
+            'JOG': super().cmdJog,
+            'SETPOS': super().cmdSetpos,
+            'QUERY': super().query,
+        }
+
+class ShadeNoSecondary(Shade):
+    id = 'shadenosecondid'
+
+    def __init__(self, polyglot, primary, address, name, shade):
+        super().__init__(polyglot, primary, address, name, shade)
+
+        self.drivers = [
+            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+            {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+            {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
+            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+            ]
+
+        self.commands = {
+            'OPEN': super().cmdOpen,
+            'CLOSE': super().cmdClose,
+            'STOP': super().cmdStop,
+            'TILTOPEN': super().cmdTiltOpen,
+            'TILTCLOSE': super().cmdTiltClose,
+            'JOG': super().cmdJog,
+            'SETPOS': super().cmdSetpos,
+            'QUERY': super().query,
+        }
+
+class ShadeOnlyTilt(Shade):
+    id = 'shadeonlytiltid'
+
+    def __init__(self, polyglot, primary, address, name, shade):
+        super().__init__(polyglot, primary, address, name, shade)
+
+        self.drivers = [
+            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+            {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
+            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+            ]
+
+        self.commands = {
+            'TILTOPEN': super().cmdTiltOpen,
+            'TILTCLOSE': super().cmdTiltClose,
+            'JOG': super().cmdJog,
+            'SETPOS': super().cmdSetpos,
+            'QUERY': super().query,
+        }
+
     """
     Shade Capabilities:
 
     Type 0 - Bottom Up 
     Examples: Standard roller/screen shades, Duette bottom up 
     Uses the “primary” control type
+
+    
 
     Type 1 - Bottom Up w/ 90° Tilt 
     Examples: Silhouette, Pirouette 
@@ -498,4 +612,4 @@ class Shade(udi_interface.Node):
     Example: Silhouette Halo Duolite 
     Uses the “primary,” “secondary,” and “tilt” control types
     """
-      
+    

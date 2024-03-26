@@ -57,6 +57,158 @@
           </accepts>
         </cmds>
     </nodeDef>
+	<!-- shadeNoTiltid -->
+    <nodeDef id="shadenotiltid" nls="shade">
+        <editors />
+        <sts>
+            <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
+            <st id="GV1" editor="ID" />
+            <st id="GV2" editor="POSITION" uom="100" />
+            <st id="GV3" editor="POSITION" uom="100" />
+            <st id="GV5" editor="SHADECAP" />
+            <st id="GV6" editor="BATTERYST" />
+        </sts>
+        <cmds>
+          <sends>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+          </sends>
+          <accepts>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="JOG" />
+            <cmd id="QUERY" />
+            <cmd id="SETPOS" >
+              <p id="SETPRIM" editor="POSITION" optional="T" />
+              <p id="SETSECO" editor="POSITION" optional="T" />
+            </cmd>
+          </accepts>
+        </cmds>
+    </nodeDef>
+	<!-- shadeOnlyPrimid -->
+    <nodeDef id="shadeonlyprimid" nls="shade">
+        <editors />
+        <sts>
+            <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
+            <st id="GV1" editor="ID" />
+            <st id="GV2" editor="POSITION" uom="100" />
+            <st id="GV5" editor="SHADECAP" />
+            <st id="GV6" editor="BATTERYST" />
+        </sts>
+        <cmds>
+          <sends>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="JOG" />
+          </sends>
+          <accepts>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="JOG" />
+            <cmd id="QUERY" />
+            <cmd id="SETPOS" >
+              <p id="SETPRIM" editor="POSITION" optional="T" />
+            </cmd>
+          </accepts>
+        </cmds>
+    </nodeDef>
+	<!-- shadeOnlySecondid -->
+    <nodeDef id="shadeonlysecondid" nls="shade">
+        <editors />
+        <sts>
+            <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
+            <st id="GV1" editor="ID" />
+            <st id="GV3" editor="POSITION" uom="100" />
+            <st id="GV5" editor="SHADECAP" />
+            <st id="GV6" editor="BATTERYST" />
+        </sts>
+        <cmds>
+          <sends>
+            <cmd id="JOG" />
+          </sends>
+          <accepts>
+            <cmd id="QUERY" />
+            <cmd id="SETPOS" >
+              <p id="SETPRIM" editor="POSITION" optional="T" />
+              <p id="SETSECO" editor="POSITION" optional="T" />
+            </cmd>
+          </accepts>
+        </cmds>
+    </nodeDef>
+	<!-- shadeNoSecondid -->
+    <nodeDef id="shadenosecondid" nls="shade">
+        <editors />
+        <sts>
+            <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
+            <st id="GV1" editor="ID" />
+            <st id="GV2" editor="POSITION" uom="100" />
+            <st id="GV4" editor="TILT" uom="100" />
+            <st id="GV5" editor="SHADECAP" />
+            <st id="GV6" editor="BATTERYST" />
+        </sts>
+        <cmds>
+          <sends>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+          </sends>
+          <accepts>
+            <cmd id="OPEN" />
+            <cmd id="CLOSE" />
+            <cmd id="STOP" />
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+            <cmd id="QUERY" />
+            <cmd id="SETPOS" >
+              <p id="SETPRIM" editor="POSITION" optional="T" />
+              <p id="SETTILT" editor="TILT" optional="T" />
+            </cmd>
+          </accepts>
+        </cmds>
+    </nodeDef>
+	<!-- shadeOnlyTiltid -->
+    <nodeDef id="shadeonlytiltid" nls="shade">
+        <editors />
+        <sts>
+            <st id="GV0" editor="ID" />
+            <st id="ST" editor="BOOL" />
+            <st id="GV1" editor="ID" />
+            <st id="GV4" editor="TILT" uom="100" />
+            <st id="GV5" editor="SHADECAP" />
+            <st id="GV6" editor="BATTERYST" />
+        </sts>
+        <cmds>
+          <sends>
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+          </sends>
+          <accepts>
+            <cmd id="TILTOPEN" />
+            <cmd id="TILTCLOSE" />
+            <cmd id="JOG" />
+            <cmd id="QUERY" />
+            <cmd id="SETPOS" >
+              <p id="SETTILT" editor="TILT" optional="T" />
+            </cmd>
+          </accepts>
+        </cmds>
+    </nodeDef>
 	<!-- sceneid -->
     <nodeDef id="sceneid" nls="scene">
         <editors />
