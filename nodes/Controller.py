@@ -474,6 +474,8 @@ class Controller(udi_interface.Node):
                                             scene["name"], \
                                             sceneId))
                     self.wait_for_node_done()
+        else:
+            LOGGER.error('Discovery Failure')
 
         # remove nodes which do not exist in gateway
         nodes = self.poly.getNodes()
@@ -487,6 +489,8 @@ class Controller(udi_interface.Node):
                 self.poly.delNode(node)
 
         self.discovery = False
+        if nodes_get == nodes_new:
+            LOGGER.error('Discovery NO NEW activity')
         LOGGER.info('Discovery complete.')
 
     def delete(self):
@@ -674,11 +678,13 @@ class Controller(udi_interface.Node):
                 LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
-                LOGGER.info("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
                 if self.genCheck3():
-                    LOGGER.info("getHomeG3 fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateway_array)
                 else:
-                    LOGGER.info("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+        else:
+            LOGGER.error("getHomeG3 self.gateway_array NONE")
         return None
 
     def getHomeG2(self):
@@ -690,11 +696,13 @@ class Controller(udi_interface.Node):
                 LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
-                LOGGER.info("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
                 if self.genCheck2():
-                    LOGGER.info("getHomeG2 fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateway_array)
                 else:
-                    LOGGER.info("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+        else:
+            LOGGER.error("getHomeG2 self.gateway_array NONE")
         return None
     
     def get(self, url):

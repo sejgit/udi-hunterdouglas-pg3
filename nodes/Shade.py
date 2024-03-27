@@ -236,7 +236,7 @@ class Shade(udi_interface.Node):
         """
         open shade
         """
-        LOGGER.debug('Shade Open %s', self.lpfx)
+        LOGGER.info('cmd Shade Open %s', self.lpfx)
         if self.controller.generation == 2:
             self.positions["primary"] = 100
         else:
@@ -247,7 +247,7 @@ class Shade(udi_interface.Node):
         """
         close shade
         """
-        LOGGER.debug('Shade Close %s', self.lpfx)
+        LOGGER.info('cmd Shade Close %s', self.lpfx)
         if self.controller.generation == 2:
             self.positions["primary"] = 0
         else:
@@ -262,13 +262,14 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 3:
             shadeUrl = URL_SHADES_STOP.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(shadeUrl)
-            LOGGER.debug('Shade Stop %s', self.lpfx)
+            LOGGER.info('cmd Shade Stop %s', self.lpfx)
 
     def cmdTiltOpen(self, command):
         """
         tilt shade open
         """
-        LOGGER.debug('Shade TiltOpen %s', self.lpfx)
+        LOGGER.info('cmd Shade TiltOpen %s', self.lpfx)
+        
         self.positions["tilt"] = 50
         self.setShadePosition(self.positions)
 
@@ -276,7 +277,7 @@ class Shade(udi_interface.Node):
         """
         tilt shade close
         """
-        LOGGER.debug('Shade TiltClose %s', self.lpfx)
+        LOGGER.info('cmd Shade TiltClose %s', self.lpfx)
         self.positions['tilt'] = 0
         self.setShadePosition(self.positions)
 
@@ -296,7 +297,7 @@ class Shade(udi_interface.Node):
             }
 
         self.controller.put(shadeUrl, data=body)
-        LOGGER.debug('Shade JOG %s', self.lpfx)
+        LOGGER.info('cmd Shade JOG %s', self.lpfx)
 
     def cmdCalibrate(self, command):
         """
@@ -313,7 +314,7 @@ class Shade(udi_interface.Node):
             }
 
             self.controller.put(shadeUrl, data=body)
-            LOGGER.debug('Shade CALIBRATE %s', self.lpfx)
+            LOGGER.debug('cmd Shade CALIBRATE %s', self.lpfx)
                 
     def query(self, command=None):
         """
@@ -323,8 +324,9 @@ class Shade(udi_interface.Node):
         """
         self.updateData()
         self.reportDrivers()
+        LOGGER.info('cmd Query %s', self.lpfx)
 
-    def cmdSetpos(self, command):
+    def cmdSetpos(self, command, **kwargs):
         """
         setting primary, secondary, tilt
         """
@@ -435,62 +437,61 @@ class Shade(udi_interface.Node):
         'QUERY': query,
     }
 
+    
+###################
+# Shade sub-classes
+###################
+
 class ShadeNoTilt(Shade):
     id = 'shadenotiltid'
 
-    def __init__(self, polyglot, primary, address, name, shade):
-        super().__init__(polyglot, primary, address, name, shade)
+    # def __init__(self, *args):
+    #     super().__init__(*args)
 
-        self.drivers = [
-            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
-            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
-            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
-            {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
-            {'driver': 'GV3', 'value': None, 'uom': 100, 'name': "Secondary"},
-            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
-            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
-            ]
+    drivers = [
+        {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+        {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+        {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+        {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+        {'driver': 'GV3', 'value': None, 'uom': 100, 'name': "Secondary"},
+        {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+        {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+        ]
 
-        self.commands = {
-            'OPEN': super().cmdOpen,
-            'CLOSE': super().cmdClose,
-            'STOP': super().cmdStop,
-            'JOG': super().cmdJog,
-            'SETPOS': super().cmdSetpos,
-            'QUERY': super().query,
+    commands = {
+            'OPEN': Shade.cmdOpen,
+            'CLOSE': Shade.cmdClose,
+            'STOP': Shade.cmdStop,
+            'JOG': Shade.cmdJog,
+            'SETPOS': Shade.cmdSetpos,
+            'QUERY': Shade.query,
         }
 
 class ShadeOnlyPrimary(Shade):
     id = 'shadeonlyprimid'
 
-    def __init__(self, polyglot, primary, address, name, shade):
-        super().__init__(polyglot, primary, address, name, shade)
+    drivers = [
+        {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+        {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+        {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+        {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+        {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+        {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+        ]
 
-        self.drivers = [
-            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
-            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
-            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
-            {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
-            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
-            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
-            ]
-
-        self.commands = {
-            'OPEN': super().cmdOpen,
-            'CLOSE': super().cmdClose,
-            'STOP': super().cmdStop,
-            'JOG': super().cmdJog,
-            'SETPOS': super().cmdSetpos,
-            'QUERY': super().query,
+    commands = {
+            'OPEN': Shade.cmdOpen,
+            'CLOSE': Shade.cmdClose,
+            'STOP': Shade.cmdStop,
+            'JOG': Shade.cmdJog,
+            'SETPOS': Shade.cmdSetpos,
+            'QUERY': Shade.query,
         }
 
 class ShadeOnlySecondary(Shade):
     id = 'shadeonlysecondid'
 
-    def __init__(self, polyglot, primary, address, name, shade):
-        super().__init__(polyglot, primary, address, name, shade)
-
-        self.drivers = [
+    drivers = [
             {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
             {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
             {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
@@ -499,61 +500,55 @@ class ShadeOnlySecondary(Shade):
             {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
             ]
 
-        self.commands = {
-            'JOG': super().cmdJog,
-            'SETPOS': super().cmdSetpos,
-            'QUERY': super().query,
+    commands = {
+            'JOG': Shade.cmdJog,
+            'SETPOS': Shade.cmdSetpos,
+            'QUERY': Shade.query,
         }
 
 class ShadeNoSecondary(Shade):
     id = 'shadenosecondid'
 
-    def __init__(self, polyglot, primary, address, name, shade):
-        super().__init__(polyglot, primary, address, name, shade)
+    drivers = [
+        {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+        {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+        {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+        {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
+        {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
+        {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+        {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+        ]
 
-        self.drivers = [
-            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
-            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
-            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
-            {'driver': 'GV2', 'value': None, 'uom': 100, 'name': "Primary"},
-            {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
-            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
-            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
-            ]
-
-        self.commands = {
-            'OPEN': super().cmdOpen,
-            'CLOSE': super().cmdClose,
-            'STOP': super().cmdStop,
-            'TILTOPEN': super().cmdTiltOpen,
-            'TILTCLOSE': super().cmdTiltClose,
-            'JOG': super().cmdJog,
-            'SETPOS': super().cmdSetpos,
-            'QUERY': super().query,
+    commands = {
+            'OPEN': Shade.cmdOpen,
+            'CLOSE': Shade.cmdClose,
+            'STOP': Shade.cmdStop,
+            'TILTOPEN': Shade.cmdTiltOpen,
+            'TILTCLOSE': Shade.cmdTiltClose,
+            'JOG': Shade.cmdJog,
+            'SETPOS': Shade.cmdSetpos,
+            'QUERY': Shade.query,
         }
 
 class ShadeOnlyTilt(Shade):
     id = 'shadeonlytiltid'
 
-    def __init__(self, polyglot, primary, address, name, shade):
-        super().__init__(polyglot, primary, address, name, shade)
+    drivers = [
+        {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
+        {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
+        {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
+        {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
+        {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
+        {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
+        ]
 
-        self.drivers = [
-            {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
-            {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
-            {'driver': 'GV1', 'value': 0, 'uom': 107, 'name': "Room Id"},
-            {'driver': 'GV4', 'value': None, 'uom': 100, 'name': "Tilt"},
-            {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
-            {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
-            ]
-
-        self.commands = {
-            'TILTOPEN': super().cmdTiltOpen,
-            'TILTCLOSE': super().cmdTiltClose,
-            'JOG': super().cmdJog,
-            'SETPOS': super().cmdSetpos,
-            'QUERY': super().query,
-        }
+    commands = {
+        'TILTOPEN': Shade.cmdTiltOpen,
+        'TILTCLOSE': Shade.cmdTiltClose,
+        'JOG': Shade.cmdJog,
+        'SETPOS': Shade.cmdSetpos,
+        'QUERY': Shade.query,
+    }
 
     """
     Shade Capabilities:
