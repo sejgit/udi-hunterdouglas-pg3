@@ -569,11 +569,16 @@ class Controller(udi_interface.Node):
                         sh['name'] = '%s - %s' % (room_name, name)
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
+                            positions = sh['positions']
                             # Convert positions to integer percentages
-                            sh['positions']['primary'] = self.toPercent(sh['positions']['primary'])
-                            sh['positions']['secondary'] = self.toPercent(sh['positions']['secondary'])
-                            sh['positions']['tilt'] = self.toPercent(sh['positions']['tilt'])
-                            sh['positions']['velocity'] = self.toPercent(sh['positions']['velocity'])
+                            if 'primary' in positions:
+                                sh['positions']['primary'] = self.toPercent(positions['primary'])
+                            if 'secondary' in positions:
+                                sh['positions']['secondary'] = self.toPercent(positions['secondary'])
+                            if 'tilt' in positions:
+                                sh['positions']['tilt'] = self.toPercent(positions['tilt'])
+                            if 'velocity' in positions:
+                                sh['positions']['velocity'] = self.toPercent(positions['velocity'])
                         self.shadeIds_array.append(sh["shadeId"])
                         self.shades_array.append(sh)
 
@@ -634,13 +639,14 @@ class Controller(udi_interface.Node):
                         if 'positions' in shade:
                             pos = shade['positions']
                             # Convert positions to integer percentages & handle tilt
-                            if pos['posKind1'] == 1:
-                                if 'position1' in pos:
-                                    shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
-                            if pos['posKind1'] == 3:
-                                shade['positions']['primary'] = 0
-                                if 'position1' in pos:
-                                    shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
+                            if 'posKind1' in pos:
+                                if pos['posKind1'] == 1:
+                                    if 'position1' in pos:
+                                        shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
+                                if pos['posKind1'] == 3:
+                                    shade['positions']['primary'] = 0
+                                    if 'position1' in pos:
+                                        shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
                             if 'position2' in pos:
                                 shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
                     LOGGER.info(f"shades = {self.shadeIds_array}")

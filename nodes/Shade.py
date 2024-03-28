@@ -271,7 +271,7 @@ class Shade(udi_interface.Node):
         LOGGER.info('cmd Shade TiltOpen %s', self.lpfx)
         
         self.positions["tilt"] = 50
-        self.setShadePosition(self.positions)
+        self.setShadePosition(pos = {"tilt": 50})
 
     def cmdTiltClose(self, command):
         """
@@ -279,7 +279,7 @@ class Shade(udi_interface.Node):
         """
         LOGGER.info('cmd Shade TiltClose %s', self.lpfx)
         self.positions['tilt'] = 0
-        self.setShadePosition(self.positions)
+        self.setShadePosition(pos = {"tilt": 0})
 
     def cmdJog(self, command):
         """
@@ -326,7 +326,7 @@ class Shade(udi_interface.Node):
         self.reportDrivers()
         LOGGER.info('cmd Query %s', self.lpfx)
 
-    def cmdSetpos(self, command, **kwargs):
+    def cmdSetpos(self, command):
         """
         setting primary, secondary, tilt
         """
