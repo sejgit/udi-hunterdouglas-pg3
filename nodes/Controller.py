@@ -478,6 +478,8 @@ class Controller(udi_interface.Node):
             LOGGER.error('Discovery Failure')
 
         # remove nodes which do not exist in gateway
+        nodes = self.poly.getNodesFromDb()
+        LOGGER.info(f"db nodes = {nodes}")
         nodes = self.poly.getNodes()
         nodes_get = {key: nodes[key] for key in nodes if key != self.id}
         LOGGER.info(f"old nodes = {nodes_old}")

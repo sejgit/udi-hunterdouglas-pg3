@@ -50,9 +50,9 @@
             <cmd id="JOG" />
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETPRIM" editor="POSITION" optional="T" />
-              <p id="SETSECO" editor="POSITION" optional="T" />
-              <p id="SETTILT" editor="TILT" optional="T" />
+              <p id="SETPRIM" editor="POSITION" />
+              <p id="SETSECO" editor="POSITION" />
+              <p id="SETTILT" editor="TILT" />
             </cmd>
           </accepts>
         </cmds>
@@ -85,8 +85,8 @@
             <cmd id="JOG" />
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETPRIM" editor="POSITION" optional="T" />
-              <p id="SETSECO" editor="POSITION" optional="T" />
+              <p id="SETPRIM" editor="POSITION" />
+              <p id="SETSECO" editor="POSITION" />
             </cmd>
           </accepts>
         </cmds>
@@ -116,7 +116,7 @@
             <cmd id="JOG" />
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETPRIM" editor="POSITION" optional="T" />
+              <p id="SETPRIM" editor="POSITION" />
             </cmd>
           </accepts>
         </cmds>
@@ -139,8 +139,8 @@
           <accepts>
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETPRIM" editor="POSITION" optional="T" />
-              <p id="SETSECO" editor="POSITION" optional="T" />
+              <p id="SETPRIM" editor="POSITION" />
+              <p id="SETSECO" editor="POSITION" />
             </cmd>
           </accepts>
         </cmds>
@@ -175,8 +175,8 @@
             <cmd id="JOG" />
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETPRIM" editor="POSITION" optional="T" />
-              <p id="SETTILT" editor="TILT" optional="T" />
+              <p id="SETPRIM" editor="POSITION" />
+              <p id="SETTILT" editor="TILT" />
             </cmd>
           </accepts>
         </cmds>
@@ -204,7 +204,7 @@
             <cmd id="JOG" />
             <cmd id="QUERY" />
             <cmd id="SETPOS" >
-              <p id="SETTILT" editor="TILT" optional="T" />
+              <p id="SETTILT" editor="TILT" />
             </cmd>
           </accepts>
         </cmds>

@@ -19,6 +19,17 @@ CDM-50 = Critical
 # shade
 ND-shadeid-NAME = Shade
 ND-shadeid-ICON = GenericRspCtl
+ND-shadeonlyprimid-NAME = Shade
+ND-shadeonlyprimid-ICON = GenericRspCtl
+ND-shadeonlysecondid-NAME = Shade
+ND-shadeonlysecondid-ICON = GenericRspCtl
+ND-shadenosecondid-NAME = Shade
+ND-shadenosecondid-ICON = GenericRspCtl
+ND-shadeonlytiltid-NAME = Shade
+ND-shadeonlytiltid-ICON = GenericRspCtl
+ND-shadenotiltid-NAME = Shade
+ND-shadenotiltid-ICON = GenericRspCtl
+
 ST-shade-ST-NAME = Motion
 ST-shade-GV0-NAME = Id
 ST-shade-GV1-NAME = RoomID

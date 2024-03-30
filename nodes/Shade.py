@@ -342,8 +342,10 @@ class Shade(udi_interface.Node):
             if "SETTILT.uom100" in query:
                 pos["tilt"] = int(query["SETTILT.uom100"])
             LOGGER.info('Shade Setpos %s', pos)
-            self.setShadePosition(pos)
-            self.positions.update(pos)
+            if pos != {}:
+                LOGGER.error('Shade Setpos --nothing to set--')
+                self.setShadePosition(pos)
+                self.positions.update(pos)
         except:
             LOGGER.error('Shade Setpos failed %s', self.lpfx)
 
@@ -433,8 +435,8 @@ class Shade(udi_interface.Node):
         'TILTOPEN': cmdTiltOpen,
         'TILTCLOSE': cmdTiltClose,
         'JOG': cmdJog,
-        'SETPOS': cmdSetpos,
         'QUERY': query,
+        'SETPOS': cmdSetpos
     }
 
     
@@ -445,9 +447,6 @@ class Shade(udi_interface.Node):
 class ShadeNoTilt(Shade):
     id = 'shadenotiltid'
 
-    # def __init__(self, *args):
-    #     super().__init__(*args)
-
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
@@ -457,15 +456,6 @@ class ShadeNoTilt(Shade):
         {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
-
-    commands = {
-            'OPEN': Shade.cmdOpen,
-            'CLOSE': Shade.cmdClose,
-            'STOP': Shade.cmdStop,
-            'JOG': Shade.cmdJog,
-            'SETPOS': Shade.cmdSetpos,
-            'QUERY': Shade.query,
-        }
 
 class ShadeOnlyPrimary(Shade):
     id = 'shadeonlyprimid'
@@ -479,15 +469,6 @@ class ShadeOnlyPrimary(Shade):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
-    commands = {
-            'OPEN': Shade.cmdOpen,
-            'CLOSE': Shade.cmdClose,
-            'STOP': Shade.cmdStop,
-            'JOG': Shade.cmdJog,
-            'SETPOS': Shade.cmdSetpos,
-            'QUERY': Shade.query,
-        }
-
 class ShadeOnlySecondary(Shade):
     id = 'shadeonlysecondid'
 
@@ -499,12 +480,6 @@ class ShadeOnlySecondary(Shade):
             {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
             {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
             ]
-
-    commands = {
-            'JOG': Shade.cmdJog,
-            'SETPOS': Shade.cmdSetpos,
-            'QUERY': Shade.query,
-        }
 
 class ShadeNoSecondary(Shade):
     id = 'shadenosecondid'
@@ -519,17 +494,6 @@ class ShadeNoSecondary(Shade):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
-    commands = {
-            'OPEN': Shade.cmdOpen,
-            'CLOSE': Shade.cmdClose,
-            'STOP': Shade.cmdStop,
-            'TILTOPEN': Shade.cmdTiltOpen,
-            'TILTCLOSE': Shade.cmdTiltClose,
-            'JOG': Shade.cmdJog,
-            'SETPOS': Shade.cmdSetpos,
-            'QUERY': Shade.query,
-        }
-
 class ShadeOnlyTilt(Shade):
     id = 'shadeonlytiltid'
 
@@ -541,15 +505,7 @@ class ShadeOnlyTilt(Shade):
         {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
-
-    commands = {
-        'TILTOPEN': Shade.cmdTiltOpen,
-        'TILTCLOSE': Shade.cmdTiltClose,
-        'JOG': Shade.cmdJog,
-        'SETPOS': Shade.cmdSetpos,
-        'QUERY': Shade.query,
-    }
-
+    
     """
     Shade Capabilities:
 
