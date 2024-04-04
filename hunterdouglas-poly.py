@@ -16,12 +16,15 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.6'
+VERSION = '0.1.7'
 """
+0.1.7
+DONE rename nodes if changed in PowerView app
+
+past versions:
 0.1.6
 DONE parameters based on shade capabilities
 
-past versions:
 0.1.5
 DONE format for program setShadePosition
 DONE set Shade Position change using False to define which parameters to change

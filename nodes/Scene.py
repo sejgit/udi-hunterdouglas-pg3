@@ -103,6 +103,7 @@ class Scene(udi_interface.Node):
         LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
         self.setDriver('GV0', int(self.sid))
         LOGGER.debug('%s: get GV0=%s',self.lpfx,self.getDriver('GV0'))
+        self.rename(self.name)
 
     def poll(self, flag):
         if 'longPoll' in flag:
@@ -116,6 +117,36 @@ class Scene(udi_interface.Node):
             self.setDriver('ST', None)
 
     def events(self):
+       # home update event
+        event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+        if event:
+            event = event[0]
+            if event['scenes'].count(self.sid) > 0:
+                try:
+                    LOGGER.info(f'shortPoll scene {self.sid} update')
+                    if self.controller.generation == 2:
+                        data = list(filter(lambda scene: scene['id'] == self.sid, self.controller.scenes_array))
+                    else:
+                        data = list(filter(lambda scene: scene['_id'] == self.sid, self.controller.scenes_array))
+                
+                    if data:
+                        self.scenedata = data[0]
+                        if self.name != self.scenedata['name']:
+                            LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, _id:{self.scenedata['_id']}, name:{self.scenedata['name']}")
+                            LOGGER.warn(f"scene name changed from {self.name} to {self.scenedata['name']}")
+                            self.rename(self.scenedata['name'])
+                        
+                    self.controller.gateway_event[self.controller.gateway_event.index(event)]['scenes'].remove(self.sid)
+                except:
+                    LOGGER.error(f"scene event error sid = {self.sid}")
+            else:
+                pass
+                # LOGGER.debug(f'shortPoll scene {self.sid} home evt but update already')
+        else:
+            pass
+            # LOGGER.debug(f'shortPoll scene {self.sid} no home evt')
+
+        # NOTE rest of the events below are only for G3, will not fire for G2
         event = list(filter(lambda events: (events['evt'] == 'scene-activated' or events['evt'] == 'scene-deactivated'), \
                             self.controller.gateway_event))
         if event:

@@ -313,7 +313,7 @@ class Controller(udi_interface.Node):
                 event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
                 if event:
                     event = event[0]
-                    LOGGER.debug('longPoll event - no action {}'.format(event))
+                    LOGGER.warn('longPoll event - homedoc-updated - {}'.format(event))
                     self.gateway_event.remove(event)
                 
                 event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))

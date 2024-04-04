@@ -110,6 +110,7 @@ class Shade(udi_interface.Node):
         self.setDriver('GV0', self.sid)
         self.updateData()
         self.reportDrivers()
+        self.rename(self.name)
 
     def poll(self, flag):
         if 'longPoll' in flag:
@@ -178,6 +179,10 @@ class Shade(udi_interface.Node):
             LOGGER.debug(f"shade {self.sid} is {data}")
             if data:
                 self.shadedata = data[0]
+                if self.name != self.shadedata['name']:
+                    LOGGER.warn(f"Name error current:{self.name}  new:{self.shadedata['name']}")
+                    self.rename(self.shadedata['name'])
+                    LOGGER.warn(f"Renamed {self.name}")
                 self.setDriver('GV1', self.shadedata["roomId"])
                 self.setDriver('GV6', self.shadedata["batteryStatus"])
                 self.setDriver('GV5', self.shadedata["capabilities"])
