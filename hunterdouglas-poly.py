@@ -17,6 +17,7 @@ import sys
 LOGGER = udi_interface.LOGGER
 
 VERSION = '0.1.7'
+
 """
 0.1.7
 DONE rename nodes if changed in PowerView app
