@@ -16,16 +16,19 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.8'
+VERSION = '0.1.9'
 
 """
+0.1.9
+FIXME G3 Events stop working after some period of time
+
+past versions:
 0.1.8
 DEBUG branch
 
 0.1.7
 DONE rename nodes if changed in PowerView app
 
-past versions:
 0.1.6
 DONE parameters based on shade capabilities
 

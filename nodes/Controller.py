@@ -95,6 +95,8 @@ class Controller(udi_interface.Node):
         self.scenes_array = []
         self.sceneIds_array = []
         self.generation = 99 # start with unknown
+        self.eventTimeout = 720
+        self.eventTimer = 0
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
@@ -346,7 +348,14 @@ class Controller(udi_interface.Node):
                         except:
                             yy = {}
                     self.gateway_event.append(yy)
+                    self.eventTimer = 0
                     LOGGER.info(f"new event = {yy}")
+                else:
+                    self.eventTimer += 1
+                    LOGGER.debug(f"increment eventTimer")
+                    if self.eventTimer > self.eventTimeout:
+                        self.gateway_sse = self.sseInit()
+                        LOGGER.info(f"eventTimeout")
             except:
                 pass
                 # LOGGER.debug('shortPoll nothing to do')
