@@ -20,7 +20,7 @@ VERSION = '0.1.9'
 
 """
 0.1.9
-FIXME G3 Events stop working after some period of time
+DONE Fix G3 Events stop working after some period of time
 
 past versions:
 0.1.8

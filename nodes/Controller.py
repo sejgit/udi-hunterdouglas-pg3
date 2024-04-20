@@ -348,17 +348,15 @@ class Controller(udi_interface.Node):
                         except:
                             yy = {}
                     self.gateway_event.append(yy)
+                    LOGGER.info(f"{self.eventTimer} new event = {yy}")
                     self.eventTimer = 0
-                    LOGGER.info(f"new event = {yy}")
-                else:
-                    self.eventTimer += 1
-                    LOGGER.debug(f"increment eventTimer")
-                    if self.eventTimer > self.eventTimeout:
-                        self.gateway_sse = self.sseInit()
-                        LOGGER.info(f"eventTimeout")
             except:
-                pass
-                # LOGGER.debug('shortPoll nothing to do')
+                self.eventTimer += 1
+                LOGGER.info(f"increment eventTimer = {self.eventTimer}")
+                if self.eventTimer > self.eventTimeout:
+                    self.gateway_sse = self.sseInit()
+                    LOGGER.info(f"eventTimeout")
+                    self.eventTimer = 0
 
     def sseInit(self):
         """
