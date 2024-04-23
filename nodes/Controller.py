@@ -600,8 +600,11 @@ class Controller(udi_interface.Node):
                     self.scenes_array.append(sc)
                     name = sc['name']
                     LOGGER.debug("scenes-3")
-                    room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
-                    room_name = room_name[0:ROOM_NAME_LIMIT]
+                    if sc['room_Id'] == None:
+                        room_name = "Multi"
+                    else:
+                        room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                        room_name = room_name[0:ROOM_NAME_LIMIT]
                     sc['name'] = '%s - %s' % (room_name, name)
                     LOGGER.debug('Update scenes-1')
 
@@ -667,8 +670,11 @@ class Controller(udi_interface.Node):
                     self.sceneIds_array = data['sceneIds']
                     for scene in self.scenes_array:
                         name = base64.b64decode(scene['name']).decode()
-                        room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
-                        room_name = room_name[0:ROOM_NAME_LIMIT]
+                        if scene['roomId'] == None:
+                            room_name = "Multi"
+                        else:
+                            room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
+                            room_name = room_name[0:ROOM_NAME_LIMIT]
                         scene['name'] = '%s - %s' % (room_name, name)
                     LOGGER.info(f" {self.sceneIds_array}")
 

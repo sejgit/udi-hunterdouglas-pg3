@@ -16,13 +16,16 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.9'
+VERSION = '0.1.10'
 
 """
+0.1.10
+DEBUG multi-room scenes sending Discover into exception
+
+past versions:
 0.1.9
 DONE Fix G3 Events stop working after some period of time
 
-past versions:
 0.1.8
 DEBUG branch
 
