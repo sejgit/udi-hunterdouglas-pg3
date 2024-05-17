@@ -344,9 +344,11 @@ class Controller(udi_interface.Node):
                         yy = json.loads(y)
                     except:
                         try:
-                            yy = json.loads(y + next(x))
+                            LOGGER.error(f"json.loads-1 fail: {y}")
+                            y_next = next(x)
+                            yy = json.loads(y + y_next)
                         except:
-                            LOGGER.error(f"json.loads fail: {y}")
+                            LOGGER.error(f"json.loads-2 fail: {y} +: {y_next}")
                             yy = {}
                     if yy != {}:
                         self.gateway_event.append(yy)
