@@ -346,10 +346,12 @@ class Controller(udi_interface.Node):
                         try:
                             yy = json.loads(y + next(x))
                         except:
+                            LOGGER.error(f"json.loads fail: {y}")
                             yy = {}
-                    self.gateway_event.append(yy)
-                    LOGGER.info(f"{self.eventTimer} new event = {yy}")
-                    self.eventTimer = 0
+                    if yy != {}:
+                        self.gateway_event.append(yy)
+                        LOGGER.info(f"{self.eventTimer} new event = {yy}")
+                        self.eventTimer = 0
             except:
                 self.eventTimer += 1
                 LOGGER.info(f"increment eventTimer = {self.eventTimer}")

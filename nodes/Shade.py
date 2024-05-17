@@ -121,56 +121,72 @@ class Shade(udi_interface.Node):
 
     def events(self):
         # home update event
-        event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
-        if event:
-            event = event[0]
-            if event['shades'].count(self.sid) > 0:
-                LOGGER.info(f'shortPoll shade {self.sid} update')
-                if self.updateData():
-                    try:
-                        self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
-                    except:
-                        LOGGER.error(f"shade event error sid = {self.sid}")
+        try:
+            event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} home event error: {ex}")
+        else:            
+            if event:
+                event = event[0]
+                if event['shades'].count(self.sid) > 0:
+                    LOGGER.info(f'shortPoll shade {self.sid} update')
+                    if self.updateData():
+                        try:
+                            self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
+                        except:
+                            LOGGER.error(f"shade event error sid = {self.sid}")
+                else:
+                    pass
+                    # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
             else:
                 pass
-                # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
-        else:
-            pass
-            # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
+                # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
 
         # NOTE rest of the events below are only for G3, will not fire for G2
 
         # motion-started event
-        event = list(filter(lambda events: (events['evt'] == 'motion-started' and events['id'] == self.sid), \
+        try:
+            event = list(filter(lambda events: (events['evt'] == 'motion-started' and events['id'] == self.sid), \
                             self.controller.gateway_event))
-        if event:
-            event = event[0]
-            self.positions = self.posToPercent(event['currentPositions'])
-            if self.updatePositions():
-                self.setDriver('ST', 1)
-                LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
-                self.controller.gateway_event.remove(event)
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} motion-started event error: {ex}")
+        else:
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    self.setDriver('ST', 1)
+                    LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
+                    self.controller.gateway_event.remove(event)
                    
         # motion-stopped event
-        event = list(filter(lambda events: (events['evt'] == 'motion-stopped' and events['id'] == self.sid), \
+        try:
+            event = list(filter(lambda events: (events['evt'] == 'motion-stopped' and events['id'] == self.sid), \
                             self.controller.gateway_event))
-        if event:
-            event = event[0]
-            self.positions = self.posToPercent(event['currentPositions'])
-            if self.updatePositions():
-                self.setDriver('ST', 0)
-                LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
-                self.controller.gateway_event.remove(event)
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} motion-stopped event error: {ex}")
+        else:
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    self.setDriver('ST', 0)
+                    LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
+                    self.controller.gateway_event.remove(event)
                    
         # shade-online event
-        event = list(filter(lambda events: (events['evt'] == 'shade-online' and events['id'] == self.sid), \
+        try:
+            event = list(filter(lambda events: (events['evt'] == 'shade-online' and events['id'] == self.sid), \
                             self.controller.gateway_event))
-        if event:
-            event = event[0]
-            self.positions = self.posToPercent(event['currentPositions'])
-            if self.updatePositions():
-                LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
-                self.controller.gateway_event.remove(event)
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} shade-online event error: {ex}")
+        else:
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
+                    self.controller.gateway_event.remove(event)
                    
     def updateData(self):
         if self.controller.no_update == False:

@@ -16,9 +16,12 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.10'
+VERSION = '0.1.11'
 
 """
+0.1.11
+DEBUG event json.load error crashing events
+
 0.1.10
 DEBUG multi-room scenes sending Discover into exception
 
