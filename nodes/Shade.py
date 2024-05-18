@@ -362,11 +362,12 @@ class Shade(udi_interface.Node):
                 pos["secondary"] = int(query["SETSECO.uom100"])
             if "SETTILT.uom100" in query:
                 pos["tilt"] = int(query["SETTILT.uom100"])
-            LOGGER.info('Shade Setpos %s', pos)
             if pos != {}:
-                LOGGER.error('Shade Setpos --nothing to set--')
+                LOGGER.info('Shade Setpos %s', pos)
                 self.setShadePosition(pos)
                 self.positions.update(pos)
+            else:
+                LOGGER.error('Shade Setpos --nothing to set--')
         except:
             LOGGER.error('Shade Setpos failed %s', self.lpfx)
 
