@@ -355,21 +355,21 @@ class Controller(udi_interface.Node):
         x = self.gateway_sse
         y = next(x)
         y_next = ""
-        LOGGER.info(f"json.loads-1 --{y}--")
+        LOGGER.debug(f"json.loads-1 --{y}--")
         try:
             yy = json.loads(y)
             LOGGER.info(f"json.loads-1-success --{yy}--")
         except:
             y_next = next(x)
             y = y + y_next
-            LOGGER.info(f"json.loads-2 --{y}--")
+            LOGGER.debug(f"json.loads-2 --{y}--")
             try:
                 yy = json.loads(y)
                 LOGGER.info(f"json.loads-2-success --{yy}--")
             except:
                 y_next = next(x)
                 y = y + y_next
-                LOGGER.info(f"json.loads-3 --")
+                LOGGER.debug(f"json.loads-3 --")
                 try:
                     yy = json.loads(y)
                     LOGGER.info(f"json.loads-3-success --{yy}--")

@@ -20,7 +20,7 @@ VERSION = '0.1.11'
 
 """
 0.1.11
-DEBUG event json.load error crashing events
+DEBUG event rewrite to handle edge cases
 
 0.1.10
 DEBUG multi-room scenes sending Discover into exception
