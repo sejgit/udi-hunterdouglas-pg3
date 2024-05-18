@@ -338,18 +338,7 @@ class Controller(udi_interface.Node):
             LOGGER.debug('shortPoll check for events (controller)')
             try:
                 if self.gateway_sse:
-                    x = self.gateway_sse
-                    y = next(x)
-                    try:
-                        yy = json.loads(y)
-                    except:
-                        try:
-                            LOGGER.error(f"json.loads-1 fail: {y}")
-                            y_next = next(x)
-                            yy = json.loads(y + y_next)
-                        except:
-                            LOGGER.error(f"json.loads-2 fail: {y} +: {y_next}")
-                            yy = {}
+                    yy = self.sseProcess()
                     if yy != {}:
                         self.gateway_event.append(yy)
                         LOGGER.info(f"{self.eventTimer} new event = {yy}")
@@ -362,6 +351,33 @@ class Controller(udi_interface.Node):
                     LOGGER.info(f"eventTimeout")
                     self.eventTimer = 0
 
+    def sseProcess(self):
+        x = self.gateway_sse
+        y = next(x)
+        y_next = ""
+        LOGGER.info(f"json.loads-1 --{y}--")
+        try:
+            yy = json.loads(y)
+            LOGGER.info(f"json.loads-1-success --{yy}--")
+        except:
+            y_next = next(x)
+            y = y + y_next
+            LOGGER.info(f"json.loads-2 --{y}--")
+            try:
+                yy = json.loads(y)
+                LOGGER.info(f"json.loads-2-success --{yy}--")
+            except:
+                y_next = next(x)
+                y = y + y_next
+                LOGGER.info(f"json.loads-3 --")
+                try:
+                    yy = json.loads(y)
+                    LOGGER.info(f"json.loads-3-success --{yy}--")
+                except:
+                    LOGGER.error(f"json.loads-none --{y}--")
+                    yy = {}
+        return yy
+                    
     def sseInit(self):
         """
         connect and pull from the gateway stream of events ONLY FOR G3
