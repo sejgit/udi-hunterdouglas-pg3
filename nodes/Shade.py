@@ -114,7 +114,7 @@ class Shade(udi_interface.Node):
 
     def poll(self, flag):
         if 'longPoll' in flag:
-            LOGGER.debug('longPoll (shade)')
+            LOGGER.debug(f'longPoll shade {self.lpfx}')
         else:
             # LOGGER.debug('shortPoll (shade)')
             self.events()

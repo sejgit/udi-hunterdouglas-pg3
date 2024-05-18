@@ -107,7 +107,7 @@ class Scene(udi_interface.Node):
 
     def poll(self, flag):
         if 'longPoll' in flag:
-            LOGGER.debug(f"longPoll {self.lpfx}")
+            LOGGER.debug(f"longPoll scene {self.lpfx}")
             if self.controller.generation == 2:
                 self.setDriver('ST', 0)
                 # manually turn off activation for G2
@@ -158,10 +158,10 @@ class Scene(udi_interface.Node):
                     self.setDriver('ST', 1)
                 else:
                     self.setDriver('ST', 0)
-                LOGGER.info(f"shortPoll {self.lpfx} activate = {act}")
+                LOGGER.info(f"shortPoll {event['evt']}: {self.lpfx}")
                 self.controller.gateway_event.remove(event)
                 
-    def cmdActivate(self, command):
+    def cmdActivate(self, command = None):
         """
         activate scene
         """
@@ -172,7 +172,7 @@ class Scene(udi_interface.Node):
             activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(activateSceneUrl)
 
-        LOGGER.debug(f"cmdActivate initiate {self.lpfx}")
+        LOGGER.info(f"cmdActivate initiate {self.lpfx}")
 
         # for PowerView G2 gateway there is no event so manually trigger activate
         # PowerView G3 will receive an activate event when the motion is complete
@@ -187,6 +187,7 @@ class Scene(udi_interface.Node):
         there is a need.
         """
         self.reportDrivers()
+        LOGGER.info('cmd Query %s', self.lpfx)
 
     """
     This is an array of dictionary items containing the variable names(drivers)

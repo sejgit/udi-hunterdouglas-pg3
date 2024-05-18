@@ -19,6 +19,10 @@ LOGGER = udi_interface.LOGGER
 VERSION = '0.1.11'
 
 """
+NEXT: G3 Motion timeout: reset or fire jog after timeout (plugin stopped mid motion, motion-complete evt missed)
+NEXT: G3 evt Online: anything useful to do with this flag?
+NEXT: G3 evt Homedoc updatee: anything useful to do with this flag?
+
 0.1.11
 DEBUG event rewrite to handle edge cases
 
