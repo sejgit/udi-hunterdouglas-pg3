@@ -156,7 +156,7 @@ class Shade(udi_interface.Node):
                 self.positions = self.posToPercent(event['currentPositions'])
                 if self.updatePositions():
                     self.setDriver('ST', 1)
-                    LOGGER.info(f'shortPoll shade {self.sid} motion-started update')
+                    LOGGER.info(f'shortPoll shade {self.sid} motion-started event')
                     self.controller.gateway_event.remove(event)
                    
         # motion-stopped event
@@ -171,7 +171,7 @@ class Shade(udi_interface.Node):
                 self.positions = self.posToPercent(event['currentPositions'])
                 if self.updatePositions():
                     self.setDriver('ST', 0)
-                    LOGGER.info(f'shortPoll shade {self.sid} motion-stopped update')
+                    LOGGER.info(f'shortPoll shade {self.sid} motion-stopped event')
                     self.controller.gateway_event.remove(event)
                    
         # shade-online event
@@ -185,7 +185,7 @@ class Shade(udi_interface.Node):
                 event = event[0]
                 self.positions = self.posToPercent(event['currentPositions'])
                 if self.updatePositions():
-                    LOGGER.info(f'shortPoll shade {self.sid} shade-online update')
+                    LOGGER.info(f'shortPoll shade {self.sid} shade-online event')
                     self.controller.gateway_event.remove(event)
                    
     def updateData(self):

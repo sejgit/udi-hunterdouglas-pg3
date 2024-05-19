@@ -38,6 +38,105 @@ For PowerView G3 hubs, the API can be self hosted by your hub:
 
 For PowerView G2 hubs, the API can be found [**here**][G2-API]
 
+## Polling
+
+### longPoll
+
+* currently every 60s
+
+#### controller longPoll
+
+* update all data from Gateway, set event array updating each shade, scene
+
+#### shade longPoll
+
+* G3: logged
+* G2: logged MAYBE: could clear ST, Motion flag, this flag is not set at all in G2
+
+#### scene longPoll
+
+* G3: logged
+* G2: clear ST, Activated flag
+
+### shortPoll
+
+* currently every 5s
+
+#### controller shortPoll
+
+* process general events, sse heartbeat check
+* if no events (60min curently) reset sse cient
+
+#### shade shortPoll
+
+* process shade events
+
+#### scene shortPoll
+
+* process scene events
+
+## Events: controller
+
+### homeDoc-updated
+
+* G3 generated
+* signals update of the G3 login to HunterDouglas
+* NOTE: just logged
+* MAYBE: no additional ideas
+
+### home
+
+* plugin generated
+* sequentially update all shades, scenes once per longPoll
+* NOTE: each node checks once per shortPoll;updates then removes itself from array
+* MAYBE: with event engine this way seemed easy to control updates; over engineered?
+
+## Events: scene
+
+### scene-activated
+
+* G3 generated
+* signal movement to scene positions on completion from any source
+* NOTE:
+  * G3 turn on ST, Activated
+  * G2 is turned on when plugin activates (does not get info from remote or app)
+* MAYBE: speed up position update by up to 59s if we polled just these shades
+
+### scene-deactivated
+
+* G3 generated
+* signal movement away from scene positions immediate from any source
+* NOTE:
+  * G3 turn off ST, Activated
+  * G2 is turned off on next longPoll when plugin activates scene
+  * G2 (does not get info from remote or app
+* MAYBE: speed up position update by up to 59s if we polled just these shades
+
+## Events: shade
+
+### shade-online
+
+* G3 generated
+* kind of a heartbeat which keeps the sse client-server connection alive
+* NOTE: checked in controller for any event, this being one of them
+* MAYBE: not sure what drives this on the G3 side, so no plans for other actions
+
+### motion-started
+
+* G3 generated
+* any shade motion from any source by any command
+* NOTE: currenly just set the ST, Motion flag
+* MAYBE:
+  * Motion timeout: reset or fire jog after timeout
+  * if plugin stopped in mid motion, motion-stopped event missed
+
+### motion-stopped
+
+* G3 generated
+* shade motion from any source by any command
+* NOTE: currenly just clear the ST, Motion flag
+* MAYBE: Motion timeout: as above, happened once to me, but rare
+
 [license]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/LICENSE
 [udi]: https://www.universal-devices.com/hunter-douglas/
 [screenshots]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/docs/screenshots.md
