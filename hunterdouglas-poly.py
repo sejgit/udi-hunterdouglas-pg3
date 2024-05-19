@@ -21,6 +21,7 @@ VERSION = '0.1.11'
 """
 VERSION LOG
 0.1.11
+DONE update docs: README, versionHistory, logging
 DEBUG event rewrite to handle edge cases
 
 for previous version see versionHistory.md
