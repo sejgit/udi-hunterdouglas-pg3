@@ -16,12 +16,14 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.11'
+VERSION = '0.1.12'
 
 """
 VERSION LOG
-0.1.11
+0.1.12
 DONE update docs: README, versionHistory, logging
+
+0.1.11
 DEBUG event rewrite to handle edge cases
 
 for previous version see versionHistory.md

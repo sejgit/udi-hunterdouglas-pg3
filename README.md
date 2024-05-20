@@ -51,7 +51,7 @@ For PowerView G2 hubs, the API can be found [**here**][G2-API]
 #### shade longPoll
 
 * G3: logged
-* G2: logged MAYBE: could clear ST, Motion flag, this flag is not set at all in G2
+* G2: logged MAYBE: could clear ST, Motion flag, could be set with G2 commands
 
 #### scene longPoll
 
@@ -65,7 +65,7 @@ For PowerView G2 hubs, the API can be found [**here**][G2-API]
 #### controller shortPoll
 
 * process general events, sse heartbeat check
-* if no events (60min curently) reset sse cient
+* if no events (60min curently) reset sse client
 
 #### shade shortPoll
 
@@ -81,14 +81,14 @@ For PowerView G2 hubs, the API can be found [**here**][G2-API]
 
 * G3 generated
 * signals update of the G3 login to HunterDouglas
-* NOTE: just logged
+* NOW: just logged
 * MAYBE: no additional ideas
 
 ### home
 
 * plugin generated
 * sequentially update all shades, scenes once per longPoll
-* NOTE: each node checks once per shortPoll;updates then removes itself from array
+* NOW: each node checks once per shortPoll;updates then removes itself from array
 * MAYBE: with event engine this way seemed easy to control updates; over engineered?
 
 ## Events: scene
@@ -96,17 +96,17 @@ For PowerView G2 hubs, the API can be found [**here**][G2-API]
 ### scene-activated
 
 * G3 generated
-* signal movement to scene positions on completion from any source
-* NOTE:
+* sent on completion of movement to scene positions from any source
+* NOW:
   * G3 turn on ST, Activated
-  * G2 is turned on when plugin activates (does not get info from remote or app)
+  * G2 turned on when plugin activates scene (does not get info from remote or app)
 * MAYBE: speed up position update by up to 59s if we polled just these shades
 
 ### scene-deactivated
 
 * G3 generated
 * signal movement away from scene positions immediate from any source
-* NOTE:
+* NOW:
   * G3 turn off ST, Activated
   * G2 is turned off on next longPoll when plugin activates scene
   * G2 (does not get info from remote or app
@@ -118,23 +118,23 @@ For PowerView G2 hubs, the API can be found [**here**][G2-API]
 
 * G3 generated
 * kind of a heartbeat which keeps the sse client-server connection alive
-* NOTE: checked in controller for any event, this being one of them
-* MAYBE: not sure what drives this on the G3 side, so no plans for other actions
+* NOW: checked in controller for any event, this being one of them
+* MAYBE: not sure how often this is pushed from the G3 side. No current plans
 
 ### motion-started
 
 * G3 generated
 * any shade motion from any source by any command
-* NOTE: currenly just set the ST, Motion flag
+* NOW: currenly just set the ST, Motion flag
 * MAYBE:
-  * Motion timeout: reset or fire jog after timeout
-  * if plugin stopped in mid motion, motion-stopped event missed
+  * Motion timeout: reset or fire 'jog' command after timeout
+  if plugin stopped in mid motion, or motion-stopped event missed
 
 ### motion-stopped
 
 * G3 generated
 * shade motion from any source by any command
-* NOTE: currenly just clear the ST, Motion flag
+* NOW: currenly just clear the ST, Motion flag
 * MAYBE: Motion timeout: as above, happened once to me, but rare
 
 [license]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/LICENSE

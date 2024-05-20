@@ -2,6 +2,9 @@
 
 ## see hunterdouglas-pg3.py for current version
 
+0.1.12
+DONE update docs: README, versionHistory, logging
+
 0.1.11
 DEBUG event rewrite to handle edge cases
 
