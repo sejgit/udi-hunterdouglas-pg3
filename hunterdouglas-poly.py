@@ -16,11 +16,12 @@ import sys
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '0.1.12'
+VERSION = '1.12.0'
 
 """
 VERSION LOG
-0.1.12
+1.12.0
+DONE change versioning to align with workflow
 DONE update docs: README, versionHistory, logging
 
 0.1.11
