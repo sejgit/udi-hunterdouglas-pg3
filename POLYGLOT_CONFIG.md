@@ -1,17 +1,17 @@
 
 # PG3 Plugin/Nodeserver for HunterDouglas PowerView Shades
 
-udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy\
+udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy  
 (C) 2024 Stephen Jenkins
 
-[![license](https://img.shields.io/github/license/mashape/apistatus.svg)][license]
+[![licence][shield]][licenseFile]
 
 ## Intro & Help
 
 This Poly provides an interface between HunterDouglas window shades
 and [**Polyglot PG3**][polyglot] server
 
-[**This thread**][forum] on UDI forums has more details, ask questions there\
+[**This thread**][forum] on UDI forums has more details, ask questions there!  
 [Troubleshooting][troubleshoot] available in this document
 
 **IMPORTANT:** There are differences for HunterDouglas G3 API versus G2 API
@@ -32,8 +32,8 @@ You will need to define the custom parameter **gatewayip**
 
 Primary gateway will be determined if you have more than one Gateway
 
-- Enter **gatewayip** configuration as an array of string IP's with all Hunter Douglas\
-gateways you have\
+- Enter **gatewayip** configuration as an array of string IP's with all Hunter Douglas  
+gateways you have  
 - example for variable  **gatewayip** ['10.0.1.150', '10.0.1.151', '10.0.1.152']
 
 ## Functionality
@@ -81,7 +81,8 @@ gateways you have\
 - Calibrate:  NOT IMPLEMENTED likely should just stay on the PowerView app
 - Scene Activate:  Activation result is manually turned on as no event
 
-[license]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/LICENSE
+[shield]: https://img.shields.io/github/license/mashape/apistatus.svg
+[licenseFile]: LICENSE
 [polyglot]: https://github.com/UniversalDevicesInc/pg3-dist
 [forum]: https://forum.universal-devices.com/forum/439-hunter-douglas/
 [troubleshoot]: https://github.com/sejgit/udi-hunterdouglas-pg3/blob/master/docs/troubleshooting.md
