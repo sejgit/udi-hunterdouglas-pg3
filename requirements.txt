@@ -1,3 +1,2 @@
-udi_interface >= 3.0.60
-pip
+udi_interface
 requests

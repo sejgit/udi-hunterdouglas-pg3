@@ -11,15 +11,20 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 main loop
 """
 
-import udi_interface
+# std libraries
 import sys
+
+# external libraries
+import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.0'
-
+VERSION = '1.12.1'
 """
-VERSION LOG
+1.12.1
+environment updates
+small refactors
+
 1.12.0
 DONE change versioning to align with workflow
 DONE update docs: README, versionHistory, logging

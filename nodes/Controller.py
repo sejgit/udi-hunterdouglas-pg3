@@ -6,14 +6,18 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 Controller class
 """
 
-import udi_interface
-import requests
+# std libraries
 import math
 import base64
 import time
 import socket
 import json
 
+# external libraries
+import udi_interface
+import requests
+
+# personal libraries
 # Nodes
 from nodes import *
 

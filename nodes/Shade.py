@@ -7,8 +7,11 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 Shade class
 """
 
-import udi_interface
+# std libraries
 import math
+
+# external libraries
+import udi_interface
 
 LOGGER = udi_interface.LOGGER
 

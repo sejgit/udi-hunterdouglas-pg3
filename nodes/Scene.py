@@ -6,7 +6,9 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 
 Scene class
 """
+# std libraries
 
+# external libraries
 import udi_interface
 
 LOGGER = udi_interface.LOGGER
