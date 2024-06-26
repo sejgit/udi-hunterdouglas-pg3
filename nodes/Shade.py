@@ -191,6 +191,20 @@ class Shade(udi_interface.Node):
                     LOGGER.info(f'shortPoll shade {self.sid} shade-online event')
                     self.controller.gateway_event.remove(event)
                    
+        # shade-offline event
+        try:
+            event = list(filter(lambda events: (events['evt'] == 'shade-offline' and events['id'] == self.sid), \
+                            self.controller.gateway_event))
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} shade-offline event error: {ex}")
+        else:
+            if event:
+                event = event[0]
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    LOGGER.error(f'shortPoll shade {self.sid} shade-offline event')
+                    self.controller.gateway_event.remove(event)
+                   
     def updateData(self):
         if self.controller.no_update == False:
             # LOGGER.debug(self.controller.shades_array)

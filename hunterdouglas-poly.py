@@ -19,8 +19,12 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.1'
+VERSION = '1.12.2'
 """
+1.12.2
+DONE add shade-offline event handling to error log
+TODO add handling when scene is not activated in reasonable time 
+
 1.12.1
 environment updates
 small refactors

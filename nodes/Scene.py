@@ -116,7 +116,7 @@ class Scene(udi_interface.Node):
         else:
             # LOGGER.debug(f"shortPoll {self.lpfx}")
             self.events()
-            self.setDriver('ST', None)
+            self.setDriver('ST', None) # TODO check if/why this is needed
 
     def events(self):
        # home update event
@@ -139,7 +139,7 @@ class Scene(udi_interface.Node):
                             self.rename(self.scenedata['name'])
                         
                     self.controller.gateway_event[self.controller.gateway_event.index(event)]['scenes'].remove(self.sid)
-                except:
+                except Exception:
                     LOGGER.error(f"scene event error sid = {self.sid}")
             else:
                 pass
