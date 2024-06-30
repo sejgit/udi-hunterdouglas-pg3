@@ -2,6 +2,21 @@
 
 ## see hunterdouglas-pg3.py for current version
 
+1.12.2
+DONE add shade-offline event handling to error log; currently not passed to ISY
+DONE add updating of scene activation status on longPoll as backup to event
+
+1.12.1
+DONE environment updates
+DONE small refactors
+
+1.12.0
+DONE change versioning to align with workflow
+DONE update docs: README, versionHistory, logging
+
+0.1.11
+DEBUG event rewrite to handle edge cases
+
 0.1.12
 DONE update docs: README, versionHistory, logging
 

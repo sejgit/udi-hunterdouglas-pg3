@@ -22,19 +22,16 @@ LOGGER = udi_interface.LOGGER
 VERSION = '1.12.2'
 """
 1.12.2
-DONE add shade-offline event handling to error log
-TODO add handling when scene is not activated in reasonable time 
+DONE add shade-offline event handling to error log; currently not passed to ISY
+DONE add updating of scene activation status on longPoll as backup to event
 
 1.12.1
-environment updates
-small refactors
+DONE environment updates
+DONE small refactors
 
 1.12.0
 DONE change versioning to align with workflow
 DONE update docs: README, versionHistory, logging
-
-0.1.11
-DEBUG event rewrite to handle edge cases
 
 for previous version see versionHistory.md
 

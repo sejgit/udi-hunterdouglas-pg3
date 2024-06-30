@@ -116,7 +116,6 @@ class Scene(udi_interface.Node):
         else:
             # LOGGER.debug(f"shortPoll {self.lpfx}")
             self.events()
-            self.setDriver('ST', None) # TODO check if/why this is needed
 
     def events(self):
        # home update event
@@ -137,6 +136,16 @@ class Scene(udi_interface.Node):
                             LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, _id:{self.scenedata['_id']}, name:{self.scenedata['name']}")
                             LOGGER.warn(f"scene name changed from {self.name} to {self.scenedata['name']}")
                             self.rename(self.scenedata['name'])
+                        # update activation state only if G3 as array is [] for G2
+                        old = self.getDriver('ST')
+                        if self.controller.sceneIdsActive_array.count(self.sid) > 0:
+                            if old != 1:
+                                self.setDriver('ST', 1)
+                                LOGGER.info(f"scene {self.sid} activation updated ON")
+                        else:
+                            if old != 0:
+                                self.setDriver('ST', 0)
+                                LOGGER.info(f"scene {self.sid} activation updated OFF")
                         
                     self.controller.gateway_event[self.controller.gateway_event.index(event)]['scenes'].remove(self.sid)
                 except Exception:

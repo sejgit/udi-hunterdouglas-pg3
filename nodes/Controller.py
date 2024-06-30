@@ -48,6 +48,7 @@ URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
 URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
 URL_SCENES = 'http://{g}/home/scenes/{id}'
 URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
+URL_SCENES_ACTIVE = 'http://{g}/home/scenes/active'
 URL_EVENTS = 'http://{g}/home/events'
 URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
 URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
@@ -571,7 +572,7 @@ class Controller(udi_interface.Node):
             self.no_update = True
             self.last = time.perf_counter()
             if self.generation == 3:
-                success = self.updateAllFromServerG3(self.getHomeG3())
+                success = self.updateAllFromServerG3(self.getHomeG3(), self.getScenesActiveG3())
             elif self.generation == 2:
                 success = self.updateAllFromServerG2(self.getHomeG2())
             else:
@@ -579,7 +580,7 @@ class Controller(udi_interface.Node):
         self.no_update = False
         return success
         
-    def updateAllFromServerG3(self, data):
+    def updateAllFromServerG3(self, data, scenesActiveData):
         try:
             if data:
                 self.rooms_array = []
@@ -588,6 +589,7 @@ class Controller(udi_interface.Node):
                 self.shadeIds_array = []
                 self.scenes_array = []
                 self.sceneIds_array = []
+                self.sceneIdsActive_array = []
 
                 for r in data["rooms"]:
                     LOGGER.debug('Update rooms')
@@ -633,6 +635,12 @@ class Controller(udi_interface.Node):
                     LOGGER.debug('Update scenes-1')
 
                 LOGGER.info(f"scenes = {self.sceneIds_array}")
+
+                for sc in scenesActiveData:
+                    self.sceneIdsActive_array.append(sc["id"])
+
+                LOGGER.info(f"activeScenes = {self.sceneIdsActive_array}")
+
                 self.no_update = False
                 return True
             else:
@@ -730,6 +738,20 @@ class Controller(udi_interface.Node):
                     LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
         else:
             LOGGER.error("getHomeG3 self.gateway_array NONE")
+        return None
+
+    def getScenesActiveG3(self):
+        res = self.get(URL_SCENES_ACTIVE.format(g=self.gateway))
+        code = res.status_code
+        data = res.json()
+        if self.gateway_array:
+            if code == requests.codes.ok:
+                LOGGER.info("getScenesActiveG3 good %s, %s", self.gateway, self.gateway_array)
+                return data
+            else:
+                LOGGER.error("getScenesActiveG3 NOT good %s, %s", self.gateway, self.gateway_array)
+        else:
+            LOGGER.error("getScenesActiveG3 self.gateway_array NONE")
         return None
 
     def getHomeG2(self):
