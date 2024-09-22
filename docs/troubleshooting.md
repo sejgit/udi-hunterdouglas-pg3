@@ -33,13 +33,14 @@ Open a browser and type in the following for each gateway
     You still want to put this ip into the gatewayip array as primary/secondary
     can move so gatewayip ['10.0.1.151', '10.0.1.150'] in your config is good
 
-- you have likely found a v2 gateway
+- you have found a v2 gateway
 
     ```bash
     {"message":"Not Found","error":{}}
     ```
 
-    Currently I am working on basic functionality for V2
+    Follow the directions for V2 gateway
+    If you have both V3 & V2 please run two copies of the plugin in two separate slots
 
 - Your V3 gateway is not set-up with Hunter Douglas
 
