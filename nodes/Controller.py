@@ -708,7 +708,7 @@ class Controller(udi_interface.Node):
                             room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
                             room_name = room_name[0:ROOM_NAME_LIMIT]
                         scene['name'] = '%s - %s' % (room_name, name)
-                    LOGGER.info(f" {self.sceneIds_array}")
+                    LOGGER.info(f"scenes = {self.sceneIds_array}")
 
                 self.no_update = False
                 LOGGER.info(f"updateAllfromServerG2 = OK")
