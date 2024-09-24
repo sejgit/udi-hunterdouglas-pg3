@@ -19,8 +19,11 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.2'
+VERSION = '1.12.3'
 """
+1.12.3
+DONE G2 Scene event fix
+
 1.12.2
 DONE add shade-offline event handling to error log; currently not passed to ISY
 DONE add updating of scene activation status on longPoll as backup to event
