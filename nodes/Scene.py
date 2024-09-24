@@ -133,7 +133,10 @@ class Scene(udi_interface.Node):
                     if data:
                         self.scenedata = data[0]
                         if self.name != self.scenedata['name']:
-                            LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, _id:{self.scenedata['_id']}, name:{self.scenedata['name']}")
+                            if self.controller.generation == 2:
+                                LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, id:{self.scenedata['id']}, name:{self.scenedata['name']}")
+                            else:
+                                LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, _id:{self.scenedata['_id']}, name:{self.scenedata['name']}")
                             LOGGER.warn(f"scene name changed from {self.name} to {self.scenedata['name']}")
                             self.rename(self.scenedata['name'])
                         # update activation state only if G3 as array is [] for G2
