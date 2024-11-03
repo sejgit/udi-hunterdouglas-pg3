@@ -451,7 +451,11 @@ class Controller(udi_interface.Node):
 
                 shTxt = 'shade{}'.format(shadeId)
                 nodes_new.append(shTxt)
-                capabilities = int(shade['capabilities'])
+                try:
+                    capabilities = int(shade['capabilities'])
+                except:
+                    LOGGER.error(f"no capabilties defined, use default shade")
+                    capabilities = int(99)
                 if shTxt not in nodes:
                     if capabilities in [7, 8]:
                         self.poly.addNode(ShadeNoTilt(self.poly, \

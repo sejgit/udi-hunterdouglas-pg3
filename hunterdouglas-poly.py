@@ -19,8 +19,11 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.3'
+VERSION = '1.12.4'
 """
+1.12.4
+DEBUG Gen-2 make a default capability if none exists in JSON
+
 1.12.3
 DONE G2 Scene event fix
 
