@@ -90,7 +90,11 @@ class Shade(udi_interface.Node):
         self.name = name
         self.shadedata = shade
         self.positions = shade['positions']
-        self.capabilities = int(shade['capabilities'])
+        try:
+            self.capabilities = int(shade['capabilities'])
+        except:
+            LOGGER.error(f"no capabilties defined, use default shade")
+            self.capabilities = int(0)
 
         if self.controller.generation == 2:
             self.sid = shade['id']
@@ -219,7 +223,11 @@ class Shade(udi_interface.Node):
                 self.setDriver('GV1', self.shadedata["roomId"])
                 self.setDriver('GV6', self.shadedata["batteryStatus"])
                 self.setDriver('GV5', self.shadedata["capabilities"])
-                self.capabilities = int(self.shadedata["capabilities"])
+                try:
+                    self.capabilities = int(self.shadedata["capabilities"])
+                except:
+                    LOGGER.error(f"no capabilties defined, use default shade")
+                    self.capabilities = int(0)
                 self.positions = self.shadedata["positions"]
                 self.updatePositions()
                 return True
