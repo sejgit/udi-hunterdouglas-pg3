@@ -222,12 +222,12 @@ class Shade(udi_interface.Node):
                     LOGGER.warn(f"Renamed {self.name}")
                 self.setDriver('GV1', self.shadedata["roomId"])
                 self.setDriver('GV6', self.shadedata["batteryStatus"])
-                self.setDriver('GV5', self.shadedata["capabilities"])
                 try:
                     self.capabilities = int(self.shadedata["capabilities"])
                 except:
                     LOGGER.error(f"no capabilties defined, use default shade")
                     self.capabilities = int(0)
+                self.setDriver('GV5', self.capabilities)
                 self.positions = self.shadedata["positions"]
                 self.updatePositions()
                 return True
