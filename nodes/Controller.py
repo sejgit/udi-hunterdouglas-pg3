@@ -781,7 +781,7 @@ class Controller(udi_interface.Node):
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Error {e} fetching {url}")
+            LOGGER.error(f"Error fetching {url}: {e}", exc_info=True)
             res = requests.Response()
             res.status_code = 300
             res.raw = {"errMsg":"Error fetching from gateway, check configuration"}
@@ -822,7 +822,7 @@ class Controller(udi_interface.Node):
                 res = requests.put(url, headers={'accept': 'application/json'})
 
         except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Error {e} in put {url} with data {data}:", exc_info=True)
+            LOGGER.error(f"Error in put {url} with data {data}: {e}", exc_info=True)
             if res:
                 LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
