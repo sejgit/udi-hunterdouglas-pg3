@@ -104,7 +104,7 @@ class Shade(udi_interface.Node):
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
  
-        self.lpfx = '%s:%s' % (address,name)
+        self.lpfx = f'{address}:{name}'
 
         self.poly.subscribe(self.poly.START, self.start, address)
         self.poly.subscribe(self.poly.POLL, self.poll)
@@ -282,7 +282,7 @@ class Shade(udi_interface.Node):
         """
         open shade
         """
-        LOGGER.info('cmd Shade Open %s', self.lpfx)
+        LOGGER.info(f'cmd Shade Open {self.lpfx}')
         if self.controller.generation == 2:
             self.positions["primary"] = 100
         else:
@@ -293,7 +293,7 @@ class Shade(udi_interface.Node):
         """
         close shade
         """
-        LOGGER.info('cmd Shade Close %s', self.lpfx)
+        LOGGER.info(f'cmd Shade Close {self.lpfx}')
         if self.controller.generation == 2:
             self.positions["primary"] = 0
         else:
@@ -308,13 +308,13 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 3:
             shadeUrl = URL_SHADES_STOP.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(shadeUrl)
-            LOGGER.info('cmd Shade Stop %s', self.lpfx)
+            LOGGER.info(f'cmd Shade Stop {self.lpfx}')
 
     def cmdTiltOpen(self, command):
         """
         tilt shade open
         """
-        LOGGER.info('cmd Shade TiltOpen %s', self.lpfx)
+        LOGGER.info(f'cmd Shade TiltOpen {self.lpfx}')
         
         self.positions["tilt"] = 50
         self.setShadePosition(pos = {"tilt": 50})
@@ -323,7 +323,7 @@ class Shade(udi_interface.Node):
         """
         tilt shade close
         """
-        LOGGER.info('cmd Shade TiltClose %s', self.lpfx)
+        LOGGER.info(f'cmd Shade TiltClose {self.lpfx}')
         self.positions['tilt'] = 0
         self.setShadePosition(pos = {"tilt": 0})
 
@@ -343,7 +343,7 @@ class Shade(udi_interface.Node):
             }
 
         self.controller.put(shadeUrl, data=body)
-        LOGGER.info('cmd Shade JOG %s', self.lpfx)
+        LOGGER.info(f'cmd Shade JOG {self.lpfx}')
 
     def cmdCalibrate(self, command):
         """
@@ -360,7 +360,7 @@ class Shade(udi_interface.Node):
             }
 
             self.controller.put(shadeUrl, data=body)
-            LOGGER.debug('cmd Shade CALIBRATE %s', self.lpfx)
+            LOGGER.debug(f'cmd Shade CALIBRATE {self.lpfx}')
                 
     def query(self, command=None):
         """
@@ -370,7 +370,7 @@ class Shade(udi_interface.Node):
         """
         self.updateData()
         self.reportDrivers()
-        LOGGER.info('cmd Query %s', self.lpfx)
+        LOGGER.info(f'cmd Query {self.lpfx}')
 
     def cmdSetpos(self, command):
         """
@@ -378,9 +378,9 @@ class Shade(udi_interface.Node):
         """
         try:
             pos = {}
-            LOGGER.info('Shade Setpos command %s', command)
+            LOGGER.info(f'Shade Setpos command {command}')
             query = command.get("query")
-            LOGGER.info('Shade Setpos query %s', query)
+            LOGGER.info(f'Shade Setpos query {query}')
             if "SETPRIM.uom100" in query:
                 pos["primary"] = int(query["SETPRIM.uom100"])
             if "SETSECO.uom100" in query:
@@ -388,13 +388,13 @@ class Shade(udi_interface.Node):
             if "SETTILT.uom100" in query:
                 pos["tilt"] = int(query["SETTILT.uom100"])
             if pos != {}:
-                LOGGER.info('Shade Setpos %s', pos)
+                LOGGER.info(f'Shade Setpos {pos}')
                 self.setShadePosition(pos)
                 self.positions.update(pos)
             else:
                 LOGGER.error('Shade Setpos --nothing to set--')
         except:
-            LOGGER.error('Shade Setpos failed %s', self.lpfx)
+            LOGGER.error(f'Shade Setpos failed {self.lpfx}')
 
     def setShadePosition(self, pos):
         positions_array = {}
