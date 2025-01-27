@@ -89,7 +89,7 @@ class Scene(udi_interface.Node):
         self.address = address
         self.name = name
 
-        self.lpfx = '%s:%s' % (address,name)
+        self.lpfx = f'{address}:{name}'
         self.sid = sid
 
         self.poly.subscribe(self.poly.START, self.start, address)
@@ -102,9 +102,9 @@ class Scene(udi_interface.Node):
         START event subscription above
         """
         self.setDriver('ST', 0)
-        LOGGER.debug('%s: get ST=%s',self.lpfx,self.getDriver('ST'))
+        LOGGER.debug(f'{self.lpfx}: get ST={self.getDriver("ST")}')
         self.setDriver('GV0', int(self.sid))
-        LOGGER.debug('%s: get GV0=%s',self.lpfx,self.getDriver('GV0'))
+        LOGGER.debug(f'{self.lpfx}: get GV0={self.getDriver("GV0")}')
         self.rename(self.name)
 
     def poll(self, flag):
@@ -206,7 +206,7 @@ class Scene(udi_interface.Node):
         there is a need.
         """
         self.reportDrivers()
-        LOGGER.info('cmd Query %s', self.lpfx)
+        LOGGER.info(f'cmd Query {self.lpfx}')
 
     """
     This is an array of dictionary items containing the variable names(drivers)
