@@ -131,7 +131,7 @@ class Shade(udi_interface.Node):
         try:
             event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
         except Exception as ex:
-            LOGGER.error(f"shade {self.sid} home event error: {ex}")
+            LOGGER.error(f"shade {self.sid} home event error: {ex}", exc_info=True)
         else:            
             if event:
                 event = event[0]
@@ -140,8 +140,8 @@ class Shade(udi_interface.Node):
                     if self.updateData():
                         try:
                             self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
-                        except:
-                            LOGGER.error(f"shade event error sid = {self.sid}")
+                        except Exception as ex:
+                            LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
                 else:
                     pass
                     # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
@@ -393,8 +393,8 @@ class Shade(udi_interface.Node):
                 self.positions.update(pos)
             else:
                 LOGGER.error('Shade Setpos --nothing to set--')
-        except:
-            LOGGER.error(f'Shade Setpos failed {self.lpfx}')
+        except Exception as ex:
+            LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
 
     def setShadePosition(self, pos):
         positions_array = {}
