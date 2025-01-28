@@ -142,9 +142,15 @@ class Controller(udi_interface.Node):
         until it is fully created before we try to use it.
         '''
     def node_queue(self, data):
+        """
+        Add node to queue, used during startup.
+        """
         self.n_queue.append(data['address'])
 
     def wait_for_node_done(self):
+        """
+        Wait for node addition to complete, used during startup.
+        """
         while len(self.n_queue) == 0:
             time.sleep(0.2)
         self.n_queue.pop()
@@ -229,9 +235,15 @@ class Controller(udi_interface.Node):
     Called via the LOGLEVEL event.
     """
     def handleLevelChange(self, level):
+        """
+        Handle log level change.
+        """
         LOGGER.info('New log level: {}'.format(level))
 
     def checkParams(self):
+        """
+        Check the custom parameters for the controller.
+        """
         """
         This is using custom Params for gatewayip
         """
@@ -266,6 +278,9 @@ class Controller(udi_interface.Node):
             return False
                                 
     def goodip(self):
+        """
+        Check for valid ip in gateway address.
+        """
         good = True
         for ip in self.gateway_array:
             try:
@@ -277,6 +292,9 @@ class Controller(udi_interface.Node):
         return good
     
     def genCheck3(self):
+        """
+        Check for a Generation 3 gateway.
+        """
         for ip in self.gateway_array:
             res = self.get(URL_GATEWAY.format(g=ip))
             if res.status_code == requests.codes.ok:
@@ -290,6 +308,9 @@ class Controller(udi_interface.Node):
         return False
 
     def genCheck2(self):
+        """
+        Check for a Generation 2 gateway.
+        """
         for ip in self.gateway_array:
             res = self.get(URL_G2_HUB.format(g=ip))
             if res.status_code == requests.codes.ok:
@@ -357,6 +378,9 @@ class Controller(udi_interface.Node):
                     self.eventTimer = 0
 
     def sseProcess(self):
+        """
+        Process the event stream from the gateway.
+        """
         x = self.gateway_sse
         y = next(x)
         y_next = ""
@@ -385,6 +409,9 @@ class Controller(udi_interface.Node):
                     
     def sseInit(self):
         """
+        Initialize the event stream from the gateway.
+        """
+        """
         connect and pull from the gateway stream of events ONLY FOR G3
         """
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
@@ -404,6 +431,9 @@ class Controller(udi_interface.Node):
 
     def query(self, command = None):
         """
+        Query all nodes from the gateway.
+        """
+        """
         The query method will be called when the ISY attempts to query the
         status of the node directly.  You can do one of two things here.
         You can send the values currently held by Polyglot back to the
@@ -417,11 +447,17 @@ class Controller(udi_interface.Node):
                 nodes[node].reportDrivers()
 
     def updateProfile(self,command):
+        """
+        Update the profile.
+        """
         LOGGER.info('update profile')
         st = self.poly.updateProfile()
         return st
 
     def discover(self, command = None):
+        """
+        Discover all nodes from the gateway.
+        """
         """
         Do shade and scene discovery here. Called from controller start method
         and from DISCOVER command received from ISY
@@ -533,6 +569,9 @@ class Controller(udi_interface.Node):
 
     def delete(self):
         """
+        Delete all nodes from the gateway.
+        """
+        """
         This is called by Polyglot upon deletion of the NodeServer. If the
         process is co-resident and controlled by Polyglot, it will be
         terminiated within 5 seconds of receiving this message.
@@ -541,6 +580,9 @@ class Controller(udi_interface.Node):
 
     def stop(self):
         """
+        Stop the node server.
+        """
+        """
         This is called by Polyglot when the node server is stopped.  You have
         the opportunity here to cleanly disconnect from your device or do
         other shutdown type tasks.
@@ -548,6 +590,9 @@ class Controller(udi_interface.Node):
         LOGGER.info('NodeServer stopped.')
 
     def heartbeat(self,init=False):
+        """
+        Send a heartbeat to the ISY.
+        """
         """
         This is a heartbeat function.  It uses the
         long poll interval to alternately send a ON and OFF command back to
@@ -566,11 +611,17 @@ class Controller(udi_interface.Node):
             self.hb = 0
 
     def removeNoticesAll(self, command = None):
+        """
+        Remove all notices from the ISY.
+        """
         LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
         # Remove all existing notices
         self.Notices.clear()
 
     def updateAllFromServer(self):
+        """
+        Update all nodes from the gateway.
+        """
         success = True
         if time.perf_counter() > (self.last + 3.0):
             self.no_update = True
@@ -585,6 +636,9 @@ class Controller(udi_interface.Node):
         return success
         
     def updateAllFromServerG3(self, data, scenesActiveData):
+        """
+        Update all nodes from the gateway for Generation 3.
+        """
         try:
             if data:
                 self.rooms_array = []
@@ -656,6 +710,9 @@ class Controller(udi_interface.Node):
             return False
         
     def updateAllFromServerG2(self, data):
+        """
+        Update all nodes from the gateway for Generation 2.
+        """
         try:
             if data:
                 self.rooms_array = []
@@ -727,6 +784,9 @@ class Controller(udi_interface.Node):
             return False
         
     def getHomeG3(self):
+        """
+        Get the home data from the gateway for Generation 3.
+        """
         res = self.get(URL_HOME.format(g=self.gateway))
         code = res.status_code
         data = res.json()
@@ -745,6 +805,9 @@ class Controller(udi_interface.Node):
         return None
 
     def getScenesActiveG3(self):
+        """
+        Get the active scenes from the gateway for Generation 3.
+        """
         res = self.get(URL_SCENES_ACTIVE.format(g=self.gateway))
         code = res.status_code
         data = res.json()
@@ -759,6 +822,9 @@ class Controller(udi_interface.Node):
         return None
 
     def getHomeG2(self):
+        """
+        Get the home data from the gateway for Generation 2.
+        """
         res = self.get(URL_G2_HUB.format(g=self.gateway))
         code = res.status_code
         data = res.json()
@@ -777,6 +843,9 @@ class Controller(udi_interface.Node):
         return None
     
     def get(self, url):
+        """
+        Get data from the specified URL.
+        """
         res = None
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
@@ -809,11 +878,17 @@ class Controller(udi_interface.Node):
         return res
 
     def toPercent(self, pos, divr=1.0):
+        """
+        Convert a position to a percentage.
+        """
         newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
     def put(self, url, data=None):
+        """
+        Put data to the specified URL.
+        """
         res = None
         try:
             if data:

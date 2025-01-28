@@ -73,6 +73,9 @@ class Shade(udi_interface.Node):
     """
     def __init__(self, polyglot, primary, address, name, shade):
         """
+        Initialize the node.
+        """
+        """
         Optional.
         Super runs all the parent class necessities. You do NOT have
         to override the __init__ method, but if you do, you MUST call super.
@@ -127,6 +130,9 @@ class Shade(udi_interface.Node):
             self.events()
 
     def events(self):
+        """
+        Process events from the gateway.
+        """
         # home update event
         try:
             event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
@@ -235,6 +241,9 @@ class Shade(udi_interface.Node):
             return False
 
     def updatePositions(self):
+        """
+        Update the positions of the shade.
+        """
         if 'primary' in self.positions:
             p1 = self.positions['primary']
         else:
@@ -271,6 +280,9 @@ class Shade(udi_interface.Node):
         return True
 
     def posToPercent(self, pos):
+        """
+        Convert a position to a percentage.
+        """
         """
         only used for PowerView G3 events
         """
@@ -374,6 +386,9 @@ class Shade(udi_interface.Node):
 
     def cmdSetpos(self, command):
         """
+        Set the position of the shade.
+        """
+        """
         setting primary, secondary, tilt
         """
         try:
@@ -397,6 +412,9 @@ class Shade(udi_interface.Node):
             LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
 
     def setShadePosition(self, pos):
+        """
+        Set the position of the shade.
+        """
         positions_array = {}
         if self.controller.generation == 2:
             if self.capabilities in self.tiltCapable:
@@ -451,6 +469,9 @@ class Shade(udi_interface.Node):
         return True
 
     def fromPercent(self, pos, divr=1.0):
+        """
+        Convert a percentage to a position.
+        """
         if self.controller.generation == 2:
             newpos = math.trunc((float(pos) / 100.0) * divr)
         else:
