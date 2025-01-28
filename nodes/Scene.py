@@ -72,11 +72,6 @@ class Scene(udi_interface.Node):
     def __init__(self, polyglot, primary, address, name, sid):
         """
         Initialize the node.
-        """
-        """
-        Optional.
-        Super runs all the parent class necessities. You do NOT have
-        to override the __init__ method, but if you do, you MUST call super.
 
         :param polyglot: Reference to the Interface class
         :param primary: Parent address
@@ -121,10 +116,8 @@ class Scene(udi_interface.Node):
             self.events()
 
     def events(self):
-        """
-        Process events from the gateway.
-        """
        # home update event
+       # Process events from the gateway.
         event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
         if event:
             event = event[0]

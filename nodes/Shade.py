@@ -74,11 +74,6 @@ class Shade(udi_interface.Node):
     def __init__(self, polyglot, primary, address, name, shade):
         """
         Initialize the node.
-        """
-        """
-        Optional.
-        Super runs all the parent class necessities. You do NOT have
-        to override the __init__ method, but if you do, you MUST call super.
 
         :param polyglot: Reference to the Interface class
         :param primary: Parent address
@@ -130,10 +125,8 @@ class Shade(udi_interface.Node):
             self.events()
 
     def events(self):
-        """
-        Process events from the gateway.
-        """
         # home update event
+        # Process events from the gateway.
         try:
             event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
         except Exception as ex:
@@ -412,9 +405,6 @@ class Shade(udi_interface.Node):
             LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
 
     def setShadePosition(self, pos):
-        """
-        Set the position of the shade.
-        """
         positions_array = {}
         if self.controller.generation == 2:
             if self.capabilities in self.tiltCapable:
