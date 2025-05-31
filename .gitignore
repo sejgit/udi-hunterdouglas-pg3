@@ -79,3 +79,4 @@ polyinterface
 *.DS_Store
 *.pid
 /.saves/
+.aider*
