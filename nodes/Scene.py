@@ -129,18 +129,19 @@ class Scene(udi_interface.Node):
                             data = list(filter(lambda scene: scene['id'] == self.sid, self.controller.scenes_array))
                         except:
                             LOGGER.error('scene: sid:{self.sid}, data error')
+                            data = None
                     else:
                         data = list(filter(lambda scene: scene['_id'] == self.sid, self.controller.scenes_array))
-                
-                    if data:
+
+                    if data is not None:
                         self.scenedata = data[0]
                         if self.name != self.scenedata['name']:
-                            LOGGER.warn(f"scene: sid:{self.sid}, name != scenedata[name]")
+                            LOGGER.info(f"scene: sid:{self.sid}, name != scenedata[name]")
                             if self.controller.generation == 2:
-                                LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, id:{self.scenedata['id']}, name:{self.scenedata['name']}")
+                                LOGGER.info(f"scene: sid:{self.sid}, self.name:{self.name}, id:{self.scenedata['id']}, name:{self.scenedata['name']}")
                             else:
-                                LOGGER.warn(f"scene: sid:{self.sid}, self.name:{self.name}, _id:{self.scenedata['_id']}, name:{self.scenedata['name']}")
-                            LOGGER.warn(f"scene name changed from {self.name} to {self.scenedata['name']}")
+                                LOGGER.info(f"scene: sid:{self.sid}, self.name:{self.name}, _id:{self.scenedata['_id']}, name:{self.scenedata['name']}")
+                            LOGGER.info(f"scene name changed from {self.name} to {self.scenedata['name']}")
                             self.rename(self.scenedata['name'])
                         if self.controller.generation == 3:
                             # update activation state only if G3 as array is [] for G2
@@ -190,7 +191,7 @@ class Scene(udi_interface.Node):
             activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(activateSceneUrl)
 
-        LOGGER.info(f"cmdActivate initiate {self.lpfx}")
+        LOGGER.info(f"cmdActivate initiate {self.lpfx} , {command}")
 
         # for PowerView G2 gateway there is no event so manually trigger activate
         # PowerView G3 will receive an activate event when the motion is complete
@@ -205,7 +206,7 @@ class Scene(udi_interface.Node):
         there is a need.
         """
         self.reportDrivers()
-        LOGGER.info(f'cmd Query {self.lpfx}')
+        LOGGER.info(f'cmd Query {self.lpfx} , {command}')
 
     """
     This is an array of dictionary items containing the variable names(drivers)

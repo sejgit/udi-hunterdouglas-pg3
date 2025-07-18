@@ -19,8 +19,13 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.4'
+VERSION = '1.12.5'
 """
+1.12.5
+DONE Some doc clean-up
+DONE Some string clean-up
+TODO Make more robust to controller faults
+
 1.12.4
 DEBUG Gen-2 make a default capability if none exists in JSON
 

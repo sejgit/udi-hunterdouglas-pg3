@@ -2,6 +2,17 @@
 
 ## see hunterdouglas-pg3.py for current version
 
+1.12.5
+DONE Some doc clean-up
+DONE Some string clean-up
+TODO Make more robust to controller faults
+
+1.12.4
+DEBUG Gen-2 make a default capability if none exists in JSON
+
+1.12.3
+DONE G2 Scene event fix
+
 1.12.2
 DONE add shade-offline event handling to error log; currently not passed to ISY
 DONE add updating of scene activation status on longPoll as backup to event

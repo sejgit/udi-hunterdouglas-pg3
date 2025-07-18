@@ -252,7 +252,7 @@ class Controller(udi_interface.Node):
         self.gateway = self.Parameters.gatewayip
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
-            LOGGER.warn('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
+            LOGGER.info('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
             self.Notices['gateway'] = 'Please note using default gateway address'
             return (gatewaycheck != self.gateway)
         try:
@@ -273,7 +273,7 @@ class Controller(udi_interface.Node):
             self.Notices.delete('notPrimary')
             return (gatewaycheck != self.gateway)
         else:
-            LOGGER.warn(f"checkParams: no gateway found in {self.gateway_array}")
+            LOGGER.info(f"checkParams: no gateway found in {self.gateway_array}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
             return False
                                 
@@ -341,7 +341,7 @@ class Controller(udi_interface.Node):
                 event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
                 if event:
                     event = event[0]
-                    LOGGER.warn('longPoll event - homedoc-updated - {}'.format(event))
+                    LOGGER.info('longPoll event - homedoc-updated - {}'.format(event))
                     self.gateway_event.remove(event)
                 
                 event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
@@ -405,6 +405,7 @@ class Controller(udi_interface.Node):
                 except:
                     LOGGER.error(f"json.loads-none --{y}--")
                     yy = {}
+        LOGGER.debug(f"raw = {yy}")
         return yy
                     
     def sseInit(self):
@@ -420,14 +421,13 @@ class Controller(udi_interface.Node):
             url = URL_EVENTS.format(g=self.gateway)
             try:
                sse = requests.get(url, headers={"Accept": "application/x-ldjson"}, stream=True)
-               x = (s.rstrip() for s in sse)
-               y = str("raw = {}".format(next(x)))
-               LOGGER.info(y)
-            except:
-                x = False
-        else:
-            x = False
-        return x
+               x = str(s.rstrip() for s in sse)
+               #y = (f"raw = {next(x)}")
+               #LOGGER.debug(y)
+               yield x
+            except Exception as e:
+                LOGGER.debug(f"generator fail - {e}")
+        return None
 
     def query(self, command = None):
         """
@@ -450,7 +450,7 @@ class Controller(udi_interface.Node):
         """
         Update the profile.
         """
-        LOGGER.info('update profile')
+        LOGGER.info(f"update profile , {command}")
         st = self.poly.updateProfile()
         return st
 
@@ -467,7 +467,7 @@ class Controller(udi_interface.Node):
             return
 
         self.discovery = True
-        LOGGER.info("In Discovery...")
+        LOGGER.info(f"In Discovery...{command}")
 
         nodes = self.poly.getNodes()
         LOGGER.debug(f"current nodes = {nodes}")
@@ -614,7 +614,7 @@ class Controller(udi_interface.Node):
         """
         Remove all notices from the ISY.
         """
-        LOGGER.info('remove_notices_all: notices={}'.format(self.Notices))
+        LOGGER.info(f"remove_notices_all: notices={self.Notices} , {command}")
         # Remove all existing notices
         self.Notices.clear()
 
@@ -868,7 +868,7 @@ class Controller(udi_interface.Node):
             self.Notices['HomeDoc'] = "PowerView Set-up not Complete See TroubleShooting Guide"
             return res
         elif res.status_code != requests.codes.ok:
-            LOGGER.warn(f"Unexpected response fetching {url}: {res.status_code}")
+            LOGGER.info(f"Unexpected response fetching {url}: {res.status_code}")
             return res
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
