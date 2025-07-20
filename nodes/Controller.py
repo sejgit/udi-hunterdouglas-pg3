@@ -337,6 +337,7 @@ class Controller(udi_interface.Node):
         if 'longPoll' in flag:
             LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
             self.updateAllFromServer()
+            LOGGER.debug(f"self.gateway_event: {self.gateway_event}")
             try:
                 event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
                 if event:
