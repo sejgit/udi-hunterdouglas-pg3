@@ -176,7 +176,7 @@ class Controller(udi_interface.Node):
         # Device discovery. Here you may query for your device(s) and 
         # their capabilities.  Also where you can create nodes that
         # represent the found device(s)
-        self.gateway_sse = self.sseInit()
+        self.gateway_sse = None
         # if self.checkParams():
         #     self.discover() # only do discovery if gateway change
 
@@ -199,7 +199,7 @@ class Controller(udi_interface.Node):
         LOGGER.debug('Loading parameters now')
         if self.checkParams():
             self.discover() # only do discovery if gateway change
-            self.gateway_sse = self.sseInit()
+            # self.gateway_sse = self.sseInit() # TODO turn off for now as maybe not needed
 
     """
     Called via the CUSTOMTYPEDPARAMS event. This event is sent When
@@ -362,72 +362,42 @@ class Controller(udi_interface.Node):
             LOGGER.info("event(total) = {}".format(self.gateway_event))
         else:
             LOGGER.debug('shortPoll check for events (controller)')
-            try:
-                if self.gateway_sse:
-                    yy = self.sseProcess()
-                    if yy != {}:
-                        self.gateway_event.append(yy)
-                        LOGGER.info(f"{self.eventTimer} new event = {yy}")
-                        self.eventTimer = 0
-            except:
+            yy = self.ssePoll()
+            if yy != {}:
+                LOGGER.info(f"{self.eventTimer} new event = {yy}")
+                self.eventTimer = 0
+            else:
                 self.eventTimer += 1
                 LOGGER.info(f"increment eventTimer = {self.eventTimer}")
-                if self.eventTimer > self.eventTimeout:
-                    self.gateway_sse = self.sseInit()
-                    LOGGER.info(f"eventTimeout")
-                    self.eventTimer = 0
 
-    def sseProcess(self):
+    def ssePoll(self):
         """
-        Process the event stream from the gateway.
+        Pull event stream from the gateway.
+        Connect and pull from the gateway stream of events ONLY FOR G3.
         """
-        x = self.gateway_sse
-        y = next(x)
-        y_next = ""
-        LOGGER.debug(f"json.loads-1 --{y}--")
-        try:
-            yy = json.loads(y)
-            LOGGER.info(f"json.loads-1-success --{yy}--")
-        except:
-            y_next = next(x)
-            y = y + y_next
-            LOGGER.debug(f"json.loads-2 --{y}--")
-            try:
-                yy = json.loads(y)
-                LOGGER.info(f"json.loads-2-success --{yy}--")
-            except:
-                y_next = next(x)
-                y = y + y_next
-                LOGGER.debug(f"json.loads-3 --")
-                try:
-                    yy = json.loads(y)
-                    LOGGER.info(f"json.loads-3-success --{yy}--")
-                except:
-                    LOGGER.error(f"json.loads-none --{y}--")
-                    yy = {}
-        LOGGER.debug(f"raw = {yy}")
-        return yy
-                    
-    def sseInit(self):
-        """
-        Initialize the event stream from the gateway.
-        """
-        """
-        connect and pull from the gateway stream of events ONLY FOR G3
-        """
-        self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
-
+        success = False
         if self.generation == 3:
-            url = URL_EVENTS.format(g=self.gateway)
             try:
-               sse = requests.get(url, headers={"Accept": "application/x-ldjson"}, stream=True)
-               x = str(s.rstrip() for s in sse)
-               #y = (f"raw = {next(x)}")
-               #LOGGER.debug(y)
-               yield x
-            except Exception as e:
-                LOGGER.debug(f"generator fail - {e}")
-        return None
+                url = URL_EVENTS.format(g=self.gateway)
+                s = requests.Session()
+                with s.get(url,headers=None, stream=True, timeout=2) as self.gateway_sse:
+                    for val in self.gateway_sse.iter_lines():
+                        LOGGER.debug(f"val:{val}")
+                        if val:
+                            if val == "100HELO":
+                                LOGGER.debug(f"sse:{val}")
+                                continue
+                            try:
+                                self.gateway_event.append(json.loads(val))
+                                success = True
+                            except:
+                                LOGGER.debug(f"noadd:{val}")
+                                pass
+            except requests.exceptions.Timeout:
+                LOGGER.debug(f"sse timeout")
+            except requests.exceptions.RequestException as e:
+                LOGGER.debug(f"sse error: {e}")
+        return success
 
     def query(self, command = None):
         """
