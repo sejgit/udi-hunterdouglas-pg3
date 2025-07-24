@@ -159,7 +159,7 @@ class Shade(udi_interface.Node):
         else:
             if event:
                 event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
+                self.positions = self.posToPercent(event['targetPositions'])
                 if self.updatePositions():
                     self.setDriver('ST', 1,report=True, force=True)
                     LOGGER.info(f'shortPoll shade {self.sid} motion-started event')

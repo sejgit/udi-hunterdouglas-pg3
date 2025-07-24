@@ -99,9 +99,9 @@ class Scene(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.setDriver('ST', 0)
+        self.setDriver('ST', 0,report=True, force=True)
         LOGGER.debug(f'{self.lpfx}: get ST={self.getDriver("ST")}')
-        self.setDriver('GV0', int(self.sid))
+        self.setDriver('GV0', int(self.sid),report=True, force=True)
         LOGGER.debug(f'{self.lpfx}: get GV0={self.getDriver("GV0")}')
         self.rename(self.name)
 
@@ -109,7 +109,7 @@ class Scene(udi_interface.Node):
         if 'longPoll' in flag:
             LOGGER.debug(f"longPoll scene {self.lpfx}")
             if self.controller.generation == 2:
-                self.setDriver('ST', 0)
+                self.setDriver('ST', 0,report=True, force=True)
                 # manually turn off activation for G2
         else:
             # LOGGER.debug(f"shortPoll {self.lpfx}")
@@ -148,11 +148,11 @@ class Scene(udi_interface.Node):
                             old = self.getDriver('ST')
                             if self.controller.sceneIdsActive_array.count(self.sid) > 0:
                                 if old != 1:
-                                    self.setDriver('ST', 1)
+                                    self.setDriver('ST', 1,report=True, force=True)
                                     LOGGER.info(f"scene {self.sid} activation updated ON")
                             else:
                                 if old != 0:
-                                    self.setDriver('ST', 0)
+                                    self.setDriver('ST', 0,report=True, force=True)
                                     LOGGER.info(f"scene {self.sid} activation updated OFF")
                         
                     self.controller.gateway_event[self.controller.gateway_event.index(event)]['scenes'].remove(self.sid)
@@ -174,9 +174,9 @@ class Scene(udi_interface.Node):
             if int(event['id']) == int(self.sid):
                 act = event['evt'] == 'scene-activated'
                 if act:
-                    self.setDriver('ST', 1)
+                    self.setDriver('ST', 1,report=True, force=True)
                 else:
-                    self.setDriver('ST', 0)
+                    self.setDriver('ST', 0,report=True, force=True)
                 LOGGER.info(f"shortPoll {event['evt']}: {self.lpfx}")
                 self.controller.gateway_event.remove(event)
                 
@@ -196,7 +196,7 @@ class Scene(udi_interface.Node):
         # for PowerView G2 gateway there is no event so manually trigger activate
         # PowerView G3 will receive an activate event when the motion is complete
         if self.controller.generation == 2:
-            self.setDriver('ST', 1)
+            self.setDriver('ST', 1,report=True, force=True)
             # manually turn on for G2, turn off on the next longPoll
 
     def query(self, command = None):
