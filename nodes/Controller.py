@@ -49,7 +49,7 @@ URL_SHADES_STOP = 'http://{g}/home/shades/stop?ids={id}'
 URL_SCENES = 'http://{g}/home/scenes/{id}'
 URL_SCENES_ACTIVATE = 'http://{g}/home/scenes/{id}/activate'
 URL_SCENES_ACTIVE = 'http://{g}/home/scenes/active'
-URL_EVENTS = 'http://{g}/home/events?sse=false&raw=true'
+URL_EVENTS = 'http://{g}/home/events?sse=false&raw=false'
 URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
 URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 

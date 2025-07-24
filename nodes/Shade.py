@@ -112,7 +112,7 @@ class Shade(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.setDriver('GV0', self.sid)
+        self.setDriver('GV0', self.sid,report=True, force=True)
         self.updateData()
         self.reportDrivers()
         self.rename(self.name)
@@ -161,7 +161,7 @@ class Shade(udi_interface.Node):
                 event = event[0]
                 self.positions = self.posToPercent(event['currentPositions'])
                 if self.updatePositions():
-                    self.setDriver('ST', 1)
+                    self.setDriver('ST', 1,report=True, force=True)
                     LOGGER.info(f'shortPoll shade {self.sid} motion-started event')
                     self.controller.gateway_event.remove(event)
                    
@@ -176,7 +176,7 @@ class Shade(udi_interface.Node):
                 event = event[0]
                 self.positions = self.posToPercent(event['currentPositions'])
                 if self.updatePositions():
-                    self.setDriver('ST', 0)
+                    self.setDriver('ST', 0,report=True, force=True)
                     LOGGER.info(f'shortPoll shade {self.sid} motion-stopped event')
                     self.controller.gateway_event.remove(event)
                    
@@ -208,6 +208,22 @@ class Shade(udi_interface.Node):
                     LOGGER.error(f'shortPoll shade {self.sid} shade-offline event')
                     self.controller.gateway_event.remove(event)
                    
+        # battery-alert event
+        try:
+            event = list(filter(lambda events: (events['evt'] == 'battery-alert' and events['id'] == self.sid), \
+                            self.controller.gateway_event))
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} battery-event error: {ex}")
+        else:
+            if event:
+                event = event[0]
+                self.shadedata["batteryStatus"] = event['batteryLevel']
+                self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    LOGGER.error(f'shortPoll shade {self.sid} battery-event')
+                    self.controller.gateway_event.remove(event)
+
     def updateData(self):
         if self.controller.no_update == False:
             # LOGGER.debug(self.controller.shades_array)
@@ -216,17 +232,17 @@ class Shade(udi_interface.Node):
             if data:
                 self.shadedata = data[0]
                 if self.name != self.shadedata['name']:
-                    LOGGER.warn(f"Name error current:{self.name}  new:{self.shadedata['name']}")
+                    LOGGER.warning(f"Name error current:{self.name}  new:{self.shadedata['name']}")
                     self.rename(self.shadedata['name'])
-                    LOGGER.warn(f"Renamed {self.name}")
-                self.setDriver('GV1', self.shadedata["roomId"])
-                self.setDriver('GV6', self.shadedata["batteryStatus"])
+                    LOGGER.warning(f"Renamed {self.name}")
+                self.setDriver('GV1', self.shadedata["roomId"],report=True, force=True)
+                self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
                 try:
                     self.capabilities = int(self.shadedata["capabilities"])
                 except:
                     LOGGER.error(f"no capabilties defined, use default shade")
                     self.capabilities = int(0)
-                self.setDriver('GV5', self.capabilities)
+                self.setDriver('GV5', self.capabilities,report=True, force=True)
                 self.positions = self.shadedata["positions"]
                 self.updatePositions()
                 return True
@@ -255,21 +271,21 @@ class Shade(udi_interface.Node):
         LOGGER.debug(f"updatePositions {p1} {p2} {t1}")
             
         if self.capabilities in [7, 8]:
-            self.setDriver('GV2', p1)
-            self.setDriver('GV3', p2)
+            self.setDriver('GV2', p1,report=True, force=True)
+            self.setDriver('GV3', p2,report=True, force=True)
         elif self.capabilities in [0, 3]:
-            self.setDriver('GV2', p1)
+            self.setDriver('GV2', p1,report=True, force=True)
         elif self.capabilities == 6:
-            self.setDriver('GV3', p2)
+            self.setDriver('GV3', p2,report=True, force=True)
         elif self.capabilities in [1, 2, 4]:
-            self.setDriver('GV2', p1)
-            self.setDriver('GV4', t1)
+            self.setDriver('GV2', p1,report=True, force=True)
+            self.setDriver('GV4', t1,report=True, force=True)
         elif self.capabilities == 5:
-            self.setDriver('GV4', t1)
+            self.setDriver('GV4', t1,report=True, force=True)
         else: # 9, 10 , unknown
-            self.setDriver('GV2', p1)
-            self.setDriver('GV3', p2)
-            self.setDriver('GV4', t1)
+            self.setDriver('GV2', p1,report=True, force=True)
+            self.setDriver('GV3', p2,report=True, force=True)
+            self.setDriver('GV4', t1,report=True, force=True)
         return True
 
     def posToPercent(self, pos):
