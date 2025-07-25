@@ -235,6 +235,7 @@ class Shade(udi_interface.Node):
                     LOGGER.warning(f"Name error current:{self.name}  new:{self.shadedata['name']}")
                     self.rename(self.shadedata['name'])
                     LOGGER.warning(f"Renamed {self.name}")
+                self.setDriver('ST', 0,report=True, force=True)
                 self.setDriver('GV1', self.shadedata["roomId"],report=True, force=True)
                 self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
                 try:

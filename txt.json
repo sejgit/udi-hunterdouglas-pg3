@@ -1,0 +1,69 @@
+100HELO
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:35.115Z","bleName":"ROD:E1B8","id":139,"currentPositions":{"primary":0.48,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:35.243Z","bleName":"ROD:206C","id":151,"currentPositions":{"primary":0.5,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:36.069Z","bleName":"ROD:3E81","id":120,"currentPositions":{"primary":0.51,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":4}}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:36.148Z","bleName":"ROD:6FEA","id":143,"currentPositions":{"primary":0.51,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:36.148Z","bleName":"ROD:6FEA","id":143,"currentPositions":{"primary":0.55,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:36.166Z","bleName":"ROD:1915","id":155,"currentPositions":{"primary":0.51,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:36.166Z","bleName":"ROD:1915","id":155,"currentPositions":{"primary":0.54,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:36.361Z","bleName":"ROD:F546","id":147,"currentPositions":{"primary":0.5,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:36.361Z","bleName":"ROD:F546","id":147,"currentPositions":{"primary":0.55,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:36.452Z","bleName":"ROD:8777","id":131,"currentPositions":{"primary":0.5,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:36.533Z","bleName":"ROD:F392","id":135,"currentPositions":{"primary":0.51,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":8}}
+
+{"evt":"motion-started","isoDate":"2025-07-19T14:00:37.173Z","bleName":"ROD:978B","id":127,"currentPositions":{"primary":0.5,"secondary":1,"tilt":0},"targetPositions":{"primary":1,"secondary":1,"tilt":0,"etaInSeconds":4}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:39.289Z","bleName":"ROD:978B","id":127,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:39.867Z","bleName":"ROD:3E81","id":120,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:40.577Z","bleName":"ROD:F546","id":147,"currentPositions":{"primary":0.82,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"scene-deactivated","isoDate":"2025-07-19T14:00:40.926Z","id":178,"scene":{"id":178,"name":"UHJpdmFjeSA1MA==","ptName":"Privacy 50","networkNumber":36919,"color":"0","icon":"184","roomIds":[119],"shadeIds":[120,127,131,135,139,143,147,151,155]}}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:42.185Z","bleName":"ROD:F546","id":147,"currentPositions":{"primary":0.92,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:42.547Z","bleName":"ROD:6FEA","id":143,"currentPositions":{"primary":0.94,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"battery-alert","isoDate":"2025-07-19T14:00:42.648Z","bleName":"ROD:1915","id":155,"currentPositions":{"primary":0.95,"secondary":1,"tilt":0},"batteryLevel":2}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:44.421Z","bleName":"ROD:1915","id":155,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:44.538Z","bleName":"ROD:206C","id":151,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:44.747Z","bleName":"ROD:6FEA","id":143,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:44.780Z","bleName":"ROD:F392","id":135,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:44.992Z","bleName":"ROD:F546","id":147,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:45.137Z","bleName":"ROD:8777","id":131,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"motion-stopped","isoDate":"2025-07-19T14:00:45.876Z","bleName":"ROD:E1B8","id":139,"currentPositions":{"primary":1,"secondary":1,"tilt":0}}
+
+{"evt":"scene-activated","isoDate":"2025-07-19T14:00:46.919Z","id":121,"scene":{"id":121,"name":"T3BlbiBBbGw=","ptName":"Open All","networkNumber":45057,"color":"0","icon":"183","roomIds":[119],"shadeIds":[120,127,131,135,139,143,147,151,155]}}
+
+
+// GET http://10.0.1.50/home/events
+// HTTP/1.1 200 OK
+// X-Powered-By: Express
+// Access-Control-Allow-Origin: *
+// Cache-Control: no-cache
+// Content-Type: text/event-stream
+// Date: Sat, 19 Jul 2025 13:37:23 GMT
+// Connection: keep-alive
+// Keep-Alive: timeout=30
+// Transfer-Encoding: chunked
+// Request duration: 0.060366s
+
