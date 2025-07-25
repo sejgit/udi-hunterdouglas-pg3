@@ -3,9 +3,14 @@
 ## see hunterdouglas-pg3.py for current version
 
 1.12.5
-DONE Some doc clean-up
-DONE Some string clean-up
-TODO Make more robust to controller faults
+DONE re-write SSE for G3
+DONE fix motion if motion-stop missed
+DONE battery low event added for G3
+DONE force updates to server (helps with new eisy-ui)
+DONE doc clean-up
+DONE string clean-up
+DONE improve logging
+DONE bumped requests and urllib3 versions
 
 1.12.4
 DEBUG Gen-2 make a default capability if none exists in JSON
