@@ -28,15 +28,19 @@ See the [**Configuration**][configuration] file for details
 This node server will only run on Polyglot version 3. You will
 need to have an EISY/Polisy with PG3 installed to run this node server
 
+## Background info (not needed to run plugin)
+
 ### See also [Hunter Douglas PowerView][hd_powerview] for product details
 
-For PowerView G3 hubs, the API can be self hosted by your hub:
+PowerView G3 hubs, the API can be self hosted by your hub:
 
 * Enable Swagger on your hub: [swagger_enable]
 * Get the Swagger results: [swagger_results]
 * Disable Swagger on your hub: [swagger_disable]
 
-For PowerView G2 hubs, checkout the [**G2-API here**][G2-API]
+PowerView G2 hubs, checkout the [**G2-API here**][G2-API]
+
+PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-API]
 
 ## Polling
 
@@ -149,3 +153,4 @@ For PowerView G2 hubs, checkout the [**G2-API here**][G2-API]
 [swagger_results]: http://powerview-g3.local:3002
 [swagger_disable]: http://powerview-g3.local/gateway/swagger?enable=false
 [G2-API]: /docs/PowerViewG2api.md
+[G1-API]: /docs/PowerViewG1api.md
