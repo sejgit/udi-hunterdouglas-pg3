@@ -80,3 +80,4 @@ polyinterface
 *.pid
 /.saves/
 .aider*
+/temp/
