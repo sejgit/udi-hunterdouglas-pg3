@@ -19,8 +19,11 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.5'
+VERSION = '1.12.6'
 """
+1.12.6
+DONE reverse open / close behaviour for G3 shades
+
 1.12.5
 DONE re-write SSE for G3
 DONE fix motion if motion-stop missed

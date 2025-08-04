@@ -305,10 +305,11 @@ class Shade(udi_interface.Node):
         open shade
         """
         LOGGER.info(f'cmd Shade Open {self.lpfx}')
+        #leave in place until user confirmation of G2 behaviour
         if self.controller.generation == 2:
             self.positions["primary"] = 100
         else:
-            self.positions["primary"] = 0
+            self.positions["primary"] = 100
         self.setShadePosition(self.positions)
 
     def cmdClose(self, command):
@@ -316,10 +317,11 @@ class Shade(udi_interface.Node):
         close shade
         """
         LOGGER.info(f'cmd Shade Close {self.lpfx}')
+        #leave in place until user confirmation of G2 behaviour        
         if self.controller.generation == 2:
             self.positions["primary"] = 0
         else:
-            self.positions["primary"] = 100
+            self.positions["primary"] = 0
         self.setShadePosition(self.positions)
 
     def cmdStop(self, command):

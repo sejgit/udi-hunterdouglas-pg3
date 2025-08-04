@@ -2,6 +2,9 @@
 
 ## see hunterdouglas-pg3.py for current version
 
+1.12.6 \
+DONE reverse open / close behaviour for G3 shades
+
 1.12.5 \
 DONE re-write SSE for G3 \
 DONE fix motion if motion-stop missed \
@@ -10,7 +13,7 @@ DONE force updates to server (helps with new eisy-ui) \
 DONE doc clean-up \
 DONE string clean-up \
 DONE improve logging \
-DONE bumped requests and urllib3 versions \
+DONE bumped requests and urllib3 versions
 
 1.12.4 \
 DEBUG Gen-2 make a default capability if none exists in JSON
@@ -28,7 +31,7 @@ DONE environment updates
 DONE small refactors
 
 1.12.0 \
-DONE change versioning to align with workflow
+DONE change versioning to align with workflow \
 DONE update docs: README, versionHistory, logging
 
 ### past versions: \
