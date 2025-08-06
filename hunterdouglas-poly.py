@@ -19,8 +19,12 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.6'
+VERSION = '1.12.7'
 """
+1.12.7
+DEBUG crash when connection reset by peer ; fix data
+DONE remove separate open / close behaviour for G2/G3
+
 1.12.6
 DONE reverse open / close behaviour for G3 shades
 

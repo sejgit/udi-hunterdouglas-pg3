@@ -760,9 +760,9 @@ class Controller(udi_interface.Node):
         """
         res = self.get(URL_HOME.format(g=self.gateway))
         code = res.status_code
-        data = res.json()
         if self.gateway_array:
             if code == requests.codes.ok:
+                data = res.json()
                 LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
@@ -781,9 +781,9 @@ class Controller(udi_interface.Node):
         """
         res = self.get(URL_SCENES_ACTIVE.format(g=self.gateway))
         code = res.status_code
-        data = res.json()
         if self.gateway_array:
             if code == requests.codes.ok:
+                data = res.json()
                 LOGGER.info("getScenesActiveG3 good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
@@ -798,9 +798,9 @@ class Controller(udi_interface.Node):
         """
         res = self.get(URL_G2_HUB.format(g=self.gateway))
         code = res.status_code
-        data = res.json()
         if self.gateway_array:
             if code == requests.codes.ok:
+                data = res.json()
                 LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateway_array)
                 return data
             else:
@@ -821,7 +821,7 @@ class Controller(udi_interface.Node):
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Error fetching {url}: {e}", exc_info=True)
+            LOGGER.error(f"Error fetching {url}: {e}")
             res = requests.Response()
             res.status_code = 300
             res.raw = {"errMsg":"Error fetching from gateway, check configuration"}
