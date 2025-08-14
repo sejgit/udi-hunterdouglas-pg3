@@ -593,7 +593,9 @@ class Controller(udi_interface.Node):
         Update all nodes from the gateway.
         """
         success = True
-        if (time.perf_counter() > (self.last + 3.0)) and (not self.no_update):
+        if self.no_update:
+            return False
+        if (time.perf_counter() > (self.last + 3.0)):
             self.no_update = True
             self.last = time.perf_counter()
             if self.generation == 3:
