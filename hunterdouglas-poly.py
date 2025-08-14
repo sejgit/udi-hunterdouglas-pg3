@@ -19,8 +19,12 @@ import udi_interface
 
 LOGGER = udi_interface.LOGGER
 
-VERSION = '1.12.7'
+VERSION = '1.12.8'
 """
+1.12.8
+DONE prevent update until previous complete
+NEXT minor change, don't push to production until other changes needed
+
 1.12.7
 DEBUG crash when connection reset by peer ; fix data
 DONE remove separate open / close behaviour for G2/G3
