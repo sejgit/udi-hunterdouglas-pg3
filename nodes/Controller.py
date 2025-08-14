@@ -380,8 +380,7 @@ class Controller(udi_interface.Node):
         if self.generation == 3:
             try:
                 url = URL_EVENTS.format(g=self.gateway)
-                s = requests.Session()
-                with s.get(url,headers=None, stream=True, timeout=2) as self.gateway_sse:
+                with requests.get(url,headers=None, stream=True, timeout=2) as self.gateway_sse:
                     for val in self.gateway_sse.iter_lines():
                         LOGGER.debug(f"val:{val}")
                         if val:

@@ -46,7 +46,7 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 
 ### longPoll
 
-* currently every 60s but in G3 can be moved longer because of the events server
+* currently every 60s but in G3 can be moved longer because of the events server, I suggest 120s
 
 #### controller longPoll
 

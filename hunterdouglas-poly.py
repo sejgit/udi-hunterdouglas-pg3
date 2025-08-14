@@ -23,6 +23,7 @@ VERSION = '1.12.8'
 """
 1.12.8
 DONE prevent update until previous complete
+DONE update README with 120s LongPoll suggestion for G3 due to Events updates
 NEXT minor change, don't push to production until other changes needed
 
 1.12.7
