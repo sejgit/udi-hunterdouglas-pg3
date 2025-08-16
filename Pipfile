@@ -7,7 +7,6 @@ name = "pypi"
 udi_interface = "*"
 mashumaro = "*"
 async-timeout = "*"
-deprecation = "*"
 requests = "*"
 
 [dev-packages]
