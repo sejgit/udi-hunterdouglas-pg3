@@ -363,7 +363,8 @@ class Controller(udi_interface.Node):
             LOGGER.info("event(total) = {}".format(self.gateway_event))
         else:
             LOGGER.debug('shortPoll check for events (controller)')
-            yy = self.ssePoll()
+            # yy = self.ssePoll()
+            yy = False
             if yy:
                 LOGGER.info(f"{self.eventTimer} new event = {self.gateway_event}")
                 self.eventTimer = 0
