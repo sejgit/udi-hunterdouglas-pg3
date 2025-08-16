@@ -15,12 +15,16 @@ main loop
 import sys
 
 # external libraries
-import udi_interface
+from udi_interface import Interface, LOGGER
+from nodes import Controller
+import asyncio
 
-LOGGER = udi_interface.LOGGER
-
-VERSION = '1.12.8'
+VERSION = '1.13.0'
 """
+1.13.0
+TODO re-write using Python better practices
+TODO add number of shades & scenes managed to controller node
+
 1.12.8
 DONE prevent update until previous complete
 DONE update README with 120s LongPoll suggestion for G3 due to Events updates
@@ -65,9 +69,7 @@ for previous version see versionHistory.md
 
 """
 
-from nodes import Controller
-
-if __name__ == "__main__":
+def main():
     try:
         """
         Instantiates the Interface to Polyglot.
@@ -75,7 +77,7 @@ if __name__ == "__main__":
         * Optionally pass list of class names
           - PG2 had the controller node name here
         """
-        polyglot = udi_interface.Interface([])
+        polyglot = Interface([])
         """
         Starts MQTT and connects to Polyglot.
         """
@@ -105,6 +107,10 @@ if __name__ == "__main__":
         Catch SIGTERM or Control-C and exit cleanly.
         """
         polyglot.stop()
+        sys.exit(0)
     except Exception as err:
         LOGGER.error('Excption: {0}'.format(err), exc_info=True)
-    sys.exit(0)
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,13 @@
+__pycache__/*
+*/__pycache__/*
+logs/*
+*.pyc
+zip_exclude.lst
+*.zip
+python-kasa/*
+python-kasa.save/*
+*.log
+000*
+svc.pid
+*.lock
+#*#

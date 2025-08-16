@@ -1,2 +1,5 @@
-udi_interface
+udi_interface >= 3.3.14
+depreciation
+mashumaro
 requests
+async_timeout

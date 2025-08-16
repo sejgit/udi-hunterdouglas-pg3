@@ -356,15 +356,15 @@ class Controller(udi_interface.Node):
                     LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
 
                 if self.Notices['hello']:
-                    self.Notices.delete('hello')
+                    self.Notices.delete('hello') # clear inital start-up message in first longPoll
             except:
                 LOGGER.error("LongPoll event error")
             self.heartbeat()
             LOGGER.info("event(total) = {}".format(self.gateway_event))
         else:
             LOGGER.debug('shortPoll check for events (controller)')
-            # yy = self.ssePoll()
-            yy = False
+            yy = self.ssePoll() # swap this and next when testing poll only
+            # yy = False
             if yy:
                 LOGGER.info(f"{self.eventTimer} new event = {self.gateway_event}")
                 self.eventTimer = 0

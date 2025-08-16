@@ -71,6 +71,7 @@ target/
 
 # Crapple
 .AppleDouble
+.DS_Store
 
 #Project specific
 polyinterface
@@ -81,3 +82,5 @@ polyinterface
 /.saves/
 .aider*
 /temp/
+.zip
+\#.#
