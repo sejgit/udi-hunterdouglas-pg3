@@ -1,11 +1,14 @@
 [[source]]
 url = "https://pypi.org/simple"
-verify_ssl = true
+verify_ssl = false
 name = "pypi"
 
 [packages]
+udi_interface = "*"
 udi-interface = "*"
 requests = "*"
+markdown2 = "*"
+aiohttp = "*"
 
 [dev-packages]
 

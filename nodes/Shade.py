@@ -9,6 +9,8 @@ Shade class
 
 # std libraries
 import math
+import asyncio
+from threading import Event
 
 # external libraries
 import udi_interface
@@ -103,6 +105,7 @@ class Shade(udi_interface.Node):
         self.tiltOnly90Capable = [1, 9]
  
         self.lpfx = f'{address}:{name}'
+        self.event_polling_in = False
 
         self.poly.subscribe(self.poly.START, self.start, address)
         self.poly.subscribe(self.poly.POLL, self.poll)
@@ -116,113 +119,137 @@ class Shade(udi_interface.Node):
         self.updateData()
         self.reportDrivers()
         self.rename(self.name)
+        if not self.event_polling_in:
+            self.start_event_polling()
 
     def poll(self, flag):
-        if 'longPoll' in flag:
-            LOGGER.debug(f'longPoll shade {self.lpfx}')
+        if not self.controller.ready:
+            LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
+            return
+        if 'shortPoll' in flag:
+            LOGGER.debug(f'shortPoll shade {self.lpfx}')
+            if not self.event_polling_in:
+                self.start_event_polling()
         else:
-            # LOGGER.debug('shortPoll (shade)')
-            self.events()
+            pass
 
-    def events(self):
-        # home update event
-        # Process events from the gateway.
-        try:
-            event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
-        except Exception as ex:
-            LOGGER.error(f"shade {self.sid} home event error: {ex}", exc_info=True)
-        else:            
-            if event:
-                event = event[0]
-                if event['shades'].count(self.sid) > 0:
-                    LOGGER.info(f'shortPoll shade {self.sid} update')
-                    if self.updateData():
-                        try:
-                            self.controller.gateway_event[self.controller.gateway_event.index(event)]['shades'].remove(self.sid)
-                        except Exception as ex:
-                            LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
+    def start_event_polling(self):
+            future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
+            LOGGER.info(f"start: {self.lpfx}")
+            return future
+
+    async def _poll_events(self):
+        self.event_polling_in = True
+        while not Event().is_set():
+            await asyncio.sleep(1)
+            # home update event
+            try:
+                event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} home event error: {ex}", exc_info=True)
+            else:            
+                if event:
+                    event = event[0]
+                    if event['shades'].count(self.sid) > 0:
+                        LOGGER.debug(f'shortPoll shade {self.sid} update')
+                        if self.updateData():
+                            try:
+                                rem = self.controller.gateway_event.index(event)
+                                self.controller.gateway_event[rem]['shades'].remove(self.sid)
+                            except Exception as ex:
+                                LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
+                    else:
+                        pass
+                        # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
                 else:
                     pass
-                    # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
+                    # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
+
+            ######
+            # NOTE rest of the events below are only for G3, will not fire for G2
+            ######
+
+            # motion-started event
+            try:
+                event = list(filter(lambda events: (events['evt'] == 'motion-started' \
+                                               and events['id'] == self.sid), \
+                                    self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} motion-started event error: {ex}")
             else:
-                pass
-                # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
+                if event:
+                    event = event[0]
+                    self.positions = self.posToPercent(event['targetPositions'])
+                    if self.updatePositions():
+                        self.setDriver('ST', 1,report=True, force=True)
+                        LOGGER.info(f'shortPoll shade {self.sid} motion-started event')
+                        self.controller.gateway_event.remove(event)
+                   
+            # motion-stopped event
+            try:
+                event = list(filter(lambda events: (events['evt'] == 'motion-stopped' \
+                                               and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} motion-stopped event error: {ex}")
+            else:
+                if event:
+                    event = event[0]
+                    self.positions = self.posToPercent(event['currentPositions'])
+                    if self.updatePositions():
+                        self.setDriver('ST', 0,report=True, force=True)
+                        LOGGER.info(f'shortPoll shade {self.sid} motion-stopped event')
+                        self.controller.gateway_event.remove(event)
+                   
+            # shade-online event
+            try:
+                event = list(filter(lambda events: (events['evt'] == 'shade-online' \
+                                               and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} shade-online event error: {ex}")
+            else:
+                if event:
+                    event = event[0]
+                    self.positions = self.posToPercent(event['currentPositions'])
+                    if self.updatePositions():
+                        LOGGER.info(f'shortPoll shade {self.sid} shade-online event')
+                        self.controller.gateway_event.remove(event)
+                   
+            # shade-offline event
+            try:
+                event = list(filter(lambda events: (events['evt'] == 'shade-offline' \
+                                               and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} shade-offline event error: {ex}")
+            else:
+                if event:
+                    event = event[0]
+                    self.positions = self.posToPercent(event['currentPositions'])
+                    if self.updatePositions():
+                        LOGGER.error(f'shortPoll shade {self.sid} shade-offline event')
+                        self.controller.gateway_event.remove(event)
+                   
+            # battery-alert event
+            try:
+                event = list(filter(lambda events: (events['evt'] == 'battery-alert' \
+                                               and events['id'] == self.sid), \
+                                self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} battery-event error: {ex}")
+            else:
+                if event:
+                    event = event[0]
+                    self.shadedata["batteryStatus"] = event['batteryLevel']
+                    self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
+                    self.positions = self.posToPercent(event['currentPositions'])
+                    if self.updatePositions():
+                        LOGGER.error(f'shortPoll shade {self.sid} battery-event')
+                        self.controller.gateway_event.remove(event)
 
-        # NOTE rest of the events below are only for G3, will not fire for G2
-
-        # motion-started event
-        try:
-            event = list(filter(lambda events: (events['evt'] == 'motion-started' and events['id'] == self.sid), \
-                            self.controller.gateway_event))
-        except Exception as ex:
-            LOGGER.error(f"shade {self.sid} motion-started event error: {ex}")
-        else:
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['targetPositions'])
-                if self.updatePositions():
-                    self.setDriver('ST', 1,report=True, force=True)
-                    LOGGER.info(f'shortPoll shade {self.sid} motion-started event')
-                    self.controller.gateway_event.remove(event)
-                   
-        # motion-stopped event
-        try:
-            event = list(filter(lambda events: (events['evt'] == 'motion-stopped' and events['id'] == self.sid), \
-                            self.controller.gateway_event))
-        except Exception as ex:
-            LOGGER.error(f"shade {self.sid} motion-stopped event error: {ex}")
-        else:
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    self.setDriver('ST', 0,report=True, force=True)
-                    LOGGER.info(f'shortPoll shade {self.sid} motion-stopped event')
-                    self.controller.gateway_event.remove(event)
-                   
-        # shade-online event
-        try:
-            event = list(filter(lambda events: (events['evt'] == 'shade-online' and events['id'] == self.sid), \
-                            self.controller.gateway_event))
-        except Exception as ex:
-            LOGGER.error(f"shade {self.sid} shade-online event error: {ex}")
-        else:
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    LOGGER.info(f'shortPoll shade {self.sid} shade-online event')
-                    self.controller.gateway_event.remove(event)
-                   
-        # shade-offline event
-        try:
-            event = list(filter(lambda events: (events['evt'] == 'shade-offline' and events['id'] == self.sid), \
-                            self.controller.gateway_event))
-        except Exception as ex:
-            LOGGER.error(f"shade {self.sid} shade-offline event error: {ex}")
-        else:
-            if event:
-                event = event[0]
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    LOGGER.error(f'shortPoll shade {self.sid} shade-offline event')
-                    self.controller.gateway_event.remove(event)
-                   
-        # battery-alert event
-        try:
-            event = list(filter(lambda events: (events['evt'] == 'battery-alert' and events['id'] == self.sid), \
-                            self.controller.gateway_event))
-        except Exception as ex:
-            LOGGER.error(f"shade {self.sid} battery-event error: {ex}")
-        else:
-            if event:
-                event = event[0]
-                self.shadedata["batteryStatus"] = event['batteryLevel']
-                self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
-                self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    LOGGER.error(f'shortPoll shade {self.sid} battery-event')
-                    self.controller.gateway_event.remove(event)
+        self.event_polling_in = False
+        # exit events
 
     def updateData(self):
         if self.controller.no_update == False:
@@ -292,29 +319,33 @@ class Shade(udi_interface.Node):
     def posToPercent(self, pos):
         """
         Convert a position to a percentage.
-        """
-        """
         only used for PowerView G3 events
         """
         for key in pos:
-            pos[key] = self.controller.toPercent(pos[key])
+            if pos[key]:
+                pos[key] = self.controller.toPercent(pos[key])
+            else:
+                LOGGER.error(f"pos = {pos}, key = {key}, pos[key] = {pos[key]}")
+                pos[key] = 0
         return pos
         
     def cmdOpen(self, command):
         """
         open shade
         """
-        LOGGER.info(f'cmd Shade Open {self.lpfx}')
+        LOGGER.info(f'cmd Shade Open {self.lpfx}, {command}')
         self.positions["primary"] = 100
         self.setShadePosition(self.positions)
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
     def cmdClose(self, command):
         """
         close shade
         """
-        LOGGER.info(f'cmd Shade Close {self.lpfx}')
+        LOGGER.info(f'cmd Shade Close {self.lpfx}, {command}')
         self.positions["primary"] = 0
         self.setShadePosition(self.positions)
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
     def cmdStop(self, command):
         """
@@ -324,31 +355,36 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 3:
             shadeUrl = URL_SHADES_STOP.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(shadeUrl)
-            LOGGER.info(f'cmd Shade Stop {self.lpfx}')
+            LOGGER.info(f'cmd Shade Stop {self.lpfx}, {command}')
+        else:
+            LOGGER.debug(f'cmd Shade Stop error (none in gen2) {self.lpfx}, {command}')
+
 
     def cmdTiltOpen(self, command):
         """
         tilt shade open
         """
-        LOGGER.info(f'cmd Shade TiltOpen {self.lpfx}')
-        
+        LOGGER.info(f'cmd Shade TiltOpen {self.lpfx}, {command}')
         self.positions["tilt"] = 50
         self.setShadePosition(pos = {"tilt": 50})
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
     def cmdTiltClose(self, command):
         """
         tilt shade close
         """
-        LOGGER.info(f'cmd Shade TiltClose {self.lpfx}')
+        LOGGER.info(f'cmd Shade TiltClose {self.lpfx}, {command}')
         self.positions['tilt'] = 0
         self.setShadePosition(pos = {"tilt": 0})
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
-    def cmdJog(self, command):
+    def cmdJog(self, command = None):
         """
         jog shade
         PowerView G2 will send updateBatteryLevel which also jogs shade
         Battery level updates are automatic in PowerView G3
         """
+        LOGGER.info(f'cmd Shade Jog {self.lpfx}, {command}')
         if self.controller.generation == 2:
             shadeUrl = URL_G2_SHADE_BATTERY.format(g=self.controller.gateway, id=self.sid)
             body = {}
@@ -357,16 +393,15 @@ class Shade(udi_interface.Node):
             body = {
                 "motion": "jog"
             }
-
         self.controller.put(shadeUrl, data=body)
-        LOGGER.info(f'cmd Shade JOG {self.lpfx}')
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
-    def cmdCalibrate(self, command):
+    def cmdCalibrate(self, command = None):
         """
         calibrate shade
         only available in PowerView G2, automatic in PowerView G3
-        TODO not implemented
         """
+        LOGGER.info(f'cmd Shade CALIBRATE {self.lpfx}, {command}')
         if self.controller.generation == 2:
             shadeUrl = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
             body = {
@@ -374,46 +409,50 @@ class Shade(udi_interface.Node):
                     "motion": 'calibrate'
                 }
             }
-
             self.controller.put(shadeUrl, data=body)
-            LOGGER.debug(f'cmd Shade CALIBRATE {self.lpfx}')
+        else:
+            LOGGER.error(f'cmd Shade CALIBRATE error, not implimented in G3 {self.lpfx}, {command}')            
+        LOGGER.debug(f"Exit {self.lpfx}")        
                 
-    def query(self, command=None):
+    def query(self, command = None):
         """
         Called by ISY to report all drivers for this node. This is done in
         the parent class, so you don't need to override this method unless
         there is a need.
         """
+        LOGGER.info(f'cmd Query {self.lpfx}, {command}')
         self.updateData()
         self.reportDrivers()
-        LOGGER.info(f'cmd Query {self.lpfx}')
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
-    def cmdSetpos(self, command):
+    def cmdSetpos(self, command = None):
         """
-        Set the position of the shade.
+        Set the position of the shade; setting primary, secondary, tilt
         """
-        """
-        setting primary, secondary, tilt
-        """
-        try:
-            pos = {}
-            LOGGER.info(f'Shade Setpos command {command}')
-            query = command.get("query")
-            LOGGER.info(f'Shade Setpos query {query}')
-            if "SETPRIM.uom100" in query:
-                pos["primary"] = int(query["SETPRIM.uom100"])
-            if "SETSECO.uom100" in query:
-                pos["secondary"] = int(query["SETSECO.uom100"])
-            if "SETTILT.uom100" in query:
-                pos["tilt"] = int(query["SETTILT.uom100"])
-            if pos != {}:
-                LOGGER.info(f'Shade Setpos {pos}')
-                self.setShadePosition(pos)
-                self.positions.update(pos)
-            else:
-                LOGGER.error('Shade Setpos --nothing to set--')
-        except Exception as ex:
-            LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
+        LOGGER.info(f'cmdSetpos {self.lpfx}, {command}')
+        if command:
+            try:
+                pos = {}
+                LOGGER.info(f'Shade Setpos command {command}')
+                query = command.get("query")
+                LOGGER.info(f'Shade Setpos query {query}')
+                if "SETPRIM.uom100" in query:
+                    pos["primary"] = int(query["SETPRIM.uom100"])
+                if "SETSECO.uom100" in query:
+                    pos["secondary"] = int(query["SETSECO.uom100"])
+                if "SETTILT.uom100" in query:
+                    pos["tilt"] = int(query["SETTILT.uom100"])
+                if pos != {}:
+                    LOGGER.info(f'Shade Setpos {pos}')
+                    self.setShadePosition(pos)
+                    self.positions.update(pos)
+                else:
+                    LOGGER.error('Shade Setpos --nothing to set--')
+            except Exception as ex:
+                LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
+        else:
+            LOGGER.error("No positions given")
+        LOGGER.debug(f"Exit {self.lpfx}")        
 
     def setShadePosition(self, pos):
         positions_array = {}

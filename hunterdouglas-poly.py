@@ -6,7 +6,7 @@ It is an interface between HunterDouglas Shades and Polyglot for EISY/Polisy
 
 udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 
-(C) 2024 Stephen Jenkins
+(C) 2025 Stephen Jenkins
 
 main loop
 """
@@ -22,8 +22,12 @@ import asyncio
 VERSION = '1.13.0'
 """
 1.13.0
-TODO re-write using Python better practices
-TODO add number of shades & scenes managed to controller node
+DONE polling rewrite, controller: shortPoll=G2 poll, heartbeat for all, re-start G3 events, longPoll=G3 poll
+DONE polling rewrite, shade: shortPoll: re-start events if stopped, longPoll: not-used
+DONE polling rewrite, scene: shortPoll: re-start events if stopped, manually clear G2 scene activate, longPoll: not-used
+NOTE default & recommend setting shortPoll=60, longPoll=600
+DONE major re-write of function and Event routines
+DONE add number of nodes managed by controller to controller node
 
 1.12.8
 DONE prevent update until previous complete

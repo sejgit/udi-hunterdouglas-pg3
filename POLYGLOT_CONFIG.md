@@ -2,7 +2,7 @@
 # PG3 Plugin/Nodeserver for HunterDouglas PowerView Shades
 
 udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy  
-(C) 2024 Stephen Jenkins
+(C) 2025 Stephen Jenkins
 
 [![licence][shield]][licenseFile]
 
@@ -40,7 +40,7 @@ gateways you have
 
 ### Polling: Both PowerView G3 & G2
 
-- happens at start-up and **LongPoll**
+- happens at start-up and **longPoll**
 - program limited to no faster than once per 3s so as not to flood
 - Full update of shade data and scene activation loaded from the gateway
 
@@ -48,20 +48,21 @@ gateways you have
 
 - this is extra belt/suspenders as the gateway Pushes events
       - additionally battery data
-      - suggest 60s for LongPoll
+      - suggest 600s for longPoll
 
 #### PowerView G2 Polling
 
 - this is the only way to get data except battery command
-      - you may want to try 30s for **LongPoll** but be wary of flooding PGx
+      - suggest 60s for shortPoll
 
-### Event Pushing: PowerView G3 ONLY feature
+### Event SSE client: PowerView G3 ONLY feature
 
-- Event Data pushed from the gateway and checked by plugin every ShortPoll
-- includes **Motion-Started**, **Motion-Stopped**, **Scene-Activated**, and **Scene-Deactivated**
-- Additionally **Shade-Online** pushed infrequently & randomly so it seems
-- suggest 5s for **ShortPoll**
-
+- Event Data pushed from the gateway and checked by plugin through Async thread loop
+- **Motion-Started**, **Motion-Stopped**, **Scene-Activated**, and **Scene-Deactivated**
+- **battery-alert** when battery goes below "2" or normal
+- **scene-add** is newly observed, not sure if **scene-delete** or **scene-remove** even exists
+- **Shade-Online**, **Shade-offline**, & **homedoc-updated** pushed infrequently & randomly so it seems
+ 
 ### Commands: Both PowerView G3 & G2
 
 - Open / Close
@@ -72,8 +73,8 @@ gateways you have
 #### PowerView G3 Commands
 
 - Stop
-- Battery Updates are automatic
-- Scene Activate:  Activation turns on after movement completion (can take a bit)
+- Scene Activate:  Activation turns on after movement completion (**HD BUG** this can be greatly delayed)
+- Battery Updates & Shade calibrate are automatic
 
 #### PowerView G2 Commands
 

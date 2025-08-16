@@ -2,6 +2,14 @@
 
 ## see hunterdouglas-pg3.py for current version
 
+1.13.0 \
+DONE polling rewrite, controller: longPoll=G3 poll, shortPoll=G2 poll, heartbeat for all, re-start G3 events \
+NOTE default & recommend setting shortPoll=60, longPoll=600 \
+DONE polling rewrite, shade: shortPoll: re-start events if stopped \
+DONE polling rewrite, scene: shortPoll: re-start events if stopped, manually clear G2 scene activate \
+DONE major re-write of function and Event routines \
+DONE add number of nodes managed by controller to controller node
+
 1.12.7 \
 DEBUG crash when connection reset by peer ; fix data \
 DONE remove separate open / close behaviour for G2/G3

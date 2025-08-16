@@ -7,31 +7,21 @@ Controller class
 """
 
 # std libraries
-import math
-import base64
-import time
-import socket
-import json
+import asyncio, base64, json, logging, math, os, socket, time
+from threading import Thread, Event
 
 # external libraries
-import udi_interface
+from udi_interface import Node, LOGGER, Custom, LOG_HANDLER # not used, ISY
 import requests
+import markdown2
+import aiohttp
 
 # personal libraries
+from node_funcs import get_valid_node_name # not using  get_valid_node_address as id's seem to behave
+
 # Nodes
 from nodes import *
 
-"""
-Some shortcuts for udi interface components
-
-- LOGGER: to create log entries
-- Custom: to access the custom data class
-- ISY:    to communicate directly with the ISY (not commonly used)
-"""
-LOGGER = udi_interface.LOGGER
-LOG_HANDLER = udi_interface.LOG_HANDLER
-Custom = udi_interface.Custom
-ISY = udi_interface.ISY
 # limit the room label length as room - shade/scene must be < 30
 ROOM_NAME_LIMIT = 15
 
@@ -68,10 +58,14 @@ URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
 URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes?sceneId={id}'
 G2_DIVR = 65535
 
-class Controller(udi_interface.Node):
+# We need an event loop as we run in a
+# thread which doesn't have a loop
+mainloop = asyncio.get_event_loop()
+
+class Controller(Node):
     id = 'hdctrl'
 
-    def __init__(self, polyglot, primary, address, name):
+    def __init__(self, poly, primary, address, name):
         """
         super
         self definitions
@@ -80,17 +74,27 @@ class Controller(udi_interface.Node):
         ready
         we exist!
         """
-        super().__init__(polyglot, primary, address, name)
-
-        self.poly = polyglot
-        self.primary = primary
-        self.address = address
-        self.name = name
-        self.n_queue = []
-        self.last = 0.0
-        self.no_update = False
-        self.discovery = False
+        super(Controller, self).__init__(poly, primary, address, name)
+        # importand flags, timers, vars
+        self.ready = False
+        self.pollingBypass = False # debug purposes: set true to skip polling
+        self.hb = 0 # heartbeat
+        self.update_last = 0.0
+        self.update_minimum = 3.0 # do not allow updates more often than this
         self.gateway = URL_DEFAULT_GATEWAY
+        self.generation = 99 # start with unknown, 2 or 3 are only other valid
+        self.eventTimer = 0
+        self.numNodes = 0
+
+        # in function vars
+        self.update_in = False
+        self.discovery_in = False
+        self.discover_done = False
+        self.poll_in = False
+        self.sse_polling_in = False
+        
+        # storage arrays
+        self.n_queue = []
         self.gateway_array = []
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
         self.rooms_array = []
@@ -99,162 +103,217 @@ class Controller(udi_interface.Node):
         self.shadeIds_array = []
         self.scenes_array = []
         self.sceneIds_array = []
-        self.generation = 99 # start with unknown
-        self.eventTimeout = 720
-        self.eventTimer = 0
-
-        self.tiltCapable = [1, 2, 4, 5, 9, 10]
+        self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
-        # Create data storage classes to hold specific data that we need
-        # to interact with.  
-        self.Parameters = Custom(polyglot, 'customparams')
-        self.Notices = Custom(polyglot, 'notices')
-        self.TypedParameters = Custom(polyglot, 'customtypedparams')
-        self.TypedData = Custom(polyglot, 'customtypeddata')
+        # Create data storage classes
+        self.Notices         = Custom(self.poly, 'notices')
+        self.Parameters      = Custom(self.poly, 'customparams')
+        self.Data            = Custom(self.poly, 'customdata')
+        self.TypedParameters = Custom(self.poly, 'customtypedparams')
+        self.TypedData       = Custom(self.poly, 'customtypeddata')
+
+        # startup completion flags
+        self.handler_params_st = None
+        self.handler_data_st = None
+        self.handler_typedparams_st = None
+        self.handler_typeddata_st = None
 
         # Subscribe to various events from the Interface class.
-        #
         # The START event is unique in that you can subscribe to 
         # the start event for each node you define.
 
-        self.poly.subscribe(self.poly.START, self.start, address)
-        self.poly.subscribe(self.poly.LOGLEVEL, self.handleLevelChange)
-        self.poly.subscribe(self.poly.CUSTOMPARAMS, self.parameterHandler)
+        self.poly.subscribe(self.poly.START,             self.start, address)
+        self.poly.subscribe(self.poly.POLL,              self.poll)
+        self.poly.subscribe(self.poly.LOGLEVEL,          self.handleLevelChange)
+        self.poly.subscribe(self.poly.CONFIGDONE,        self.config_done)
+        self.poly.subscribe(self.poly.CUSTOMPARAMS,      self.parameterHandler)
+        self.poly.subscribe(self.poly.CUSTOMDATA,        self.dataHandler)
+        self.poly.subscribe(self.poly.STOP,              self.stop)
+        self.poly.subscribe(self.poly.DISCOVER,          self.discover)
+        self.poly.subscribe(self.poly.CUSTOMTYPEDDATA,   self.typedDataHandler)
         self.poly.subscribe(self.poly.CUSTOMTYPEDPARAMS, self.typedParameterHandler)
-        self.poly.subscribe(self.poly.CUSTOMTYPEDDATA, self.typedDataHandler)
-        self.poly.subscribe(self.poly.POLL, self.poll)
-        self.poly.subscribe(self.poly.STOP, self.stop)
-        self.poly.subscribe(self.poly.DISCOVER, self.discover)
-        self.poly.subscribe(self.poly.ADDNODEDONE, self.node_queue)
+        self.poly.subscribe(self.poly.ADDNODEDONE,       self.node_queue)
 
         # Tell the interface we have subscribed to all the events we need.
         # Once we call ready(), the interface will start publishing data.
         self.poly.ready()
 
         # Tell the interface we exist.  
-        self.poly.addNode(self)
+        self.poly.addNode(self, conn_status='ST')
 
+    def node_queue(self, data):
         '''
         node_queue() and wait_for_node_event() create a simple way to wait
         for a node to be created.  The nodeAdd() API call is asynchronous and
         will return before the node is fully created. Using this, we can wait
         until it is fully created before we try to use it.
         '''
-    def node_queue(self, data):
-        """
-        Add node to queue, used during startup.
-        """
         self.n_queue.append(data['address'])
 
     def wait_for_node_done(self):
-        """
-        Wait for node addition to complete, used during startup.
-        """
         while len(self.n_queue) == 0:
             time.sleep(0.2)
         self.n_queue.pop()
 
     def start(self):
-        self.Notices['hello'] = 'Start-up'
+        """
+        Called by handler during startup.
+        """
+        LOGGER.info(f"Started HunterDouglas PG3 NodeServer {self.poly.serverdata['version']}")
+        self.Notices.clear()
+        self.Notices['hello'] = 'Plugin Start-up'
+        self.update_last = 0.0
 
-        self.last = 0.0
-        # Send the profile files to the ISY if neccessary. The profile version
-        # number will be checked and compared. If it has changed since the last
-        # start, the new files will be sent.
+        # Send the profile files to the ISY if neccessary or version changed.
         self.poly.updateProfile()
 
         # Send the default custom parameters documentation file to Polyglot
-        # for display in the dashboard.
         self.poly.setCustomParamsDoc()
 
-        # Initializing a heartbeat is an example of something you'd want
-        # to do during start.  Note that it is not required to have a
-        # heartbeat in your node server
-        self.heartbeat(True)
+        # Initializing heartbeat
+        self.setDriver('ST', 1)
+        self.heartbeat()
 
-        # Device discovery. Here you may query for your device(s) and 
-        # their capabilities.  Also where you can create nodes that
-        # represent the found device(s)
+        # set-up async loop
+        self.mainloop = mainloop
+        asyncio.set_event_loop(mainloop)
+        self.connect_thread = Thread(target=mainloop.run_forever)
+        self.connect_thread.start()
+
+        self.setParams()
+        self.checkParams()
+
         self.gateway_sse = None
-        # if self.checkParams():
-        #     self.discover() # only do discovery if gateway change
 
-    """
-    Called via the CUSTOMPARAMS event. When the user enters or
-    updates Custom Parameters via the dashboard. The full list of
-    parameters will be sent to your node server via this event.
+        configurationHelp = './POLYGLOT_CONFIG.md'
+        if os.path.isfile(configurationHelp):
+            cfgdoc = markdown2.markdown_path(configurationHelp)
+            self.poly.setCustomParamsDoc(cfgdoc)
+        #
+        # Wait for all handlers to finish
+        #
+        cnt = 600
+        while ((self.handler_params_st is None or self.handler_data_st is None
+                or self.handler_typedparams_st is None or self.handler_typeddata_st is None) and cnt > 0):
+            LOGGER.warning(f'Waiting for all: params={self.handler_params_st} data={self.handler_data_st}... cnt={cnt}')
+            time.sleep(1)
+            cnt -= 1
+        if cnt == 0:
+            LOGGER.error("Timed out waiting for handlers to startup")
 
-    Here we're loading them into our local storage so that we may
-    use them as needed.
+        # Discover
+        if self.discover():
+            while self.discovery_in == True:
+                time.sleep(1)
+        else:
+            LOGGER.error(f'discover failed exit NODE!!', exc_info=True)
+            return
 
-    New or changed parameters are marked so that you may trigger
-    other actions when the user changes or adds a parameter.
+        # fist update
+        if self.updateAllFromServer():
+            self.gateway_event[0]['shades'] = self.shadeIds_array
+            self.gateway_event[0]['scenes'] = self.sceneIds_array
+            # clear inital start-up message
+            if self.Notices['hello']:
+                self.Notices.delete('hello')
+            self.ready = True
 
-    NOTE: Be carefull to not change parameters here. Changing
-    parameters will result in a new event, causing an infinite loop.
-    """
+        LOGGER.info(f'exit {self.name}')
+
+    def config_done(self):
+        """
+        For things we only do when have the configuration is loaded...
+        """
+        LOGGER.debug(f'enter')
+        self.poly.addLogLevel('DEBUG_MODULES',9,'Debug + Modules')
+        LOGGER.debug(f'exit')
+
+    def dataHandler(self,data):
+        LOGGER.debug(f'enter: Loading data {data}')
+        if data is None:
+            LOGGER.warning("No custom data")
+        else:
+            self.Data.load(data)
+        self.handler_data_st = True
+
     def parameterHandler(self, params):
-        self.Parameters.load(params)
+        """
+        Called via the CUSTOMPARAMS event. When the user enters or
+        updates Custom Parameters via the dashboard.
+        """
         LOGGER.debug('Loading parameters now')
-        if self.checkParams():
-            self.discover() # only do discovery if gateway change
-            # self.gateway_sse = self.sseInit() # TODO turn off for now as maybe not needed
+        self.Parameters.load(params)
+        defaults = {"gatewayip": "powerview-g3.local"}
+        for param in defaults:
+            if params is None or not param in params:
+                self.Parameters[param] = defaults[param]
+                return
+        cnt = 300
+        while ((self.handler_data_st is None) and cnt > 0):
+            LOGGER.warning(f'Waiting for Data: data={self.handler_data_st}... cnt={cnt}')
+            time.sleep(1)
+            cnt -= 1
+        if cnt == 0:
+            LOGGER.error("Timed out waiting for data to be loaded")
+        while not self.checkParams():
+            time.sleep(2)
+        self.handler_params_st = True
 
-    """
-    Called via the CUSTOMTYPEDPARAMS event. This event is sent When
-    the Custom Typed Parameters are created.  See the checkParams()
-    below.  Generally, this event can be ignored.
+    def setParams(self):
+        pass
 
-    Here we're re-load the parameters into our local storage.
-    The local storage should be considered read-only while processing
-    them here as changing them will cause the event to be sent again,
-    creating an infinite loop.
-    """
     def typedParameterHandler(self, params):
-        self.TypedParameters.load(params)
+        """
+        Called via the CUSTOMTYPEDPARAMS event. This event is sent When
+        the Custom Typed Parameters are created.  See the checkParams()
+        below.  Generally, this event can be ignored.
+        """
         LOGGER.debug('Loading typed parameters now')
+        self.TypedParameters.load(params)
         LOGGER.debug(params)
+        self.handler_typedparams_st = True
 
-    """
-    Called via the CUSTOMTYPEDDATA event. This event is sent when
-    the user enters or updates Custom Typed Parameters via the dashboard.
-    'params' will be the full list of parameters entered by the user.
+    def typedDataHandler(self, data):
+        """
+        Called via the CUSTOMTYPEDDATA event. This event is sent when
+        the user enters or updates Custom Typed Parameters via the dashboard.
+        'params' will be the full list of parameters entered by the user.
+        """
+        LOGGER.debug(f'Loading typed data now')
+        if data is None:
+            LOGGER.warning("No custom data")
+        else:
+            self.TypedData.load(data)
+        LOGGER.debug(f'Loaded typed data {data}')
+        self.handler_typeddata_st = True
 
-    Here we're loading them into our local storage so that we may
-    use them as needed.  The local storage should be considered 
-    read-only while processing them here as changing them will
-    cause the event to be sent again, creating an infinite loop.
-    """
-    def typedDataHandler(self, params):
-        self.TypedData.load(params)
-        LOGGER.debug('Loading typed data now')
-        LOGGER.debug(params)
-
-    """
-    Called via the LOGLEVEL event.
-    """
     def handleLevelChange(self, level):
         """
         Handle log level change.
         """
-        LOGGER.info('New log level: {}'.format(level))
+        LOGGER.info(f'enter: level={level}')
+        if level['level'] < 10:
+            LOGGER.info("Setting basic config to DEBUG...")
+            LOG_HANDLER.set_basic_config(True,logging.DEBUG)
+        else:
+            LOGGER.info("Setting basic config to WARNING...")
+            LOG_HANDLER.set_basic_config(True,logging.WARNING)
+        LOGGER.info(f'exit: level={level}')
 
     def checkParams(self):
         """
         Check the custom parameters for the controller.
-        """
-        """
         This is using custom Params for gatewayip
         """
         self.Notices.delete('gateway')
-        gatewaycheck = self.gateway
+        # gatewaycheck = self.gateway
         self.gateway = self.Parameters.gatewayip
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
             LOGGER.info('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
-            self.Notices['gateway'] = 'Please note using default gateway address'
-            return (gatewaycheck != self.gateway)
+            self.Notices['gateway'] = 'Using default gateway local address; better to use a defined ip address.'
+            return True
         try:
             if type(eval(self.gateway)) == list:
                 self.gateway_array = eval(self.gateway)
@@ -271,7 +330,7 @@ class Controller(udi_interface.Node):
             LOGGER.info("good self.gateway = %s", self.gateway)
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
-            return (gatewaycheck != self.gateway)
+            return True
         else:
             LOGGER.info(f"checkParams: no gateway found in {self.gateway_array}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
@@ -321,124 +380,159 @@ class Controller(udi_interface.Node):
         return False
             
     """
-    Called via the POLL event.  The POLL event is triggerd at
-    the intervals specified in the node server configuration. There
-    are two separate poll events, a long poll and a short poll. Which
-    one is indicated by the flag.  flag will hold the poll type either
-    'longPoll' or 'shortPoll'.
-
-    Use this if you want your node server to do something at fixed
-    intervals.
+    Called POLL event is triggerd at the intervals specified
+    in the node server configuration, long poll and a short poll.
     """
-    def poll(self, flag):
+    def poll(self, polltype):
+        LOGGER.debug('enter')
+        # no updates until node is through start-up
+        if not self.ready:
+            LOGGER.error(f"Node not ready yet, exiting")
+            return            
         # pause updates when in discovery
-        if self.discovery == True:
+        if self.discovery_in == True:
+            LOGGER.debug('exit, in discovery')
             return
-        if 'longPoll' in flag:
-            LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
-            self.updateAllFromServer()
-            LOGGER.debug(f"self.gateway_event: {self.gateway_event}")
-            try:
-                event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
-                if event:
-                    event = event[0]
-                    LOGGER.info('longPoll event - homedoc-updated - {}'.format(event))
-                    self.gateway_event.remove(event)
-                
-                event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
-                if event:
-                    event = event[0]
-                    self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
-                    self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
-                    LOGGER.debug('longPoll trigger nodes {}'.format(self.gateway_event))
-                else:
-                    self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
-                    LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
-
-                if self.Notices['hello']:
-                    self.Notices.delete('hello') # clear inital start-up message in first longPoll
-            except:
-                LOGGER.error("LongPoll event error")
-            self.heartbeat()
-            LOGGER.info("event(total) = {}".format(self.gateway_event))
+        if polltype == 'longPoll':
+            if self.generation == 3:
+                self.pollUpdate()
         else:
-            LOGGER.debug('shortPoll check for events (controller)')
-            yy = self.ssePoll() # swap this and next when testing poll only
-            # yy = False
-            if yy:
-                LOGGER.info(f"{self.eventTimer} new event = {self.gateway_event}")
-                self.eventTimer = 0
+            self.heartbeat()
+            # only PowerView gen3 has sse server
+            if self.generation == 2:
+                self.pollUpdate()
             else:
+                # start sse polling if not running for G3
+                if not self.sse_polling_in:
+                    self.start_SSE_polling()
+                # eventTimer has no purpose beyond an indicator of how long since the last event
                 self.eventTimer += 1
-                LOGGER.info(f"increment eventTimer = {self.eventTimer}")
+                LOGGER.info(f"increment eventTimer = {self.eventTimer}")        
+        LOGGER.debug('exit')
+        
+    def pollUpdate(self):
+        """
+        Handles poll updates from gateway as well as seeding shade/scene update events
+        """
+        if self.poll_in:
+            LOGGER.error(f"Still in Poll, exiting")
+            return
+        self.poll_in = True
+        LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
+        if not self.pollingBypass:
+            if self.updateAllFromServer():
+                LOGGER.debug(f"self.gateway_event: {self.gateway_event}")
+                try:
+                    event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
+                    if event:
+                        event = event[0]
+                        LOGGER.info('longPoll event - homedoc-updated - {}'.format(event))
+                        self.gateway_event.remove(event)
 
-    def ssePoll(self):
-        """
-        Pull event stream from the gateway.
-        Connect and pull from the gateway stream of events ONLY FOR G3.
-        """
-        success = False
-        if self.generation == 3:
+                    event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
+                    if event:
+                        event = event[0]
+                        self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
+                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
+                        LOGGER.debug('longPoll trigger nodes {}'.format(self.gateway_event))
+                    else:
+                        self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
+                        LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
+                except:
+                    LOGGER.error("LongPoll event error")
+                LOGGER.info("event(total) = {}".format(self.gateway_event))
+            else:
+                LOGGER.error(f"data collection error")
+        else:
+            LOGGER.error(f"data pollingBypass:{self.pollingBypass}")
+        self.poll_in = False
+
+    async def _poll_sse(self):
+        self.sse_polling_in = True
+        url = URL_EVENTS.format(g=self.gateway)
+        self.max_retries = 5
+        self.base_delay = 1
+        retries = 0
+        while not Event().is_set():
             try:
-                url = URL_EVENTS.format(g=self.gateway)
-                with requests.get(url,headers=None, stream=True, timeout=2) as self.gateway_sse:
-                    for val in self.gateway_sse.iter_lines():
-                        LOGGER.debug(f"val:{val}")
-                        if val:
-                            if val == "100HELO":
-                                LOGGER.debug(f"sse:{val}")
-                                continue
-                            try:
-                                self.gateway_event.append(json.loads(val))
-                                success = True
-                            except:
-                                LOGGER.debug(f"noadd:{val}")
-                                pass
-            except requests.exceptions.Timeout:
-                LOGGER.debug(f"sse timeout")
-            except requests.exceptions.RequestException as e:
-                LOGGER.debug(f"sse error: {e}")
-        return success
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as response:
+                        retries = 0
+                        async for val in response.content:
+                            LOGGER.debug(f"Received: {val.decode().strip()}")
+                            if val:
+                                if val == "100HELO":
+                                    continue
+                                try:
+                                    self.gateway_event.append(json.loads(val))
+                                    LOGGER.info(f"new sse: {self.gateway_event}")
+                                    self.eventTimer = 0
+                                except:
+                                    LOGGER.debug(f"noadd:{val.decode().strip()}")
+                                    pass
+
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                LOGGER.error(f"Connection to sse error: {e}")
+                if retries >= self.max_retries:
+                    LOGGER.error("Max retries reached. Stopping SSE client.")
+                    self.sse_polling_in = False
+                    break
+                delay = self.base_delay * (2 ** retries)
+                LOGGER.error(f"Reconnecting in {delay}s")
+                await asyncio.sleep(delay)
+                retries += 1
+        self.sse_polling_in = False
+                        
+    def start_SSE_polling(self):
+            future = asyncio.run_coroutine_threadsafe(self._poll_sse(), self.mainloop)
+            return future
 
     def query(self, command = None):
         """
         Query all nodes from the gateway.
         """
-        """
-        The query method will be called when the ISY attempts to query the
-        status of the node directly.  You can do one of two things here.
-        You can send the values currently held by Polyglot back to the
-        ISY by calling reportDriver() or you can actually query the 
-        device represented by the node and report back the current 
-        status.
-        """
+        LOGGER.info(f"Enter {command}")
         if self.updateAllFromServer():
             nodes = self.poly.getNodes()
             for node in nodes:
                 nodes[node].reportDrivers()
+        LOGGER.debug(f"Exit")
 
-    def updateProfile(self,command):
+    def updateProfile(self,command = None):
         """
         Update the profile.
         """
-        LOGGER.info(f"update profile , {command}")
+        LOGGER.info(f"Enter {command}")
         st = self.poly.updateProfile()
+        LOGGER.debug(f"Exit")
         return st
 
-    def discover(self, command = None):
+    def discover_cmd(self, command = None):
+        """
+        Run Discover from command.
+        """
+        LOGGER.info(f"Enter {command}")
+        # force a gateway check
+        while not self.checkParams():
+            time.sleep(2)
+        # run discover
+        if self.discover():
+            LOGGER.info(f"Success")
+        else:
+            LOGGER.error(f"Failure")
+        LOGGER.debug(f"Exit")
+        
+    def discover(self):
         """
         Discover all nodes from the gateway.
         """
-        """
-        Do shade and scene discovery here. Called from controller start method
-        and from DISCOVER command received from ISY
-        """
-        if self.discovery:
+        success = False
+        if self.discovery_in:
             LOGGER.info('Discover already running.')
-            return
+            return success
 
-        self.discovery = True
-        LOGGER.info(f"In Discovery...{command}")
+        self.discovery_in = True
+        LOGGER.info(f"In Discovery...")
 
         nodes = self.poly.getNodes()
         LOGGER.debug(f"current nodes = {nodes}")
@@ -456,7 +550,7 @@ class Controller(udi_interface.Node):
                 else:
                     shadeId = shade['shadeId']
 
-                shTxt = 'shade{}'.format(shadeId)
+                shTxt = f"shade{shadeId}"
                 nodes_new.append(shTxt)
                 try:
                     capabilities = int(shade['capabilities'])
@@ -508,7 +602,7 @@ class Controller(udi_interface.Node):
                 else:
                     sceneId = scene['_id']
                 
-                scTxt = 'scene{}'.format(sceneId)
+                scTxt = f"scene{sceneId}"
                 nodes_new.append(scTxt)
                 if scTxt not in nodes:
                     self.poly.addNode(Scene(self.poly, \
@@ -519,29 +613,32 @@ class Controller(udi_interface.Node):
                     self.wait_for_node_done()
         else:
             LOGGER.error('Discovery Failure')
+            self.discovery_in = False
+            return success
 
-        # remove nodes which do not exist in gateway
-        nodes = self.poly.getNodesFromDb()
-        LOGGER.info(f"db nodes = {nodes}")
-        nodes = self.poly.getNodes()
-        nodes_get = {key: nodes[key] for key in nodes if key != self.id}
-        LOGGER.info(f"old nodes = {nodes_old}")
-        LOGGER.info(f"new nodes = {nodes_new}")
-        LOGGER.info(f"pre-delete nodes = {nodes_get}")
-        for node in nodes_get:
-            if (node not in nodes_new):
-                LOGGER.info(f"need to delete node {node}")
-                self.poly.delNode(node)
-
-        self.discovery = False
-        if nodes_get == nodes_new:
-            LOGGER.error('Discovery NO NEW activity')
-        LOGGER.info('Discovery complete.')
+        if not (nodes_new == []):
+            # remove nodes which do not exist in gateway
+            nodes = self.poly.getNodesFromDb()
+            LOGGER.info(f"db nodes = {nodes}")
+            nodes = self.poly.getNodes()
+            nodes_get = {key: nodes[key] for key in nodes if key != self.id}
+            LOGGER.info(f"old nodes = {nodes_old}")
+            LOGGER.info(f"new nodes = {nodes_new}")
+            LOGGER.info(f"pre-delete nodes = {nodes_get}")
+            for node in nodes_get:
+                if (node not in nodes_new):
+                    LOGGER.info(f"need to delete node {node}")
+                    self.poly.delNode(node)
+            if nodes_get == nodes_new:
+                LOGGER.info('Discovery NO NEW activity')
+            self.numNodes = len(nodes_get)
+            self.setDriver('GV0', self.numNodes)
+            success = True
+        LOGGER.info(f"Discovery complete. success = {success}")
+        self.discovery_in = False
+        return success
 
     def delete(self):
-        """
-        Delete all nodes from the gateway.
-        """
         """
         This is called by Polyglot upon deletion of the NodeServer. If the
         process is co-resident and controlled by Polyglot, it will be
@@ -551,35 +648,26 @@ class Controller(udi_interface.Node):
 
     def stop(self):
         """
-        Stop the node server.
-        """
-        """
         This is called by Polyglot when the node server is stopped.  You have
         the opportunity here to cleanly disconnect from your device or do
         other shutdown type tasks.
         """
+        self.Notices.clear()
         LOGGER.info('NodeServer stopped.')
 
-    def heartbeat(self,init=False):
+    def heartbeat(self):
         """
-        Send a heartbeat to the ISY.
+        Heartbeat function uses the long poll interval to alternately send a ON and OFF
+        command back to the ISY.  Programs on the ISY can then monitor this.
         """
-        """
-        This is a heartbeat function.  It uses the
-        long poll interval to alternately send a ON and OFF command back to
-        the ISY.  Programs on the ISY can then monitor this and take action
-        when the heartbeat fails to update.
-        """
-        LOGGER.debug('heartbeat: init={}'.format(init))
-        if init is not False:
-            self.hb = init
-        LOGGER.debug('heartbeat: hb={}'.format(self.hb))
+        LOGGER.debug(f'heartbeat: hb={self.hb}')
         if self.hb == 0:
             self.reportCmd("DON",2)
             self.hb = 1
         else:
             self.reportCmd("DOF",2)
             self.hb = 0
+        LOGGER.debug(f"Exit")
 
     def removeNoticesAll(self, command = None):
         """
@@ -588,27 +676,29 @@ class Controller(udi_interface.Node):
         LOGGER.info(f"remove_notices_all: notices={self.Notices} , {command}")
         # Remove all existing notices
         self.Notices.clear()
+        LOGGER.debug(f"Exit")
 
     def updateAllFromServer(self):
         """
         Update all nodes from the gateway.
         """
         success = True
-        if self.no_update:
+        if self.update_in:
             return False
-        if (time.perf_counter() > (self.last + 3.0)):
-            self.no_update = True
+        if (time.perf_counter() > (self.update_last + self.update_minimum)):
+            self.update_in = True
             self.last = time.perf_counter()
             if self.generation == 3:
-                success = self.updateAllFromServerG3(self.getHomeG3(), self.getScenesActiveG3())
+                success = self.updateAllFromServerG3(self.getHomeG3())
+                success = self.updateActiveFromServerG3(self.getScenesActiveG3())
             elif self.generation == 2:
                 success = self.updateAllFromServerG2(self.getHomeG2())
             else:
                 success = False
-        self.no_update = False
+        self.update_in = False
         return success
         
-    def updateAllFromServerG3(self, data, scenesActiveData):
+    def updateAllFromServerG3(self, data):
         """
         Update all nodes from the gateway for Generation 3.
         """
@@ -620,7 +710,6 @@ class Controller(udi_interface.Node):
                 self.shadeIds_array = []
                 self.scenes_array = []
                 self.sceneIds_array = []
-                self.sceneIdsActive_array = []
 
                 for r in data["rooms"]:
                     LOGGER.debug('Update rooms')
@@ -632,7 +721,7 @@ class Controller(udi_interface.Node):
                         LOGGER.debug(f"Update shade {sh['id']}")
                         sh['shadeId'] = sh['id']
                         name = base64.b64decode(sh.pop('name')).decode()
-                        sh['name'] = '%s - %s' % (room_name, name)
+                        sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
                             positions = sh['positions']
@@ -662,15 +751,10 @@ class Controller(udi_interface.Node):
                     else:
                         room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
-                    sc['name'] = '%s - %s' % (room_name, name)
+                    sc['name'] = get_valid_node_name('%s - %s' % (room_name, name))
                     LOGGER.debug('Update scenes-1')
 
                 LOGGER.info(f"scenes = {self.sceneIds_array}")
-
-                for sc in scenesActiveData:
-                    self.sceneIdsActive_array.append(sc["id"])
-
-                LOGGER.info(f"activeScenes = {self.sceneIdsActive_array}")
 
                 self.no_update = False
                 return True
@@ -681,79 +765,16 @@ class Controller(udi_interface.Node):
             LOGGER.error('Update error')
             self.no_update = False
             return False
-        
-    def updateAllFromServerG2(self, data):
-        """
-        Update all nodes from the gateway for Generation 2.
-        """
+
+    def updateActiveFromServerG3(self, scenesActiveData):
         try:
-            if data:
-                self.rooms_array = []
-                self.roomIds_array = []
-                self.shades_array = []
-                self.shadeIds_array = []
-                self.scenes_array = []
-                self.sceneIds_array = []
-
-                res = self.get(URL_G2_ROOMS.format(g=self.gateway))
-                if res.status_code == requests.codes.ok:
-                    data = res.json()
-                    self.rooms_array = data['roomData']
-                    self.roomIds_array = data['roomIds']
-                    for room in self.rooms_array:
-                        room['name'] = base64.b64decode(room['name']).decode()
-                    LOGGER.info(f"rooms = {self.roomIds_array}")
-                    
-                res = self.get(URL_G2_SHADES.format(g=self.gateway))
-                if res.status_code == requests.codes.ok:
-                    data = res.json()
-                    self.shades_array = data['shadeData']
-                    self.shadeIds_array = data['shadeIds']
-                    for shade in self.shades_array:
-                        name = base64.b64decode(shade['name']).decode()
-                        room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
-                        room_name = room_name[0:ROOM_NAME_LIMIT]
-                        shade['name'] = '%s - %s' % (room_name, name)
-                        if 'positions' in shade:
-                            pos = shade['positions']
-                            # Convert positions to integer percentages & handle tilt
-                            if 'posKind1' in pos:
-                                if pos['posKind1'] == 1:
-                                    if 'position1' in pos:
-                                        shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
-                                if pos['posKind1'] == 3:
-                                    shade['positions']['primary'] = 0
-                                    if 'position1' in pos:
-                                        shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
-                            if 'position2' in pos:
-                                shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
-                    LOGGER.info(f"shades = {self.shadeIds_array}")
-                    
-                res = self.get(URL_G2_SCENES.format(g=self.gateway))
-                if res.status_code == requests.codes.ok:
-                    data = res.json()
-                    self.scenes_array = data['sceneData']
-                    self.sceneIds_array = data['sceneIds']
-                    for scene in self.scenes_array:
-                        name = base64.b64decode(scene['name']).decode()
-                        if scene['roomId'] == None:
-                            room_name = "Multi"
-                        else:
-                            room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
-                            room_name = room_name[0:ROOM_NAME_LIMIT]
-                        scene['name'] = '%s - %s' % (room_name, name)
-                    LOGGER.info(f"scenes = {self.sceneIds_array}")
-
-                self.no_update = False
-                LOGGER.info(f"updateAllfromServerG2 = OK")
-                return True
-            else:
-                self.no_update = False
-                LOGGER.error(f"updateAllfromServerG2 = NO DATA")
-                return False
+            self.sceneIdsActive_array = []
+            for sc in scenesActiveData:
+                self.sceneIdsActive_array.append(sc["id"])
+            LOGGER.info(f"activeScenes = {self.sceneIdsActive_array}")
+            return True
         except:
-            LOGGER.error('updateAllfromServerG2 = except')
-            self.no_update = False
+            LOGGER.error("updateActiveFromServerG3 error")
             return False
         
     def getHomeG3(self):
@@ -794,6 +815,80 @@ class Controller(udi_interface.Node):
             LOGGER.error("getScenesActiveG3 self.gateway_array NONE")
         return None
 
+    def updateAllFromServerG2(self, data):
+        """
+        Update all nodes from the gateway for Generation 2.
+        """
+        try:
+            if data:
+                self.rooms_array = []
+                self.roomIds_array = []
+                self.shades_array = []
+                self.shadeIds_array = []
+                self.scenes_array = []
+                self.sceneIds_array = []
+
+                res = self.get(URL_G2_ROOMS.format(g=self.gateway))
+                if res.status_code == requests.codes.ok:
+                    data = res.json()
+                    self.rooms_array = data['roomData']
+                    self.roomIds_array = data['roomIds']
+                    for room in self.rooms_array:
+                        room['name'] = base64.b64decode(room['name']).decode()
+                    LOGGER.info(f"rooms = {self.roomIds_array}")
+                    
+                res = self.get(URL_G2_SHADES.format(g=self.gateway))
+                if res.status_code == requests.codes.ok:
+                    data = res.json()
+                    self.shades_array = data['shadeData']
+                    self.shadeIds_array = data['shadeIds']
+                    for shade in self.shades_array:
+                        name = base64.b64decode(shade['name']).decode()
+                        room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
+                        room_name = room_name[0:ROOM_NAME_LIMIT]
+                        shade['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        if 'positions' in shade:
+                            pos = shade['positions']
+                            # Convert positions to integer percentages & handle tilt
+                            if 'posKind1' in pos:
+                                if pos['posKind1'] == 1:
+                                    if 'position1' in pos:
+                                        shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
+                                if pos['posKind1'] == 3:
+                                    shade['positions']['primary'] = 0
+                                    if 'position1' in pos:
+                                        shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
+                            if 'position2' in pos:
+                                shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
+                    LOGGER.info(f"shades = {self.shadeIds_array}")
+                    
+                res = self.get(URL_G2_SCENES.format(g=self.gateway))
+                if res.status_code == requests.codes.ok:
+                    data = res.json()
+                    self.scenes_array = data['sceneData']
+                    self.sceneIds_array = data['sceneIds']
+                    for scene in self.scenes_array:
+                        name = base64.b64decode(scene['name']).decode()
+                        if scene['roomId'] == None:
+                            room_name = "Multi"
+                        else:
+                            room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
+                            room_name = room_name[0:ROOM_NAME_LIMIT]
+                        scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                    LOGGER.info(f"scenes = {self.sceneIds_array}")
+
+                self.no_update = False
+                LOGGER.info(f"updateAllfromServerG2 = OK")
+                return True
+            else:
+                self.no_update = False
+                LOGGER.error(f"updateAllfromServerG2 = NO DATA")
+                return False
+        except:
+            LOGGER.error('updateAllfromServerG2 = except')
+            self.no_update = False
+            return False
+        
     def getHomeG2(self):
         """
         Get the home data from the gateway for Generation 2.
@@ -830,18 +925,18 @@ class Controller(udi_interface.Node):
             self.Notices['badfetch'] = "Error fetching from gateway"
             return res
         if res.status_code == 400:
-            LOGGER.info(f"Check if not primary {url}: {res.status_code}")
-            self.Notices['notPrimary'] = "Multi-Gateway environment - this is not primary"
+            LOGGER.error(f"Check if not primary {url}: {res.status_code}")
+            self.Notices['notPrimary'] = "Multi-Gateway environment - cannot determine primary"
             return res
         if res.status_code == 404:
-            LOGGER.info(f"Gateway wrong {url}: {res.status_code}")
+            LOGGER.error(f"Gateway wrong {url}: {res.status_code}")
             return res
         if res.status_code == 503:
-            LOGGER.info(f"HomeDoc not set-up {url}: {res.status_code}")
+            LOGGER.error(f"HomeDoc not set-up {url}: {res.status_code}")
             self.Notices['HomeDoc'] = "PowerView Set-up not Complete See TroubleShooting Guide"
             return res
         elif res.status_code != requests.codes.ok:
-            LOGGER.info(f"Unexpected response fetching {url}: {res.status_code}")
+            LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
             return res
         else:
             LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
@@ -889,13 +984,14 @@ class Controller(udi_interface.Node):
     # of the nodedef file.
     drivers = [
         {'driver': 'ST', 'value': 1, 'uom': 2, 'name': "Controller Status"},
+        {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "NumberOfNodes"},
     ]
     
     # Commands that this node can handle.  Should match the
     # 'accepts' section of the nodedef file.
     commands = {
         'QUERY': query,
-        'DISCOVER': discover,
+        'DISCOVER': discover_cmd,
         'UPDATE_PROFILE': updateProfile,
         'REMOVE_NOTICES_ALL': removeNoticesAll,
     }
