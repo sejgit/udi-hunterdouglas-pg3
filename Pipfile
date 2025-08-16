@@ -4,7 +4,10 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-udi-interface = "*"
+udi_interface = "*"
+mashumaro = "*"
+async-timeout = "*"
+deprecation = "*"
 requests = "*"
 
 [dev-packages]
