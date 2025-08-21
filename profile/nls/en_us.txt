@@ -10,9 +10,9 @@ CMD-ctl-REMOVE_NOTICES_ALL-NAME = Remove All Notices
 CMD-ctl-SET_DM-NAME = Set Logger Level
 
 # ctd
-BOOL-0 = Disconnected
-BOOL-1 = Connected
-BOOL-2 = Failed
+CTD-0 = Disconnected
+CTD-1 = Connected
+CTD-2 = Failed
 
 # Debug/Logger Modes
 CDM-9 = Debug + Modules
@@ -82,6 +82,7 @@ ND-sceneid-NAME = Scene
 ND-sceneid-ICON = Output
 ST-scene-ST-NAME = Activated
 ST-scene-GV0-NAME = Id
+ST-scene-GV1-NAME = Active Check
 CMD-scene-ACTIVATE-NAME = Activate
 CMD-scene-QUERY-NAME = Query
 

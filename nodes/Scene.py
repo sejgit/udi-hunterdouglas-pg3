@@ -108,8 +108,71 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid),report=True, force=True)
         LOGGER.debug(f'{self.lpfx}: get GV0={self.getDriver("GV0")}')
         self.rename(self.name)
-        if not self.event_polling_in:
-            self.start_event_polling()
+        self.activeCheck()
+
+    def activeCheck(self):
+        # Attempt to provide scene active to G2 and speed up G3
+        # TODO add check after shade event "motion-stop", but would have to check what scenes its in
+        try:
+            members = self.controller.scenes_array_map.get(self.sid)['members']
+            LOGGER.debug(f"Members: {members}")
+            match = False
+            for sh in members:
+                scene_shId = sh['shd_Id']                
+                scene_shPos = sh['pos']
+                shade = self.controller.shades_array_map.get(scene_shId)
+                shade_pos = shade['positions']
+                for element in scene_shPos.keys():
+                    element2 = element
+                    div = 1
+                    try:
+                        if element == 'vel':
+                            continue
+                        elif element == 'pos1':
+                            if shade['capabilities'] == 7: # strange case, maybe more?
+                                element2 = 'secondary'
+                            else:
+                                element2 = 'primary'                        
+                            div = 100
+                        elif element == 'pos2':
+                            if shade['capabilities'] == 7: # strange case, maybe more?
+                                element2 = 'primary'                        
+                            else:
+                                element2 = 'secondary'
+                            div = 100
+                        if abs(scene_shPos[element] // div - shade_pos[element2]) <= 2:
+                            match = True
+                        else:
+                            match = False
+                            break
+                    except Exception as ex:
+                        match = False
+                        LOGGER.error(f"scene:{self.sid} shade:{scene_shId} error:{ex}", exc_info=True)
+                        break
+                    
+                # NOTE need to fill in positions assumed for Duolite, same for 9, 10 ???
+                if shade['capabilities'] == 8 and match == True:
+                    LOGGER.info(f"scene:{self.sid}, scenepos:{scene_shPos}, shade:{shade}")
+                    if 'pos1' in scene_shPos:
+                        if shade_pos['secondary'] != 100:
+                            match = False
+                    elif 'pos2' in scene_shPos:
+                        if shade_pos['primary'] != 0:
+                            match = False
+
+                LOGGER.debug(f"scene:{self.sid}, scSh:{scene_shId}, scSHp:{scene_shPos}, shP:{shade_pos}, match: {match}")
+                if match == False:
+                    break
+            if match == True:
+                self.controller.sceneIdsActive_array_check=list(set(self.controller.sceneIdsActive_array_check+[self.sid]))
+                LOGGER.info(f"sceneIdsActive_array_ckeck:{self.controller.sceneIdsActive_array_check}")
+                self.setDriver('GV1', 1, report=True, force=True)
+            else:
+                self.setDriver('GV1', 0, report=True, force=True)
+
+        except Exception as ex:
+            LOGGER.error(f"scene:{self.sid} FAIL error:{ex}", exc_info=True)
+            self.setDriver('GV1', 0, report=True, force=True)
 
     def poll(self, flag):
         if not self.controller.ready:
@@ -144,7 +207,7 @@ class Scene(udi_interface.Node):
                     event = event[0]
                     if event['scenes'].count(self.sid) > 0:
                         try:
-                            LOGGER.debug(f'shortPoll scene {self.sid} update')
+                            LOGGER.debug(f'scene {self.sid} update')
                             if self.controller.generation == 2:
                                 try:
                                     data = list(filter(lambda scene: scene['id'] == self.sid, \
@@ -185,16 +248,19 @@ class Scene(udi_interface.Node):
                                             self.setDriver('ST', 0,report=True, force=True)
                                             LOGGER.info(f"scene {self.sid} activation updated OFF")
 
+                                # do a scene active check
+                                self.activeCheck()
+
                             rem = self.controller.gateway_event.index(event)
                             self.controller.gateway_event[rem]['scenes'].remove(self.sid)
                         except Exception:
                             LOGGER.error(f"scene event error sid = {self.sid}")
                     else:
                         pass
-                        # LOGGER.debug(f'shortPoll scene {self.sid} home evt but updated already')
+                        # LOGGER.debug(f'scene {self.sid} home evt but updated already')
                 else:
                     pass
-                    # LOGGER.debug(f'shortPoll scene {self.sid} no home evt')
+                    # LOGGER.debug(f'scene {self.sid} no home evt')
                 
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
@@ -211,8 +277,10 @@ class Scene(udi_interface.Node):
                 if event:
                     event = event[0]
                     self.setDriver('ST', 1,report=True, force=True)
-                    LOGGER.info(f"shortPoll {event['evt']}: {self.lpfx}")
+                    self.reportCmd("ACTIVATE",2)
+                    LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                     self.controller.gateway_event.remove(event)
+                    self.activeCheck()
                     
             # scene-deactivated
             try:
@@ -225,8 +293,9 @@ class Scene(udi_interface.Node):
                 if event:
                     event = event[0]
                     self.setDriver('ST', 0,report=True, force=True)
-                    LOGGER.info(f"shortPoll {event['evt']}: {self.lpfx}")
+                    LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                     self.controller.gateway_event.remove(event)
+                    self.activeCheck()
 
             # scene-add event
             try:
@@ -234,13 +303,13 @@ class Scene(udi_interface.Node):
                                                and events['id'] == self.sid), \
                                     self.controller.gateway_event))
             except Exception as ex:
-                LOGGER.error(f"scene {self.sid} scene-add error: {ex}")
+                LOGGER.error(f"event {self.sid} scene-add error: {ex}")
             else:
                 if event:
                     event = event[0]
                     # TODO should add for scene-remove/delete, not sure which as never witnessed one
                     # TODO should add somewhere else for scene-add of non-existing scene
-                    LOGGER.info(f"shortPoll {event['evt']} for existing scene: {self.lpfx}")
+                    LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
                     self.controller.gateway_event.remove(event)
 
         self.event_polling_in = False
@@ -263,8 +332,9 @@ class Scene(udi_interface.Node):
         # for PowerView G2 gateway there is no event so manually trigger activate
         # PowerView G3 will receive an activate event when the motion is complete
         if self.controller.generation == 2:
-            self.setDriver('ST', 1,report=True, force=True)
             # manually turn on for G2, turn off on the next longPoll
+            self.setDriver('ST', 1,report=True, force=True)
+            self.reportCmd("ACTIVATE",2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
     def query(self, command = None):
@@ -284,8 +354,9 @@ class Scene(udi_interface.Node):
     UOM 2 is boolean so the ISY will display 'True/False'
     """
     drivers = [
-        {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
+        {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
+        {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Active Check"},
     ]
 
     """

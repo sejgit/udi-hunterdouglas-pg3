@@ -1,7 +1,7 @@
 <editors>
     <!-- Boolean -->
     <editor id="CTD">
-        <range uom="25" subset="0,1,2" />
+        <range uom="25" subset="0,1,2" nls="CTD" />
     </editor>
 	<editor id="BOOL">
 		<range uom="2" subset="0,1" />

@@ -101,8 +101,12 @@ class Controller(Node):
         self.roomIds_array = []
         self.shades_array = []
         self.shadeIds_array = []
+        self.shades_array_map = {}
         self.scenes_array = []
         self.sceneIds_array = []
+        self.scenes_array_map = {}
+        self.sceneIdsActive_array = []
+        self.sceneIdsActive_array_check = []
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
@@ -424,33 +428,51 @@ class Controller(Node):
             LOGGER.error(f"Still in Poll, exiting")
             return
         self.poll_in = True
-        LOGGER.debug('longPoll re-parse updateallfromserver (controller)')
-        if not self.pollingBypass:
+        if not self.pollingBypass: # for debugging purposes
             if self.updateAllFromServer():
                 LOGGER.debug(f"self.gateway_event: {self.gateway_event}")
                 try:
-                    event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
-                    if event:
-                        event = event[0]
-                        LOGGER.info('longPoll event - homedoc-updated - {}'.format(event))
-                        self.gateway_event.remove(event)
-
                     event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
                     if event:
                         event = event[0]
+                        # seed home event to signal the nodes to update with new gateway data
                         self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
                         self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
-                        LOGGER.debug('longPoll trigger nodes {}'.format(self.gateway_event))
+                        LOGGER.debug('trigger nodes {}'.format(self.gateway_event))
                     else:
                         self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
-                        LOGGER.debug('longPoll reset {}'.format(self.gateway_event))
+                        LOGGER.debug('reset {}'.format(self.gateway_event))
                 except:
-                    LOGGER.error("LongPoll event error")
+                    LOGGER.error("event error")
                 LOGGER.info("event(total) = {}".format(self.gateway_event))
             else:
                 LOGGER.error(f"data collection error")
         else:
             LOGGER.error(f"data pollingBypass:{self.pollingBypass}")
+        self.poll_in = False
+
+# TODO MAYBE check for active scenes (after motion-stop)
+# TODO add scene-add to here for non-existent scene
+# TODO set self."setcommand" DON/DOF
+# TODO explore other ways to speed up activation
+
+    def gatewayEventsCheck(self):
+        """
+        Handles Gateway Events like homedoc-updated  MAYBE scene-add as central event?
+        """
+        if self.gateway_events_in:
+            LOGGER.error(f"Still in Gateway Events, exiting")
+            return
+        self.gateway_events_in = True
+        try:
+            event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
+            if event:
+                event = event[0]
+                LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
+                self.gateway_event.remove(event)
+        except:
+            LOGGER.error("event error")
+        LOGGER.info("event(total) = {}".format(self.gateway_event))
         self.poll_in = False
 
     async def _poll_sse(self):
@@ -472,6 +494,7 @@ class Controller(Node):
                                 try:
                                     self.gateway_event.append(json.loads(val))
                                     LOGGER.info(f"new sse: {self.gateway_event}")
+                                    self.gatewayEventsCheck()
                                     self.eventTimer = 0
                                 except:
                                     LOGGER.debug(f"noadd:{val.decode().strip()}")
@@ -556,6 +579,9 @@ class Controller(Node):
                 else:
                     shadeId = shade['shadeId']
 
+                # set-up map array for quicker access in nodes added in v1.13.0
+                self.shades_array_map[shadeId] = shade
+
                 shTxt = f"shade{shadeId}"
                 nodes_new.append(shTxt)
                 try:
@@ -607,7 +633,10 @@ class Controller(Node):
                     sceneId = scene['id']
                 else:
                     sceneId = scene['_id']
-                
+
+                # set-up map array for quicker access in nodes added in v1.13.0
+                self.scenes_array_map[sceneId] = scene
+
                 scTxt = f"scene{sceneId}"
                 nodes_new.append(scTxt)
                 if scTxt not in nodes:
@@ -640,6 +669,8 @@ class Controller(Node):
             self.numNodes = len(nodes_get)
             self.setDriver('GV0', self.numNodes)
             success = True
+            LOGGER.info(f"shades_array_map:  {self.shades_array_map}")
+            LOGGER.info(f"scenes_array_map:  {self.scenes_array_map}")
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
         return success

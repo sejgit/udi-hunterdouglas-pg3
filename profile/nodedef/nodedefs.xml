@@ -214,8 +214,9 @@
     <nodeDef id="sceneid" nls="scene">
         <editors />
         <sts>
-            <st id="GV0" editor="ID" />
-            <st id="ST" editor="BOOL" />
+		  <st id="ST" editor="BOOL" />
+          <st id="GV0" editor="ID" />
+          <st id="GV1" editor="BOOL" />
         </sts>
         <cmds>
           <sends>

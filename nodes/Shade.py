@@ -151,7 +151,7 @@ class Shade(udi_interface.Node):
                 if event:
                     event = event[0]
                     if event['shades'].count(self.sid) > 0:
-                        LOGGER.debug(f'shortPoll shade {self.sid} update')
+                        LOGGER.debug(f'shade {self.sid} update')
                         if self.updateData():
                             try:
                                 rem = self.controller.gateway_event.index(event)
@@ -182,7 +182,7 @@ class Shade(udi_interface.Node):
                     self.positions = self.posToPercent(event['targetPositions'])
                     if self.updatePositions():
                         self.setDriver('ST', 1,report=True, force=True)
-                        LOGGER.info(f'shortPoll shade {self.sid} motion-started event')
+                        LOGGER.info(f'shade {self.sid} motion-started event')
                         self.controller.gateway_event.remove(event)
                    
             # motion-stopped event
@@ -198,7 +198,7 @@ class Shade(udi_interface.Node):
                     self.positions = self.posToPercent(event['currentPositions'])
                     if self.updatePositions():
                         self.setDriver('ST', 0,report=True, force=True)
-                        LOGGER.info(f'shortPoll shade {self.sid} motion-stopped event')
+                        LOGGER.info(f'shade {self.sid} motion-stopped event')
                         self.controller.gateway_event.remove(event)
                    
             # shade-online event
@@ -213,7 +213,7 @@ class Shade(udi_interface.Node):
                     event = event[0]
                     self.positions = self.posToPercent(event['currentPositions'])
                     if self.updatePositions():
-                        LOGGER.info(f'shortPoll shade {self.sid} shade-online event')
+                        LOGGER.info(f'shade {self.sid} shade-online event')
                         self.controller.gateway_event.remove(event)
                    
             # shade-offline event
@@ -228,7 +228,7 @@ class Shade(udi_interface.Node):
                     event = event[0]
                     self.positions = self.posToPercent(event['currentPositions'])
                     if self.updatePositions():
-                        LOGGER.error(f'shortPoll shade {self.sid} shade-offline event')
+                        LOGGER.error(f'shade {self.sid} shade-offline event')
                         self.controller.gateway_event.remove(event)
                    
             # battery-alert event
@@ -245,7 +245,7 @@ class Shade(udi_interface.Node):
                     self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
                     self.positions = self.posToPercent(event['currentPositions'])
                     if self.updatePositions():
-                        LOGGER.error(f'shortPoll shade {self.sid} battery-event')
+                        LOGGER.error(f'shade {self.sid} battery-event')
                         self.controller.gateway_event.remove(event)
 
         self.event_polling_in = False
@@ -283,20 +283,26 @@ class Shade(udi_interface.Node):
         """
         if 'primary' in self.positions:
             p1 = self.positions['primary']
+            # update map array for quicker access in nodes added in v1.13.0
+            self.controller.shades_array_map[self.sid]['positions']['primary'] = p1
         else:
             p1 = None
         if 'secondary' in self.positions:
             p2 = self.positions['secondary']
+            # update map array for quicker access in nodes added in v1.13.0
+            self.controller.shades_array_map[self.sid]['positions']['secondary'] = p2
         else:
             p2 = None
         if 'tilt' in self.positions:
             t1 = self.positions['tilt']
+            # update map array for quicker access in nodes added in v1.13.0
+            self.controller.shades_array_map[self.sid]['positions']['tilt'] = t1
         else:
             if self.capabilities in self.tiltCapable:
                 t1 = 0
             else:
                 t1 = None
-        LOGGER.debug(f"updatePositions {p1} {p2} {t1}")
+        LOGGER.info(f"updatePositions {self.controller.shades_array_map[self.sid]['positions']}")
             
         if self.capabilities in [7, 8]:
             self.setDriver('GV2', p1,report=True, force=True)
@@ -322,9 +328,9 @@ class Shade(udi_interface.Node):
         only used for PowerView G3 events
         """
         for key in pos:
-            if pos[key]:
+            try:
                 pos[key] = self.controller.toPercent(pos[key])
-            else:
+            except:
                 LOGGER.error(f"pos = {pos}, key = {key}, pos[key] = {pos[key]}")
                 pos[key] = 0
         return pos
@@ -650,6 +656,7 @@ class ShadeOnlyTilt(Shade):
     Type 7 - Top-Down/Bottom-Up (can open either from the bottom or from the top) 
     Examples: Duette TDBU, Vignette TDBU 
     Uses the “primary” and “secondary” control types
+    NOTE reversed to scene labelling
 
     Type 8 - Duolite (front and rear shades) 
     Examples: Roller Duolite, Vignette Duolite, Dual Roller
@@ -660,6 +667,7 @@ class ShadeOnlyTilt(Shade):
     two motors and two tubes. Where they are dependent, the shade firmware will force the appropriate
     front shade position when the rear shade is controlled - there is no need for the control system to
     take this into account.
+    NOTE some positions are assumed in scenes, same for #9 & #10 ???
 
     Type 9 - Duolite with 90° Tilt 
     (front bottom up shade that also tilts plus a rear blackout (non-tilting) shade) 
