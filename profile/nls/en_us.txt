@@ -9,6 +9,11 @@ CMD-ctl-UPDATE_PROFILE-NAME = Update Profile
 CMD-ctl-REMOVE_NOTICES_ALL-NAME = Remove All Notices
 CMD-ctl-SET_DM-NAME = Set Logger Level
 
+# ctd
+BOOL-0 = Disconnected
+BOOL-1 = Connected
+BOOL-2 = Failed
+
 # Debug/Logger Modes
 CDM-9 = Debug + Modules
 CDM-10 = Debug

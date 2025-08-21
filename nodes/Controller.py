@@ -201,6 +201,8 @@ class Controller(Node):
             cnt -= 1
         if cnt == 0:
             LOGGER.error("Timed out waiting for handlers to startup")
+            self.setDriver('ST', 2) # start-up failed
+            return
 
         # Discover
         if self.discover():
@@ -208,6 +210,7 @@ class Controller(Node):
                 time.sleep(1)
         else:
             LOGGER.error(f'discover failed exit NODE!!', exc_info=True)
+            self.setDriver('ST', 2) # start-up failed
             return
 
         # fist update
@@ -218,6 +221,9 @@ class Controller(Node):
             if self.Notices['hello']:
                 self.Notices.delete('hello')
             self.ready = True
+        else:
+            self.setDriver('ST', 2) # start-up failed
+            return
 
         LOGGER.info(f'exit {self.name}')
 
@@ -983,7 +989,7 @@ class Controller(Node):
     # Status that this node has. Should match the 'sts' section
     # of the nodedef file.
     drivers = [
-        {'driver': 'ST', 'value': 1, 'uom': 2, 'name': "Controller Status"},
+        {'driver': 'ST', 'value': 1, 'uom': 25, 'name': "Controller Status"},
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "NumberOfNodes"},
     ]
     

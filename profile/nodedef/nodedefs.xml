@@ -4,7 +4,7 @@
     <nodeDef id="hdctrl" nls="ctl">
         <editors />
         <sts>
-		  <st id="ST" editor="BOOL" />
+		  <st id="ST" editor="CTD" />
 		  <st id="GV0" editor="ID" />
 	    </sts>
         <cmds>
