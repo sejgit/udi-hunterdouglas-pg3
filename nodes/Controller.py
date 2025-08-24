@@ -451,15 +451,11 @@ class Controller(Node):
             LOGGER.error(f"data pollingBypass:{self.pollingBypass}")
         self.poll_in = False
 
-# TODO MAYBE check for active scenes (after motion-stop)
-# TODO add scene-add to here for non-existent scene
-# TODO set self."setcommand" DON/DOF
-# TODO explore other ways to speed up activation
-
     def gatewayEventsCheck(self):
         """
-        Handles Gateway Events like homedoc-updated  MAYBE scene-add as central event?
+        Handles Gateway Events like homedoc-updated
         """
+        # TODO scene.add event for scene which does not exist (have only observed for existing)
         if self.gateway_events_in:
             LOGGER.error(f"Still in Gateway Events, exiting")
             return

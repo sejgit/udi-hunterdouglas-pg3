@@ -152,7 +152,7 @@ class Scene(udi_interface.Node):
                     
                 # NOTE need to fill in positions assumed for Duolite, same for 9, 10 ???
                 if shade['capabilities'] == 8 and match == True:
-                    LOGGER.info(f"scene:{self.sid}, scenepos:{scene_shPos}, shade:{shade}")
+                    #LOGGER.info(f"scene:{self.sid}, scenepos:{scene_shPos}, shade:{shade}")
                     if 'pos1' in scene_shPos:
                         if shade_pos['secondary'] != 100:
                             match = False
@@ -165,7 +165,7 @@ class Scene(udi_interface.Node):
                     break
             if match == True:
                 self.controller.sceneIdsActive_array_check=list(set(self.controller.sceneIdsActive_array_check+[self.sid]))
-                LOGGER.info(f"sceneIdsActive_array_ckeck:{self.controller.sceneIdsActive_array_check}")
+                LOGGER.info(f"sceneIdsActive_array_check:{self.controller.sceneIdsActive_array_check}")
                 self.setDriver('GV1', 1, report=True, force=True)
             else:
                 self.setDriver('GV1', 0, report=True, force=True)
