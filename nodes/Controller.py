@@ -567,9 +567,10 @@ class Controller(Node):
 
         nodes_new = []
         if self.updateAllFromServer():
-            for shade in self.shades_array_map:
+            for sh in self.shadeIds_array:
+                shade = self.shades_array_map[sh]
                 if self.generation == 2:
-                    shadeId = shade['id']
+                    shadeId = shade.get()['id']
                 else:
                     shadeId = shade['shadeId']
 
@@ -619,7 +620,8 @@ class Controller(Node):
                                                 shade))
                     self.wait_for_node_done()
 
-            for scene in self.scenes_array_map:
+            for sc in self.sceneIds_array:
+                scene = self.scenes_array_map[sc]
                 if self.generation == 2:
                     sceneId = scene['id']
                 else:
