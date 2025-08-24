@@ -108,11 +108,11 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid),report=True, force=True)
         LOGGER.debug(f'{self.lpfx}: get GV0={self.getDriver("GV0")}')
         self.rename(self.name)
-        self.activeCheck()
+        self.calcActive()
 
-    def activeCheck(self):
+    def calcActive(self):
         # Attempt to provide scene active to G2 and speed up G3
-        # TODO add check after shade event "motion-stop", but would have to check what scenes its in
+        # TODO add calc after shade event "motion-stop", but would have to calc what scenes its in
         try:
             members = self.controller.scenes_array_map.get(self.sid)['members']
             LOGGER.debug(f"Members: {members}")
@@ -164,13 +164,13 @@ class Scene(udi_interface.Node):
                 if match == False:
                     break
             if match == True:
-                self.controller.sceneIdsActive_array_check=list(set(self.controller.sceneIdsActive_array_check+[self.sid]))
-                self.controller.sceneIdsActive_array_check.sort()
-                LOGGER.info(f"sceneIdsActive_array_check:{self.controller.sceneIdsActive_array_check}")
+                self.controller.sceneIdsActive_array_calc=list(set(self.controller.sceneIdsActive_array_calc+[self.sid]))
+                self.controller.sceneIdsActive_array_calc.sort()
+                LOGGER.info(f"sceneIdsActive_array_calc:{self.controller.sceneIdsActive_array_calc}")
                 self.setDriver('GV1', 1, report=True, force=True)
             else:
-                if self.sid in self.controller.sceneIdsActive_array_check:
-                    self.controller.sceneIdsActive_array_check.remove(self.sid)
+                if self.sid in self.controller.sceneIdsActive_array_calc:
+                    self.controller.sceneIdsActive_array_calc.remove(self.sid)
                 self.setDriver('GV1', 0, report=True, force=True)
 
         except Exception as ex:
@@ -197,7 +197,7 @@ class Scene(udi_interface.Node):
             return future
             
     async def _poll_events(self):
-        # TODO shade motion-stop, shade sleeps 2s then remove, scene poll_events checks shades in members, activeCheck
+        # TODO shade motion-stop, shade sleeps 2s then remove, scene poll_events calcs shades in members, calcActive
         self.event_polling_in = True
         while not Event().is_set():
             await asyncio.sleep(1)
@@ -212,17 +212,17 @@ class Scene(udi_interface.Node):
                     if event['scenes'].count(self.sid) > 0:
                         try:
                             LOGGER.debug(f'scene {self.sid} update')
-                            if self.controller.generation == 2:
-                                try:
-                                    data = list(filter(lambda scene: scene['id'] == self.sid, \
-                                                       self.controller.scenes_array))
-                                except:
-                                    LOGGER.error('scene: sid:{self.sid}, data error')
-                                    data = None
-                            else:
-                                data = list(filter(lambda scene: scene['_id'] == self.sid, \
-                                                   self.controller.scenes_array))
-
+                            # if self.controller.generation == 2:
+                            #     try:
+                            #         data = list(filter(lambda scene: scene['id'] == self.sid, \
+                            #                            self.controller.scenes_array))
+                            #     except:
+                            #         LOGGER.error('scene: sid:{self.sid}, data error')
+                            #         data = None
+                            # else:
+                            #     data = list(filter(lambda scene: scene['_id'] == self.sid, \
+                            #                        self.controller.scenes_array))
+                            data = self.controller.scenes_array_map[self.sid]
                             if data is not None:
                                 self.scenedata = data[0]
 
@@ -252,8 +252,8 @@ class Scene(udi_interface.Node):
                                             self.setDriver('ST', 0,report=True, force=True)
                                             LOGGER.info(f"scene {self.sid} activation updated OFF")
 
-                                # do a scene active check
-                                self.activeCheck()
+                                # do a scene active calc
+                                self.calcActive()
 
                             rem = self.controller.gateway_event.index(event)
                             self.controller.gateway_event[rem]['scenes'].remove(self.sid)
@@ -284,7 +284,7 @@ class Scene(udi_interface.Node):
                     self.reportCmd("ACTIVATE",2)
                     LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                     self.controller.gateway_event.remove(event)
-                    self.activeCheck()
+                    self.calcActive()
                     
             # scene-deactivated
             try:
@@ -299,7 +299,7 @@ class Scene(udi_interface.Node):
                     self.setDriver('ST', 0,report=True, force=True)
                     LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                     self.controller.gateway_event.remove(event)
-                    self.activeCheck()
+                    self.calcActive()
 
             # scene-add event
             try:
@@ -360,7 +360,7 @@ class Scene(udi_interface.Node):
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
-        {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Active Check"},
+        {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Calc Activated"},
     ]
 
     """

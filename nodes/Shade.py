@@ -241,8 +241,9 @@ class Shade(udi_interface.Node):
             else:
                 if event:
                     event = event[0]
-                    self.shadedata["batteryStatus"] = event['batteryLevel']
-                    self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
+                    #self.shadedata["batteryStatus"] = event['batteryLevel']
+                    self.controller.shades_array_map[self.sid]["batteryStatus"] = event['batteryLevel']
+                    self.setDriver('GV6', event["batterylevel"],report=True, force=True)
                     self.positions = self.posToPercent(event['currentPositions'])
                     if self.updatePositions():
                         LOGGER.error(f'shade {self.sid} battery-event')
@@ -254,10 +255,11 @@ class Shade(udi_interface.Node):
     def updateData(self):
         if self.controller.no_update == False:
             # LOGGER.debug(self.controller.shades_array)
-            data = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
+            #data = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
+            data = self.controller.shades_array_map[self.sid] 
             LOGGER.debug(f"shade {self.sid} is {data}")
             if data:
-                self.shadedata = data[0]
+                self.shadedata = data
                 if self.name != self.shadedata['name']:
                     LOGGER.warning(f"Name error current:{self.name}  new:{self.shadedata['name']}")
                     self.rename(self.shadedata['name'])

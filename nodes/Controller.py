@@ -99,14 +99,12 @@ class Controller(Node):
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
         self.rooms_array = []
         self.roomIds_array = []
-        self.shades_array = []
-        self.shadeIds_array = []
         self.shades_array_map = {}
-        self.scenes_array = []
+        self.shadeIds_array = []
         self.sceneIds_array = []
         self.scenes_array_map = {}
         self.sceneIdsActive_array = []
-        self.sceneIdsActive_array_check = []
+        self.sceneIdsActive_array_calc = []
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
@@ -569,14 +567,11 @@ class Controller(Node):
 
         nodes_new = []
         if self.updateAllFromServer():
-            for shade in self.shades_array:
+            for shade in self.shades_array_map:
                 if self.generation == 2:
                     shadeId = shade['id']
                 else:
                     shadeId = shade['shadeId']
-
-                # set-up map array for quicker access in nodes added in v1.13.0
-                self.shades_array_map[shadeId] = shade
 
                 shTxt = f"shade{shadeId}"
                 nodes_new.append(shTxt)
@@ -623,15 +618,12 @@ class Controller(Node):
                                                 shade["name"], \
                                                 shade))
                     self.wait_for_node_done()
-                
-            for scene in self.scenes_array:
+
+            for scene in self.scenes_array_map:
                 if self.generation == 2:
                     sceneId = scene['id']
                 else:
                     sceneId = scene['_id']
-
-                # set-up map array for quicker access in nodes added in v1.13.0
-                self.scenes_array_map[sceneId] = scene
 
                 scTxt = f"scene{sceneId}"
                 nodes_new.append(scTxt)
@@ -739,9 +731,9 @@ class Controller(Node):
             if data:
                 self.rooms_array = []
                 self.roomIds_array = []
-                self.shades_array = []
+                self.shades_array_map = {}
                 self.shadeIds_array = []
-                self.scenes_array = []
+                self.scenes_array_map = {}
                 self.sceneIds_array = []
 
                 for r in data["rooms"]:
@@ -767,16 +759,14 @@ class Controller(Node):
                                 sh['positions']['tilt'] = self.toPercent(positions['tilt'])
                             if 'velocity' in positions:
                                 sh['positions']['velocity'] = self.toPercent(positions['velocity'])
-                        self.shadeIds_array.append(sh["shadeId"])
-                        self.shades_array.append(sh)
+                        self.shades_array_map['shadeId'] = sh
 
+                self.shadeIds_array = self.shades_array_map.keys()
                 LOGGER.info(f"rooms = {self.roomIds_array}")
                 LOGGER.info(f"shades = {self.shadeIds_array}")
 
                 for sc in data["scenes"]:
                     LOGGER.debug(f"update scenes {sc}")
-                    self.sceneIds_array.append(sc["_id"])
-                    self.scenes_array.append(sc)
                     name = sc['name']
                     LOGGER.debug("scenes-3")
                     if sc['room_Id'] == None:
@@ -785,8 +775,10 @@ class Controller(Node):
                         room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
                     sc['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                    self.scenes_array_map[sc['_id']] = sc
                     LOGGER.debug('Update scenes-1')
 
+                self.sceneIds_array = self.scenes_array_map.keys()
                 LOGGER.info(f"scenes = {self.sceneIds_array}")
 
                 self.no_update = False
@@ -857,9 +849,9 @@ class Controller(Node):
             if data:
                 self.rooms_array = []
                 self.roomIds_array = []
-                self.shades_array = []
+                self.shades_array_map = {}
                 self.shadeIds_array = []
-                self.scenes_array = []
+                self.scenes_array_map = {}
                 self.sceneIds_array = []
 
                 res = self.get(URL_G2_ROOMS.format(g=self.gateway))
@@ -874,9 +866,9 @@ class Controller(Node):
                 res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.shades_array = data['shadeData']
                     self.shadeIds_array = data['shadeIds']
-                    for shade in self.shades_array:
+                    for shade in data['shadeData']:
+                        shadeId = shade['id']
                         name = base64.b64decode(shade['name']).decode()
                         room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
@@ -894,14 +886,14 @@ class Controller(Node):
                                         shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
                             if 'position2' in pos:
                                 shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
+                        self.shades_array_map[shadeId] = shade
+                    self.shadeIds_array = self.shades_array_map.keys()
                     LOGGER.info(f"shades = {self.shadeIds_array}")
                     
                 res = self.get(URL_G2_SCENES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.scenes_array = data['sceneData']
-                    self.sceneIds_array = data['sceneIds']
-                    for scene in self.scenes_array:
+                    for scene in data['sceneData']:
                         name = base64.b64decode(scene['name']).decode()
                         if scene['roomId'] == None:
                             room_name = "Multi"
@@ -909,6 +901,8 @@ class Controller(Node):
                             room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
                             room_name = room_name[0:ROOM_NAME_LIMIT]
                         scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        self.scenes_array_map[scene['_id']] = scene
+                    self.sceneIds_array = self.scenes_array_map.keys()
                     LOGGER.info(f"scenes = {self.sceneIds_array}")
 
                 self.no_update = False
