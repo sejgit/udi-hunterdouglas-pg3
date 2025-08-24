@@ -222,38 +222,35 @@ class Scene(udi_interface.Node):
                             # else:
                             #     data = list(filter(lambda scene: scene['_id'] == self.sid, \
                             #                        self.controller.scenes_array))
-                            data = self.controller.scenes_array_map[self.sid]
-                            if data is not None:
-                                self.scenedata = data[0]
-
-                                # update name if different
-                                if self.name != self.scenedata['name']:
-                                    LOGGER.info(f"scene: sid:{self.sid}, name != scenedata[name]")
-                                    if self.controller.generation == 2:
-                                        LOGGER.info(f"scene: sid:{self.sid}, \
+                            self.scenedata = self.controller.scenes_array_map[self.sid]
+                            # update name if different
+                            if self.name != self.scenedata['name']:
+                                LOGGER.info(f"scene: sid:{self.sid}, name != {self.scenedata['name']}")
+                                if self.controller.generation == 2:
+                                    LOGGER.info(f"scene: sid:{self.sid}, \
                                         self.name:{self.name}, id:{self.scenedata['id']}, \
                                         name:{self.scenedata['name']}")
-                                    else:
-                                        LOGGER.info(f"scene: sid:{self.sid}, \
+                                else:
+                                    LOGGER.info(f"scene: sid:{self.sid}, \
                                         self.name:{self.name}, _id:{self.scenedata['_id']}, \
                                         name:{self.scenedata['name']}")
-                                    LOGGER.info(f"scene name changed from {self.name} to {self.scenedata['name']}")
-                                    self.rename(self.scenedata['name'])
+                                LOGGER.info(f"scene name changed from {self.name} to {self.scenedata['name']}")
+                                self.rename(self.scenedata['name'])
 
-                                # update activation state only if G3, as array is [] for G2
-                                if self.controller.generation == 3:
-                                    old = self.getDriver('ST')
-                                    if self.controller.sceneIdsActive_array.count(self.sid) > 0:
-                                        if old != 1:
-                                            self.setDriver('ST', 1,report=True, force=True)
-                                            LOGGER.info(f"scene {self.sid} activation updated ON")
-                                    else:
-                                        if old != 0:
-                                            self.setDriver('ST', 0,report=True, force=True)
-                                            LOGGER.info(f"scene {self.sid} activation updated OFF")
+                            # update activation state only if G3, as array is [] for G2
+                            if self.controller.generation == 3:
+                                old = self.getDriver('ST')
+                                if self.controller.sceneIdsActive_array.count(self.sid) > 0:
+                                    if old != 1:
+                                        self.setDriver('ST', 1,report=True, force=True)
+                                        LOGGER.info(f"scene {self.sid} activation updated ON")
+                                else:
+                                    if old != 0:
+                                        self.setDriver('ST', 0,report=True, force=True)
+                                        LOGGER.info(f"scene {self.sid} activation updated OFF")
 
-                                # do a scene active calc
-                                self.calcActive()
+                            # do a scene active calc
+                            self.calcActive()
 
                             rem = self.controller.gateway_event.index(event)
                             self.controller.gateway_event[rem]['scenes'].remove(self.sid)
