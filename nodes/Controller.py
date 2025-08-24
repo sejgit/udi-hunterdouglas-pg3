@@ -746,7 +746,6 @@ class Controller(Node):
                     room_name = room_name[0:ROOM_NAME_LIMIT]
                     for sh in r["shades"]:
                         LOGGER.debug(f"Update shade {sh['id']}")
-                        sh['shadeId'] = sh['id']
                         name = base64.b64decode(sh.pop('name')).decode()
                         sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
@@ -761,7 +760,7 @@ class Controller(Node):
                                 sh['positions']['tilt'] = self.toPercent(positions['tilt'])
                             if 'velocity' in positions:
                                 sh['positions']['velocity'] = self.toPercent(positions['velocity'])
-                        self.shades_array_map['shadeId'] = sh
+                        self.shades_array_map[sh['id']] = sh
 
                 self.shadeIds_array = self.shades_array_map.keys()
                 LOGGER.info(f"rooms = {self.roomIds_array}")
@@ -868,27 +867,26 @@ class Controller(Node):
                 res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.shadeIds_array = data['shadeIds']
-                    for shade in data['shadeData']:
-                        shadeId = shade['id']
-                        name = base64.b64decode(shade['name']).decode()
-                        room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
+                    for sh in data['shadeData']:
+                        LOGGER.debug(f"Update shade {sh['id']}")
+                        name = base64.b64decode(sh['name']).decode()
+                        room_name = self.rooms_array[self.roomIds_array.index(sh['roomId'])]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
-                        shade['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                        if 'positions' in shade:
-                            pos = shade['positions']
+                        sh['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        if 'positions' in sh:
+                            pos = sh['positions']
                             # Convert positions to integer percentages & handle tilt
                             if 'posKind1' in pos:
                                 if pos['posKind1'] == 1:
                                     if 'position1' in pos:
-                                        shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
+                                        sh['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
                                 if pos['posKind1'] == 3:
-                                    shade['positions']['primary'] = 0
+                                    sh['positions']['primary'] = 0
                                     if 'position1' in pos:
-                                        shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
+                                        sh['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
                             if 'position2' in pos:
-                                shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
-                        self.shades_array_map[shadeId] = shade
+                                sh['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
+                        self.shades_array_map[sh['id']] = sh
                     self.shadeIds_array = self.shades_array_map.keys()
                     LOGGER.info(f"shades = {self.shadeIds_array}")
                     
