@@ -4,7 +4,6 @@ verify_ssl = false
 name = "pypi"
 
 [packages]
-udi_interface = "*"
 udi-interface = "*"
 requests = "*"
 markdown2 = "*"

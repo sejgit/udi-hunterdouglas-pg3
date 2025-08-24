@@ -8,7 +8,7 @@ Shade class
 """
 
 # std libraries
-import math
+import math, time, datetime
 import asyncio
 from threading import Event
 
@@ -73,7 +73,8 @@ class Shade(udi_interface.Node):
     query(): Called when ISY sends a query request to Polyglot for this
         specific node
     """
-    def __init__(self, polyglot, primary, address, name, shade):
+    def __init__(self, polyglot, primary, address, name, sid):
+        # TODO check all dictionary calls for G2 / G3 correctness
         """
         Initialize the node.
 
@@ -88,18 +89,9 @@ class Shade(udi_interface.Node):
         self.controller = polyglot.getNode(self.primary)
         self.address = address
         self.name = name
-        self.shadedata = shade
-        self.positions = shade['positions']
-        try:
-            self.capabilities = int(shade['capabilities'])
-        except:
-            LOGGER.error(f"no capabilties defined, use default shade")
-            self.capabilities = int(0)
-
-        if self.controller.generation == 2:
-            self.sid = shade['id']
-        else:
-            self.sid = shade['shadeId']
+        self.sid = sid
+        self.positions = self.controller.shades_map[sid]['positions']
+        self.capabilities = self.controller.shades_map[sid]['capabilities']
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
@@ -117,15 +109,18 @@ class Shade(udi_interface.Node):
         """
         self.setDriver('GV0', self.sid,report=True, force=True)
         self.updateData()
-        self.reportDrivers()
         self.rename(self.name)
+        while not self.controller.ready:
+            time.sleep(2)
         if not self.event_polling_in:
             self.start_event_polling()
 
     def poll(self, flag):
+        # wait until all ready
         if not self.controller.ready:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
+        # only shortPoll no longPoll used
         if 'shortPoll' in flag:
             LOGGER.debug(f'shortPoll shade {self.lpfx}')
             if not self.event_polling_in:
@@ -158,122 +153,96 @@ class Shade(udi_interface.Node):
                                 self.controller.gateway_event[rem]['shades'].remove(self.sid)
                             except Exception as ex:
                                 LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
-                    else:
-                        pass
-                        # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
-                else:
-                    pass
-                    # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
 
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
             ######
+            if self.controller.gateway == 2:
+                continue
 
-            # motion-started event
             try:
-                event = list(filter(lambda events: (events['evt'] == 'motion-started' \
-                                               and events['id'] == self.sid), \
-                                    self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"shade {self.sid} motion-started event error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    self.positions = self.posToPercent(event['targetPositions'])
-                    if self.updatePositions():
-                        self.setDriver('ST', 1,report=True, force=True)
-                        LOGGER.info(f'shade {self.sid} motion-started event')
-                        self.controller.gateway_event.remove(event)
+                # filter events without isoDate like home
+                event_nohome = (e for e in self.controller.gateway_event \
+                                if e.get('isoDate') is not None)
+                # get most recent isoDate
+                event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+
+            except (ValueError, TypeError) as ex: # Catch specific exceptions
+                LOGGER.error(f"Error filtering or finding minimum event: {ex}")
+                event = {}
+    
+            # only continue for this shade
+            if event.get('id') != self.sid:
+                continue
+                    
+            # motion-started event
+            if event.get('evt') == 'motion-started':
+                self.positions = self.posToPercent(event['targetPositions'])
+                if self.updatePositions():
+                    self.setDriver('ST', 1,report=True, force=True)
+                    LOGGER.info(f'shade {self.sid} motion-started event')
+                    self.controller.gateway_event.remove(event)
                    
             # motion-stopped event
-            try:
-                event = list(filter(lambda events: (events['evt'] == 'motion-stopped' \
-                                               and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"shade {self.sid} motion-stopped event error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    self.positions = self.posToPercent(event['currentPositions'])
-                    if self.updatePositions():
-                        self.setDriver('ST', 0,report=True, force=True)
-                        LOGGER.info(f'shade {self.sid} motion-stopped event')
-                        self.controller.gateway_event.remove(event)
+            if event.get('evt') == 'motion-stopped':
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    self.setDriver('ST', 0,report=True, force=True)
+                    LOGGER.info(f'shade {self.sid} motion-stopped event')                    
+                    # add event for scene active calc
+                    d = datetime.datetime.now(datetime.timezone.utc).isoformat().rstrip('+00:00') + 'Z'
+                    e = { "evt":"scene-calc", "isoDate":d, "shadeId":self.sid }
+                    e['scenes'] = list(self.controller.scenes_map.keys())
+                    self.controller.gateway_event.append(e)
+                    self.controller.gateway_event.remove(event)
                    
             # shade-online event
-            try:
-                event = list(filter(lambda events: (events['evt'] == 'shade-online' \
-                                               and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"shade {self.sid} shade-online event error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    self.positions = self.posToPercent(event['currentPositions'])
-                    if self.updatePositions():
-                        LOGGER.info(f'shade {self.sid} shade-online event')
-                        self.controller.gateway_event.remove(event)
+            if event.get('evt') == 'shade-online':
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    LOGGER.info(f'shade {self.sid} shade-online event')
+                    self.controller.gateway_event.remove(event)
                    
-            # shade-offline event
-            try:
-                event = list(filter(lambda events: (events['evt'] == 'shade-offline' \
-                                               and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"shade {self.sid} shade-offline event error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    self.positions = self.posToPercent(event['currentPositions'])
-                    if self.updatePositions():
-                        LOGGER.error(f'shade {self.sid} shade-offline event')
-                        self.controller.gateway_event.remove(event)
+            # # shade-offline event
+            if event.get('evt') == 'shade-offline':
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    LOGGER.error(f'shade {self.sid} shade-offline event')
+                    self.controller.gateway_event.remove(event)
                    
-            # battery-alert event
-            try:
-                event = list(filter(lambda events: (events['evt'] == 'battery-alert' \
-                                               and events['id'] == self.sid), \
-                                self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"shade {self.sid} battery-event error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    self.shadedata["batteryStatus"] = event['batteryLevel']
-                    self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
-                    self.positions = self.posToPercent(event['currentPositions'])
-                    if self.updatePositions():
-                        LOGGER.error(f'shade {self.sid} battery-event')
-                        self.controller.gateway_event.remove(event)
+            # # battery-alert event
+            if event.get('evt') == 'battery-alert':
+                self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
+                self.setDriver('GV6', event["batterylevel"],report=True, force=True)
+                self.positions = self.posToPercent(event['currentPositions'])
+                if self.updatePositions():
+                    LOGGER.error(f'shade {self.sid} battery-event')
+                    self.controller.gateway_event.remove(event)
 
         self.event_polling_in = False
         # exit events
 
     def updateData(self):
         if self.controller.no_update == False:
-            # LOGGER.debug(self.controller.shades_array)
-            data = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
-            LOGGER.debug(f"shade {self.sid} is {data}")
-            if data:
-                self.shadedata = data[0]
-                if self.name != self.shadedata['name']:
-                    LOGGER.warning(f"Name error current:{self.name}  new:{self.shadedata['name']}")
-                    self.rename(self.shadedata['name'])
-                    LOGGER.warning(f"Renamed {self.name}")
-                self.setDriver('ST', 0,report=True, force=True)
-                self.setDriver('GV1', self.shadedata["roomId"],report=True, force=True)
-                self.setDriver('GV6', self.shadedata["batteryStatus"],report=True, force=True)
-                try:
-                    self.capabilities = int(self.shadedata["capabilities"])
-                except:
-                    LOGGER.error(f"no capabilties defined, use default shade")
-                    self.capabilities = int(0)
-                self.setDriver('GV5', self.capabilities,report=True, force=True)
-                self.positions = self.shadedata["positions"]
-                self.updatePositions()
-                return True
+            try:
+                data = self.controller.shades_map[self.sid] 
+                LOGGER.debug(f"shade {self.sid} is {data}")
+                if data:
+                    if self.name != data['name']:
+                        LOGGER.warning(f"Name error current:{self.name}  new:{data['name']}")
+                        self.rename(data['name'])
+                        LOGGER.warning(f"Renamed {self.name}")
+                    self.setDriver('ST', 0,report=True, force=True)
+                    self.setDriver('GV1', data["roomId"],report=True, force=True)
+                    self.setDriver('GV6', data["batteryStatus"],report=True, force=True)
+                    self.capabilities = data["capabilities"]
+                    self.setDriver('GV5', self.capabilities,report=True, force=True)
+                    self.positions = data["positions"]
+                    self.updatePositions()
+                    return True
+            except Exception as ex:
+                LOGGER.error(f"shade {self.sid} updateData error: {ex}")
+                return False
         else:
             return False
 
@@ -284,25 +253,25 @@ class Shade(udi_interface.Node):
         if 'primary' in self.positions:
             p1 = self.positions['primary']
             # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_array_map[self.sid]['positions']['primary'] = p1
+            self.controller.shades_map[self.sid]['positions']['primary'] = p1
         else:
             p1 = None
         if 'secondary' in self.positions:
             p2 = self.positions['secondary']
             # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_array_map[self.sid]['positions']['secondary'] = p2
+            self.controller.shades_map[self.sid]['positions']['secondary'] = p2
         else:
             p2 = None
         if 'tilt' in self.positions:
             t1 = self.positions['tilt']
             # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_array_map[self.sid]['positions']['tilt'] = t1
+            self.controller.shades_map[self.sid]['positions']['tilt'] = t1
         else:
             if self.capabilities in self.tiltCapable:
                 t1 = 0
             else:
                 t1 = None
-        LOGGER.info(f"updatePositions {self.controller.shades_array_map[self.sid]['positions']}")
+        LOGGER.info(f"updatePositions {self.controller.shades_map[self.sid]['positions']}")
             
         if self.capabilities in [7, 8]:
             self.setDriver('GV2', p1,report=True, force=True)
@@ -526,7 +495,7 @@ class Shade(udi_interface.Node):
         return newpos
 
     # all the drivers - for reference
-    # TODO velocity not implemented
+    # TODO velocity not implemented (available to be used in scenes)
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 

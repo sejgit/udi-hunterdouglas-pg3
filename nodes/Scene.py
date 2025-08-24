@@ -7,6 +7,7 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 Scene class
 """
 # std libraries
+import time
 import asyncio
 from threading import Event
 
@@ -97,6 +98,8 @@ class Scene(udi_interface.Node):
         self.poly.subscribe(self.poly.START, self.start, address)
         self.poly.subscribe(self.poly.POLL, self.poll)
 
+        self.motionStopped_iso = []
+
     def start(self):
         """
         Optional.
@@ -108,19 +111,21 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid),report=True, force=True)
         LOGGER.debug(f'{self.lpfx}: get GV0={self.getDriver("GV0")}')
         self.rename(self.name)
-        self.activeCheck()
+        while not self.controller.ready:
+            time.sleep(2)
+        if not self.event_polling_in:
+            self.start_event_polling()
 
-    def activeCheck(self):
-        # Attempt to provide scene active to G2 and speed up G3
-        # TODO add check after shade event "motion-stop", but would have to check what scenes its in
+    def calcActive(self):
+        # Attempt to provide scene active to G2 and speed up G3 awareness
         try:
-            members = self.controller.scenes_array_map.get(self.sid)['members']
+            members = self.controller.scenes_map.get(self.sid)['members']
             LOGGER.debug(f"Members: {members}")
             match = False
             for sh in members:
                 scene_shId = sh['shd_Id']                
                 scene_shPos = sh['pos']
-                shade = self.controller.shades_array_map.get(scene_shId)
+                shade = self.controller.shades_map.get(scene_shId)
                 shade_pos = shade['positions']
                 for element in scene_shPos.keys():
                     element2 = element
@@ -152,7 +157,7 @@ class Scene(udi_interface.Node):
                     
                 # NOTE need to fill in positions assumed for Duolite, same for 9, 10 ???
                 if shade['capabilities'] == 8 and match == True:
-                    LOGGER.info(f"scene:{self.sid}, scenepos:{scene_shPos}, shade:{shade}")
+                    #LOGGER.info(f"scene:{self.sid}, scenepos:{scene_shPos}, shade:{shade}")
                     if 'pos1' in scene_shPos:
                         if shade_pos['secondary'] != 100:
                             match = False
@@ -164,10 +169,13 @@ class Scene(udi_interface.Node):
                 if match == False:
                     break
             if match == True:
-                self.controller.sceneIdsActive_array_check=list(set(self.controller.sceneIdsActive_array_check+[self.sid]))
-                LOGGER.info(f"sceneIdsActive_array_ckeck:{self.controller.sceneIdsActive_array_check}")
+                self.controller.sceneIdsActive_calc=list(set(self.controller.sceneIdsActive_calc+[self.sid]))
+                self.controller.sceneIdsActive_calc.sort()
+                LOGGER.info(f"scene:{self.sid}, sceneIdsActive_calc:{self.controller.sceneIdsActive_calc}")
                 self.setDriver('GV1', 1, report=True, force=True)
             else:
+                if self.sid in self.controller.sceneIdsActive_calc:
+                    self.controller.sceneIdsActive_calc.remove(self.sid)
                 self.setDriver('GV1', 0, report=True, force=True)
 
         except Exception as ex:
@@ -175,9 +183,11 @@ class Scene(udi_interface.Node):
             self.setDriver('GV1', 0, report=True, force=True)
 
     def poll(self, flag):
+        # wait until all ready
         if not self.controller.ready:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
+        # only shortPoll no longPoll used
         if 'shortPoll' in flag:
             LOGGER.debug(f"shortPoll scene {self.lpfx}")
             if not self.event_polling_in:
@@ -185,8 +195,6 @@ class Scene(udi_interface.Node):
             if self.controller.generation == 2:
                 self.setDriver('ST', 0,report=True, force=True)
                 # manually turn off activation for G2
-        else:
-            pass
 
     def start_event_polling(self):
             future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
@@ -199,7 +207,7 @@ class Scene(udi_interface.Node):
             await asyncio.sleep(1)
             # home update event
             try:
-                event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+                event = list(filter(lambda events: (events['evt'] == 'home'), self.controller.gateway_event))
             except Exception as ex:
                 LOGGER.error(f"scene {self.sid} home event error: {ex}", exc_info=True)
             else:
@@ -208,113 +216,115 @@ class Scene(udi_interface.Node):
                     if event['scenes'].count(self.sid) > 0:
                         try:
                             LOGGER.debug(f'scene {self.sid} update')
-                            if self.controller.generation == 2:
-                                try:
-                                    data = list(filter(lambda scene: scene['id'] == self.sid, \
-                                                       self.controller.scenes_array))
-                                except:
-                                    LOGGER.error('scene: sid:{self.sid}, data error')
-                                    data = None
-                            else:
-                                data = list(filter(lambda scene: scene['_id'] == self.sid, \
-                                                   self.controller.scenes_array))
-
-                            if data is not None:
-                                self.scenedata = data[0]
-
-                                # update name if different
-                                if self.name != self.scenedata['name']:
-                                    LOGGER.info(f"scene: sid:{self.sid}, name != scenedata[name]")
-                                    if self.controller.generation == 2:
-                                        LOGGER.info(f"scene: sid:{self.sid}, \
+                            self.scenedata = self.controller.scenes_map[self.sid]
+                            # update name if different
+                            if self.name != self.scenedata['name']:
+                                LOGGER.info(f"scene: sid:{self.sid}, name != {self.scenedata['name']}")
+                                if self.controller.generation == 2:
+                                    LOGGER.info(f"scene: sid:{self.sid}, \
                                         self.name:{self.name}, id:{self.scenedata['id']}, \
                                         name:{self.scenedata['name']}")
-                                    else:
-                                        LOGGER.info(f"scene: sid:{self.sid}, \
+                                else:
+                                    LOGGER.info(f"scene: sid:{self.sid}, \
                                         self.name:{self.name}, _id:{self.scenedata['_id']}, \
                                         name:{self.scenedata['name']}")
-                                    LOGGER.info(f"scene name changed from {self.name} to {self.scenedata['name']}")
-                                    self.rename(self.scenedata['name'])
+                                LOGGER.info(f"scene name changed from {self.name} to {self.scenedata['name']}")
+                                self.rename(self.scenedata['name'])
+                        except Exception:
+                            LOGGER.error(f"scene event error sid = {self.sid}")
 
-                                # update activation state only if G3, as array is [] for G2
-                                if self.controller.generation == 3:
-                                    old = self.getDriver('ST')
-                                    if self.controller.sceneIdsActive_array.count(self.sid) > 0:
-                                        if old != 1:
-                                            self.setDriver('ST', 1,report=True, force=True)
-                                            LOGGER.info(f"scene {self.sid} activation updated ON")
-                                    else:
-                                        if old != 0:
-                                            self.setDriver('ST', 0,report=True, force=True)
-                                            LOGGER.info(f"scene {self.sid} activation updated OFF")
-
-                                # do a scene active check
-                                self.activeCheck()
+                        try:
+                            # update activation state only if G3, as array is [] for G2
+                            if self.controller.generation == 3:
+                                old = self.getDriver('ST')
+                                if self.controller.sceneIdsActive.count(self.sid) > 0:
+                                    if old != 1:
+                                        self.setDriver('ST', 1,report=True, force=True)
+                                        LOGGER.info(f"scene {self.sid} activation updated ON")
+                                else:
+                                    if old != 0:
+                                        self.setDriver('ST', 0,report=True, force=True)
+                                        LOGGER.info(f"scene {self.sid} activation updated OFF")
+                                        
+                                # do a scene active calc
+                                self.calcActive()
 
                             rem = self.controller.gateway_event.index(event)
                             self.controller.gateway_event[rem]['scenes'].remove(self.sid)
                         except Exception:
-                            LOGGER.error(f"scene event error sid = {self.sid}")
-                    else:
-                        pass
-                        # LOGGER.debug(f'scene {self.sid} home evt but updated already')
-                else:
-                    pass
-                    # LOGGER.debug(f'scene {self.sid} no home evt')
-                
+                            LOGGER.error(f"scene update state error sid = {self.sid}")
+
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
             ######
-        
-            # scene-activated
+            if self.controller.gateway == 2:
+                continue
+
+            # scene-calc event
+            # from shade motion-stopped event which produced scene-calc
+            # run calc active if shade is within scene
             try:
-                event = list(filter(lambda events: (events['evt'] == 'scene-activated' \
-                                               and events['id'] == self.sid), \
-                                    self.controller.gateway_event))
+                event = list(filter(lambda events: (events['evt'] == 'scene-calc'), self.controller.gateway_event))
             except Exception as ex:
-                LOGGER.error(f"scene {self.sid} scene-activated error: {ex}")
+                LOGGER.error(f"scene {self.sid} scene-calc event error: {ex}", exc_info=True)
             else:
                 if event:
                     event = event[0]
-                    self.setDriver('ST', 1,report=True, force=True)
-                    self.reportCmd("ACTIVATE",2)
-                    LOGGER.info(f"event {event['evt']}: {self.lpfx}")
-                    self.controller.gateway_event.remove(event)
-                    self.activeCheck()
+                    if event['scenes'].count(self.sid) > 0:
+                        LOGGER.debug(f'scene-calc event:{self.sid}')
+                        success = False
+                        members = self.controller.scenes_map.get(self.sid)['members']
+                        for sh in members:
+                            if sh['shd_Id'] == event['shadeId']:
+                                success = True
+                                break
+                        if success:                        
+                            LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
+                            self.calcActive()
+                        rem = self.controller.gateway_event.index(event)
+                        self.controller.gateway_event[rem]['scenes'].remove(self.sid)
+
+            try:
+                # filter events without isoDate like home
+                event_nohome = (e for e in self.controller.gateway_event \
+                                if e.get('isoDate') is not None)
+                # get most recent isoDate
+                event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+
+            except (ValueError, TypeError) as ex: # Catch specific exceptions
+                LOGGER.error(f"Error filtering or finding minimum event: {ex}")
+                event = {}
+
+            # only continue for this shade
+            if event.get('id') != self.sid:
+                continue
+
+            # scene-activated
+            if event.get('evt') == 'scene-activated':
+                self.setDriver('ST', 1,report=True, force=True)
+                self.reportCmd("ACTIVATE",2)
+                LOGGER.info(f"event {event['evt']}: {self.lpfx}")
+                self.controller.gateway_event.remove(event)
+                self.calcActive()
                     
             # scene-deactivated
-            try:
-                event = list(filter(lambda events: (events['evt'] == 'scene-deactivated' \
-                                               and events['id'] == self.sid), \
-                                    self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"scene {self.sid} scene-deactivated error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    self.setDriver('ST', 0,report=True, force=True)
-                    LOGGER.info(f"event {event['evt']}: {self.lpfx}")
-                    self.controller.gateway_event.remove(event)
-                    self.activeCheck()
+            if event.get('evt') == 'scene-deactivated':
+                self.setDriver('ST', 0,report=True, force=True)
+                LOGGER.info(f"event {event['evt']}: {self.lpfx}")
+                self.controller.gateway_event.remove(event)
+                self.calcActive()
 
-            # scene-add event
-            try:
-                event = list(filter(lambda events: (events['evt'] == 'scene-add' \
-                                               and events['id'] == self.sid), \
-                                    self.controller.gateway_event))
-            except Exception as ex:
-                LOGGER.error(f"event {self.sid} scene-add error: {ex}")
-            else:
-                if event:
-                    event = event[0]
-                    # TODO should add for scene-remove/delete, not sure which as never witnessed one
-                    # TODO should add somewhere else for scene-add of non-existing scene
-                    LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
-                    self.controller.gateway_event.remove(event)
+            # scene-add if scene already exists
+            # PowerView app: scene-add can happen if user redefines scene or adds new one
+            # this is action for first type, see controller for second type
+            if event.get('evt') == 'scene-add':
+                LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}, updating info from gateway.")
+                self.controller.updateAllFromServer()
+                self.calcActive
+                self.controller.gateway_event.remove(event)
 
         self.event_polling_in = False
         # exit events
-
         
     def cmdActivate(self, command = None):
         """
@@ -356,7 +366,7 @@ class Scene(udi_interface.Node):
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
-        {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Active Check"},
+        {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Calc Activated"},
     ]
 
     """

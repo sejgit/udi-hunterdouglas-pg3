@@ -92,21 +92,17 @@ class Controller(Node):
         self.discover_done = False
         self.poll_in = False
         self.sse_polling_in = False
+        self.gateway_events_in = False
         
         # storage arrays
         self.n_queue = []
-        self.gateway_array = []
+        self.gateways = []
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
-        self.rooms_array = []
-        self.roomIds_array = []
-        self.shades_array = []
-        self.shadeIds_array = []
-        self.shades_array_map = {}
-        self.scenes_array = []
-        self.sceneIds_array = []
-        self.scenes_array_map = {}
-        self.sceneIdsActive_array = []
-        self.sceneIdsActive_array_check = []
+        self.rooms_map = {}
+        self.shades_map = {}
+        self.scenes_map = {}
+        self.sceneIdsActive = []
+        self.sceneIdsActive_calc = []
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
@@ -122,6 +118,9 @@ class Controller(Node):
         self.handler_data_st = None
         self.handler_typedparams_st = None
         self.handler_typeddata_st = None
+
+        #events
+        self.stop_polling_event = Event()
 
         # Subscribe to various events from the Interface class.
         # The START event is unique in that you can subscribe to 
@@ -219,8 +218,9 @@ class Controller(Node):
 
         # fist update
         if self.updateAllFromServer():
-            self.gateway_event[0]['shades'] = self.shadeIds_array
-            self.gateway_event[0]['scenes'] = self.sceneIds_array
+            self.gateway_event[0]['shades'] = list(self.shades_map.keys())
+            self.gateway_event[0]['scenes'] = list(self.scenes_map.keys())
+            LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
             # clear inital start-up message
             if self.Notices['hello']:
                 self.Notices.delete('hello')
@@ -326,23 +326,23 @@ class Controller(Node):
             return True
         try:
             if type(eval(self.gateway)) == list:
-                self.gateway_array = eval(self.gateway)
-                self.gateway = self.gateway_array[0]
+                self.gateways = eval(self.gateway)
+                self.gateway = self.gateways[0]
         except:
             if type(self.gateway) == str:
-                self.gateway_array.append(self.gateway)
+                self.gateways.append(self.gateway)
             else:
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
         if (self.goodip() and (self.genCheck3() or self.genCheck2())):
-            LOGGER.info('good self.gateway_array %s', self.gateway_array)
+            LOGGER.info('good self.gateways %s', self.gateways)
             LOGGER.info("good self.gateway = %s", self.gateway)
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
             return True
         else:
-            LOGGER.info(f"checkParams: no gateway found in {self.gateway_array}")
+            LOGGER.info(f"checkParams: no gateway found in {self.gateways}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
             return False
                                 
@@ -351,7 +351,7 @@ class Controller(Node):
         Check for valid ip in gateway address.
         """
         good = True
-        for ip in self.gateway_array:
+        for ip in self.gateways:
             try:
                 socket.inet_aton(ip)
             except socket.error:
@@ -364,7 +364,7 @@ class Controller(Node):
         """
         Check for a Generation 3 gateway.
         """
-        for ip in self.gateway_array:
+        for ip in self.gateways:
             res = self.get(URL_GATEWAY.format(g=ip))
             if res.status_code == requests.codes.ok:
                 LOGGER.info(f"{ip} is PowerView G3")
@@ -380,7 +380,7 @@ class Controller(Node):
         """
         Check for a Generation 2 gateway.
         """
-        for ip in self.gateway_array:
+        for ip in self.gateways:
             res = self.get(URL_G2_HUB.format(g=ip))
             if res.status_code == requests.codes.ok:
                 LOGGER.info(f"{ip} is PowerView 2")
@@ -436,8 +436,8 @@ class Controller(Node):
                     if event:
                         event = event[0]
                         # seed home event to signal the nodes to update with new gateway data
-                        self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
-                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
+                        self.gateway_event[self.gateway_event.index(event)]['shades'] = list(self.shades_map.keys())
+                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.scenes_map.keys())
                         LOGGER.debug('trigger nodes {}'.format(self.gateway_event))
                     else:
                         self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
@@ -451,71 +451,115 @@ class Controller(Node):
             LOGGER.error(f"data pollingBypass:{self.pollingBypass}")
         self.poll_in = False
 
-# TODO MAYBE check for active scenes (after motion-stop)
-# TODO add scene-add to here for non-existent scene
-# TODO set self."setcommand" DON/DOF
-# TODO explore other ways to speed up activation
-
+    # TODO MAYBE deal with events in ISO timestamp order (for controller, shade, scene)
     def gatewayEventsCheck(self):
         """
-        Handles Gateway Events like homedoc-updated  MAYBE scene-add as central event?
+        Handles Gateway Events like homedoc-updated
         """
         if self.gateway_events_in:
             LOGGER.error(f"Still in Gateway Events, exiting")
             return
+        
         self.gateway_events_in = True
+        # homedoc-updated
         try:
             event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
+        except:
+            LOGGER.error("controller homedoc-updated event error")
+        else:
             if event:
                 event = event[0]
                 LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
                 self.gateway_event.remove(event)
+
+        # scene-add if scene does not already exist
+        # PowerView app: scene-add can happen if user redefines scene or adds new one
+        try:
+            event = list(filter(lambda events: events['evt'] == 'scene-add', self.gateway_event))
         except:
-            LOGGER.error("event error")
-        LOGGER.info("event(total) = {}".format(self.gateway_event))
-        self.poll_in = False
+            LOGGER.error("controller scene-add event error")
+        else:
+            if event:
+                event = event[0]
+                # check that scene does not exist
+                match = False
+                for sc in self.scenes_map.keys():
+                    if sc == event['id']:
+                        LOGGER.info('gateway event - scene-add, not new, no action - {}'.format(event))
+                        match = True
+                        break
+                if not match:
+                    LOGGER.info('gateway event - scene-add, NEW so start Discover - {}'.format(event))
+                    self.discover()
+
+                self.gateway_event.remove(event)
+        # clean-up
+        LOGGER.debug("event(total) = {}".format(self.gateway_event))
+        self.gateway_events_in = False
+        return
+                    
+    def start_SSE_polling(self):
+        LOGGER.info(f"start")
+        self.stop_polling_event.clear()
+        future = asyncio.run_coroutine_threadsafe(self._poll_sse(), self.mainloop)
+        LOGGER.info(f"exit")
+        return future
 
     async def _poll_sse(self):
+        """
+        Polls the SSE endpoint with aiohttp for events.
+        Includes robust retry logic with exponential backoff.
+        """
         self.sse_polling_in = True
         url = URL_EVENTS.format(g=self.gateway)
-        self.max_retries = 5
-        self.base_delay = 1
         retries = 0
-        while not Event().is_set():
+        max_retries = 5
+        base_delay = 1
+
+        while not self.stop_polling_event.is_set():
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url) as response:
-                        retries = 0
+                        retries = 0  # Reset retries on successful connection
                         async for val in response.content:
-                            LOGGER.debug(f"Received: {val.decode().strip()}")
-                            if val:
-                                if val == "100HELO":
-                                    continue
-                                try:
-                                    self.gateway_event.append(json.loads(val))
-                                    LOGGER.info(f"new sse: {self.gateway_event}")
-                                    self.gatewayEventsCheck()
-                                    self.eventTimer = 0
-                                except:
-                                    LOGGER.debug(f"noadd:{val.decode().strip()}")
+                            line = val.decode().strip()
+                            if not line:
+                                continue
+
+                            LOGGER.info(f"Received: {line}")
+
+                            try:
+                                data = json.loads(line)
+                                self.gateway_event.append(data)
+                                LOGGER.info(f"new sse: {self.gateway_event}")
+                                self.eventTimer = 0
+                            except json.JSONDecodeError:
+                                if line == "100 HELO":
                                     pass
+                                else:
+                                    LOGGER.error(f"Failed to decode JSON: <<{line}>>")
+                            except Exception as ex:
+                                LOGGER.error(f"gatewayEventsCheck error: {ex}")
+
+                            # Move this call outside the inner try-except for clarity
+                            try:
+                                self.gatewayEventsCheck()
+                            except Exception as ex:
+                                LOGGER.error(f"gatewayEventsCheck failed: {ex}")
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 LOGGER.error(f"Connection to sse error: {e}")
-                if retries >= self.max_retries:
+                if retries >= max_retries:
                     LOGGER.error("Max retries reached. Stopping SSE client.")
-                    self.sse_polling_in = False
                     break
-                delay = self.base_delay * (2 ** retries)
-                LOGGER.error(f"Reconnecting in {delay}s")
-                await asyncio.sleep(delay)
-                retries += 1
-        self.sse_polling_in = False
-                        
-    def start_SSE_polling(self):
-            future = asyncio.run_coroutine_threadsafe(self._poll_sse(), self.mainloop)
-            return future
 
+                delay = base_delay * (2 ** retries)
+                LOGGER.error(f"Reconnecting in {delay}s")
+                await asyncio.sleep(delay) # Explicitly use asyncio.sleep
+                retries += 1
+    
+        self.sse_polling_in = False
+        
     def query(self, command = None):
         """
         Query all nodes from the gateway.
@@ -573,69 +617,58 @@ class Controller(Node):
 
         nodes_new = []
         if self.updateAllFromServer():
-            for shade in self.shades_array:
-                if self.generation == 2:
-                    shadeId = shade['id']
-                else:
-                    shadeId = shade['shadeId']
-
-                # set-up map array for quicker access in nodes added in v1.13.0
-                self.shades_array_map[shadeId] = shade
+            for sh in self.shades_map.keys():
+                shade = self.shades_map[sh]
+                shadeId = shade['id']
 
                 shTxt = f"shade{shadeId}"
                 nodes_new.append(shTxt)
-                try:
-                    capabilities = int(shade['capabilities'])
-                except:
-                    LOGGER.error(f"no capabilties defined, use default shade")
-                    capabilities = int(0)
+                capabilities = int(shade['capabilities'])
                 if shTxt not in nodes:
                     if capabilities in [7, 8]:
                         self.poly.addNode(ShadeNoTilt(self.poly, \
                                                 self.address, \
                                                 shTxt, \
                                                 shade["name"], \
-                                                shade))
+                                                shadeId))
                     elif capabilities in [0, 3]:
                         self.poly.addNode(ShadeOnlyPrimary(self.poly, \
                                                 self.address, \
                                                 shTxt, \
                                                 shade["name"], \
-                                                shade))
+                                                shadeId))
                     elif capabilities in [6]:
                         self.poly.addNode(ShadeOnlySecondary(self.poly, \
                                                 self.address, \
                                                 shTxt, \
                                                 shade["name"], \
-                                                shade))
+                                                shadeId))
                     elif capabilities in [1, 2, 4]:
                         self.poly.addNode(ShadeNoSecondary(self.poly, \
                                                 self.address, \
                                                 shTxt, \
                                                 shade["name"], \
-                                                shade))
+                                                shadeId))
                     elif capabilities in [5]:
                         self.poly.addNode(ShadeOnlyTilt(self.poly, \
                                                 self.address, \
                                                 shTxt, \
                                                 shade["name"], \
-                                                shade))
+                                                shadeId))
                     else: # [9, 10] or else
                         self.poly.addNode(Shade(self.poly, \
                                                 self.address, \
                                                 shTxt, \
                                                 shade["name"], \
-                                                shade))
+                                                shadeId))
                     self.wait_for_node_done()
-                
-            for scene in self.scenes_array:
+
+            for sc in self.scenes_map.keys():
+                scene = self.scenes_map[sc]
                 if self.generation == 2:
                     sceneId = scene['id']
                 else:
                     sceneId = scene['_id']
-
-                # set-up map array for quicker access in nodes added in v1.13.0
-                self.scenes_array_map[sceneId] = scene
 
                 scTxt = f"scene{sceneId}"
                 nodes_new.append(scTxt)
@@ -669,8 +702,8 @@ class Controller(Node):
             self.numNodes = len(nodes_get)
             self.setDriver('GV0', self.numNodes)
             success = True
-            LOGGER.info(f"shades_array_map:  {self.shades_array_map}")
-            LOGGER.info(f"scenes_array_map:  {self.scenes_array_map}")
+            LOGGER.info(f"shades_array_map:  {self.shades_map}")
+            LOGGER.info(f"scenes_array_map:  {self.scenes_map}")
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
         return success
@@ -681,6 +714,7 @@ class Controller(Node):
         process is co-resident and controlled by Polyglot, it will be
         terminiated within 5 seconds of receiving this message.
         """
+        self.stop_polling_event.set()
         LOGGER.info('bye bye ... deleted.')
 
     def stop(self):
@@ -689,6 +723,7 @@ class Controller(Node):
         the opportunity here to cleanly disconnect from your device or do
         other shutdown type tasks.
         """
+        self.stop_polling_event.set()
         self.Notices.clear()
         LOGGER.info('NodeServer stopped.')
 
@@ -698,13 +733,10 @@ class Controller(Node):
         command back to the ISY.  Programs on the ISY can then monitor this.
         """
         LOGGER.debug(f'heartbeat: hb={self.hb}')
-        if self.hb == 0:
-            self.reportCmd("DON",2)
-            self.hb = 1
-        else:
-            self.reportCmd("DOF",2)
-            self.hb = 0
-        LOGGER.debug(f"Exit")
+        command = "DOF" if self.hb else "DON"
+        self.reportCmd(command, 2)
+        self.hb = not self.hb
+        LOGGER.debug("Exit")
 
     def removeNoticesAll(self, command = None):
         """
@@ -741,74 +773,64 @@ class Controller(Node):
         """
         try:
             if data:
-                self.rooms_array = []
-                self.roomIds_array = []
-                self.shades_array = []
-                self.shadeIds_array = []
-                self.scenes_array = []
-                self.sceneIds_array = []
+                self.rooms_map = {}
+                self.shades_map = {}
+                self.scenes_map = {}
 
                 for r in data["rooms"]:
                     LOGGER.debug('Update rooms')
-                    self.roomIds_array.append(r['_id'])
-                    self.rooms_array.append(r)
-                    room_name = r['name']
-                    room_name = room_name[0:ROOM_NAME_LIMIT]
+                    room_name = r['name'][0:ROOM_NAME_LIMIT]
                     for sh in r["shades"]:
                         LOGGER.debug(f"Update shade {sh['id']}")
-                        sh['shadeId'] = sh['id']
                         name = base64.b64decode(sh.pop('name')).decode()
                         sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
-                            positions = sh['positions']
-                            # Convert positions to integer percentages
-                            if 'primary' in positions:
-                                sh['positions']['primary'] = self.toPercent(positions['primary'])
-                            if 'secondary' in positions:
-                                sh['positions']['secondary'] = self.toPercent(positions['secondary'])
-                            if 'tilt' in positions:
-                                sh['positions']['tilt'] = self.toPercent(positions['tilt'])
-                            if 'velocity' in positions:
-                                sh['positions']['velocity'] = self.toPercent(positions['velocity'])
-                        self.shadeIds_array.append(sh["shadeId"])
-                        self.shades_array.append(sh)
+                            keys_to_convert = ['primary', 'secondary', 'tilt', 'velocity']
+                            for key in keys_to_convert:
+                                if key in sh['positions']:
+                                    sh['positions'][key] = self.toPercent(sh['positions'][key])
+                            # if non-existent or not 1-10 then set to default 0
+                            capabilities = sh.get('capabilities')
+                            if capabilities not in range(1, 11):
+                                sh['capabilities'] = 0
+                                
+                        self.shades_map[sh['id']] = sh
+                    self.rooms_map[r['_id']] = r
 
-                LOGGER.info(f"rooms = {self.roomIds_array}")
-                LOGGER.info(f"shades = {self.shadeIds_array}")
+                LOGGER.info(f"rooms = {list(self.rooms_map.keys())}")
+                LOGGER.info(f"shades = {list(self.shades_map.keys())}")
 
-                for sc in data["scenes"]:
-                    LOGGER.debug(f"update scenes {sc}")
-                    self.sceneIds_array.append(sc["_id"])
-                    self.scenes_array.append(sc)
-                    name = sc['name']
-                    LOGGER.debug("scenes-3")
-                    if sc['room_Id'] == None:
+                for scene in data["scenes"]:
+                    LOGGER.debug(f"update scenes {scene}")
+                    name = scene['name']
+                    if scene['room_Id'] == None:
                         room_name = "Multi"
                     else:
-                        room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
-                        room_name = room_name[0:ROOM_NAME_LIMIT]
-                    sc['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                    LOGGER.debug('Update scenes-1')
+                        room_name = self.rooms_map[scene['room_Id']]['name'][0:ROOM_NAME_LIMIT]
+                    scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                    self.scenes_map[scene['_id']] = scene
 
-                LOGGER.info(f"scenes = {self.sceneIds_array}")
+                LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
                 self.no_update = False
                 return True
             else:
+                LOGGER.error('updateAllfromServerG2 error, no data')
                 self.no_update = False
                 return False
-        except:
-            LOGGER.error('Update error')
+        except Exception as ex:
+            LOGGER.error(f"updateAllfromServerG3 error:{ex}")
             self.no_update = False
             return False
 
     def updateActiveFromServerG3(self, scenesActiveData):
         try:
-            self.sceneIdsActive_array = []
+            self.sceneIdsActive = []
             for sc in scenesActiveData:
-                self.sceneIdsActive_array.append(sc["id"])
-            LOGGER.info(f"activeScenes = {self.sceneIdsActive_array}")
+                self.sceneIdsActive.append(sc["id"])
+            self.sceneIdsActive.sort()
+            LOGGER.info(f"activeScenes = {self.sceneIdsActive}")
             return True
         except:
             LOGGER.error("updateActiveFromServerG3 error")
@@ -820,19 +842,19 @@ class Controller(Node):
         """
         res = self.get(URL_HOME.format(g=self.gateway))
         code = res.status_code
-        if self.gateway_array:
+        if self.gateways:
             if code == requests.codes.ok:
                 data = res.json()
-                LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateways)
                 return data
             else:
-                LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateways)
                 if self.genCheck3():
-                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateways)
                 else:
-                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
-            LOGGER.error("getHomeG3 self.gateway_array NONE")
+            LOGGER.error("getHomeG3 self.gateways NONE")
         return None
 
     def getScenesActiveG3(self):
@@ -841,15 +863,15 @@ class Controller(Node):
         """
         res = self.get(URL_SCENES_ACTIVE.format(g=self.gateway))
         code = res.status_code
-        if self.gateway_array:
+        if self.gateways:
             if code == requests.codes.ok:
                 data = res.json()
-                LOGGER.info("getScenesActiveG3 good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getScenesActiveG3 good %s, %s", self.gateway, self.gateways)
                 return data
             else:
-                LOGGER.error("getScenesActiveG3 NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getScenesActiveG3 NOT good %s, %s", self.gateway, self.gateways)
         else:
-            LOGGER.error("getScenesActiveG3 self.gateway_array NONE")
+            LOGGER.error("getScenesActiveG3 self.gateways NONE")
         return None
 
     def updateAllFromServerG2(self, data):
@@ -858,71 +880,72 @@ class Controller(Node):
         """
         try:
             if data:
-                self.rooms_array = []
-                self.roomIds_array = []
-                self.shades_array = []
-                self.shadeIds_array = []
-                self.scenes_array = []
-                self.sceneIds_array = []
+                self.rooms_map = {}
+                self.shades_map = {}
+                self.scenes_map = {}
 
                 res = self.get(URL_G2_ROOMS.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.rooms_array = data['roomData']
-                    self.roomIds_array = data['roomIds']
-                    for room in self.rooms_array:
+                    for room in data['roomData']:
                         room['name'] = base64.b64decode(room['name']).decode()
-                    LOGGER.info(f"rooms = {self.roomIds_array}")
+                        self.rooms_map[room['id']] = room
+                    LOGGER.info(f"rooms = {self.rooms_map.keys()}")
                     
                 res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.shades_array = data['shadeData']
-                    self.shadeIds_array = data['shadeIds']
-                    for shade in self.shades_array:
-                        name = base64.b64decode(shade['name']).decode()
-                        room_name = self.rooms_array[self.roomIds_array.index(shade['roomId'])]['name']
-                        room_name = room_name[0:ROOM_NAME_LIMIT]
-                        shade['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                        if 'positions' in shade:
-                            pos = shade['positions']
-                            # Convert positions to integer percentages & handle tilt
-                            if 'posKind1' in pos:
-                                if pos['posKind1'] == 1:
-                                    if 'position1' in pos:
-                                        shade['positions']['primary'] = self.toPercent(pos['position1'], G2_DIVR)
-                                if pos['posKind1'] == 3:
-                                    shade['positions']['primary'] = 0
-                                    if 'position1' in pos:
-                                        shade['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
-                            if 'position2' in pos:
-                                shade['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
-                    LOGGER.info(f"shades = {self.shadeIds_array}")
+                    for sh in data['shadeData']:
+                        LOGGER.debug(f"Update shade {sh['id']}")
+                        name = base64.b64decode(sh['name']).decode()
+                        room_name = self.rooms_map[sh['roomId']]['name'][0:ROOM_NAME_LIMIT]
+                        sh['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        if 'positions' in sh:
+                            pos = sh['positions']
+                            # Use .get() to safely retrieve values and provide defaults
+                            pos_kind1 = pos.get('posKind1')
+                            position1 = pos.get('position1')
+                            position2 = pos.get('position2')
+                            
+                            if pos_kind1 == 1 and position1 is not None:
+                                pos['primary'] = self.toPercent(position1, G2_DIVR)
+                            elif pos_kind1 == 3:
+                                pos['primary'] = 0
+                                if position1 is not None:
+                                    pos['tilt'] = self.toPercent(position1, G2_DIVR)
+    
+                            if position2 is not None:
+                                pos['secondary'] = self.toPercent(position2, G2_DIVR)
+
+                            capabilities = sh.get('capabilities', 0)
+                            if capabilities not in range(1, 11):
+                                sh['capabilities'] = 0
+                            
+                        self.shades_map[sh['id']] = sh
+                    LOGGER.info(f"shades = {list(self.shades_map.keys())}")
                     
                 res = self.get(URL_G2_SCENES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.scenes_array = data['sceneData']
-                    self.sceneIds_array = data['sceneIds']
-                    for scene in self.scenes_array:
+                    for scene in data['sceneData']:
                         name = base64.b64decode(scene['name']).decode()
                         if scene['roomId'] == None:
                             room_name = "Multi"
                         else:
-                            room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
-                            room_name = room_name[0:ROOM_NAME_LIMIT]
+                            room_name = self.rooms_map[scene['roomId']]['name'][0:ROOM_NAME_LIMIT]
                         scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                    LOGGER.info(f"scenes = {self.sceneIds_array}")
+                        self.scenes_map[scene['_id']] = scene
+
+                    LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
                 self.no_update = False
-                LOGGER.info(f"updateAllfromServerG2 = OK")
                 return True
             else:
+                LOGGER.error(f"updateAllfromServerG2, no data")
                 self.no_update = False
-                LOGGER.error(f"updateAllfromServerG2 = NO DATA")
                 return False
-        except:
-            LOGGER.error('updateAllfromServerG2 = except')
+        except Exception as ex:
+            LOGGER.error(f'updateAllfromServerG2 error:{ex}')
             self.no_update = False
             return False
         
@@ -932,19 +955,19 @@ class Controller(Node):
         """
         res = self.get(URL_G2_HUB.format(g=self.gateway))
         code = res.status_code
-        if self.gateway_array:
+        if self.gateways:
             if code == requests.codes.ok:
                 data = res.json()
-                LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateways)
                 return data
             else:
-                LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateways)
                 if self.genCheck2():
-                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateways)
                 else:
-                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
-            LOGGER.error("getHomeG2 self.gateway_array NONE")
+            LOGGER.error("getHomeG2 self.gateways NONE")
         return None
     
     def get(self, url):

@@ -90,6 +90,13 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 * sequentially update all shades, scenes once per longPoll
 * ACTION: each node checks once per shortPoll;updates then removes itself from array
 
+### scene-add **new for v1.13.0**
+
+* triggered when scene is added (if scene is modified see scene-add under scene)
+* TODO should there be a scene-delete/remove or shade-add/delete/remove? NOT OBSERVED/TESTED YET
+* ACTION:
+  * G3 if scene does NOT exist, run Discover
+
 ## Events: scene
 
 ### scene-activated
@@ -109,12 +116,16 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 
 ### scene-add **new for v1.13.0**
 
-* not sure what triggers this beyond obvious
-* TODO does a scene-delete/remove exist? no observations, yet
+* triggered when scene exists and is modified
 * ACTION:
-  * G3 newly observed so currently just logged
-  * G2 not sure if exists, so just logged if it happens
-  * TODO could possible force a discovery event with more experience
+  * G3 for existing scene, update scene / shade info and calc activate for scene
+
+### motion-stopped **new for v1.13.0**
+
+* when a shade stops the scene activation may have changed
+* ACTION: 
+  * G3: run calcActive which will update GV1 based on results
+  *  shade will wait before removing from cue to give scenes time to calculate if Active.
 
 ## Events: shade
 
@@ -122,7 +133,7 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 
 * kind of a heartbeat which keeps the sse client-server connection alive
 * ACTION: update position to currentPosition, logged as info
-* not sure how often this is pushed from the G3 side
+* unknown how often this is pushed from the G3 side
 
 ### shade-offline
 
@@ -134,10 +145,12 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 * any shade motion from any source by any command
 * ACTION: set the ST, Motion flag, update position to targetPosition
 
-### motion-stopped
+### motion-stopped **modified in v1.13.0** 
 
 * shade motion from any source by any command
-* ACTION: clear the ST, Motion flag, update position to currentPosition
+* ACTION: 
+  * G3: clear the ST, Motion flag, update position to currentPosition
+  * Wait before removing from cue to give scenes time to calculate if Active.
 
 ### battery-alert
 
