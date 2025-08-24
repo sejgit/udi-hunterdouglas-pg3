@@ -111,7 +111,8 @@ class Scene(udi_interface.Node):
         self.rename(self.name)
         if not self.controller.ready:
             time.sleep(2)
-        self.calcActive()
+        if not self.event_polling_in:
+            self.start_event_polling()
 
     def calcActive(self):
         # Attempt to provide scene active to G2 and speed up G3
