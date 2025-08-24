@@ -169,7 +169,8 @@ class Scene(udi_interface.Node):
                 LOGGER.info(f"sceneIdsActive_array_check:{self.controller.sceneIdsActive_array_check}")
                 self.setDriver('GV1', 1, report=True, force=True)
             else:
-                self.controller.sceneIdsActive_array_check.remove(self.sid)
+                if self.sid in self.controller.sceneIdsActive_array_check:
+                    self.controller.sceneIdsActive_array_check.remove(self.sid)
                 self.setDriver('GV1', 0, report=True, force=True)
 
         except Exception as ex:
