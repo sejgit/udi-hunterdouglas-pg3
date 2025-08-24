@@ -219,6 +219,7 @@ class Controller(Node):
         if self.updateAllFromServer():
             self.gateway_event[0]['shades'] = self.shadeIds_array
             self.gateway_event[0]['scenes'] = self.sceneIds_array
+            LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
             # clear inital start-up message
             if self.Notices['hello']:
                 self.Notices.delete('hello')

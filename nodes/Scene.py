@@ -7,6 +7,7 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 Scene class
 """
 # std libraries
+import time
 import asyncio
 from threading import Event
 
@@ -108,6 +109,8 @@ class Scene(udi_interface.Node):
         self.setDriver('GV0', int(self.sid),report=True, force=True)
         LOGGER.debug(f'{self.lpfx}: get GV0={self.getDriver("GV0")}')
         self.rename(self.name)
+        if not self.controller.ready:
+            time.sleep(2)
         self.calcActive()
 
     def calcActive(self):

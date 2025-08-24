@@ -8,7 +8,7 @@ Shade class
 """
 
 # std libraries
-import math
+import math, time
 import asyncio
 from threading import Event
 
@@ -116,6 +116,8 @@ class Shade(udi_interface.Node):
         self.updateData()
         self.reportDrivers()
         self.rename(self.name)
+        if not self.controller.ready:
+            time.sleep(2)
         if not self.event_polling_in:
             self.start_event_polling()
 
