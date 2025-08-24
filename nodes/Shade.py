@@ -96,10 +96,7 @@ class Shade(udi_interface.Node):
             LOGGER.error(f"no capabilties defined, use default shade")
             self.capabilities = int(0)
 
-        if self.controller.generation == 2:
-            self.sid = shade['id']
-        else:
-            self.sid = shade['shadeId']
+        self.sid = shade['id']
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
