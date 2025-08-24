@@ -201,7 +201,6 @@ class Scene(udi_interface.Node):
             return future
             
     async def _poll_events(self):
-        # TODO shade motion-stop, shade sleeps 2s then remove, scene poll_events calcs shades in members, calcActive
         self.event_polling_in = True
         while not Event().is_set():
             await asyncio.sleep(1)
@@ -216,16 +215,6 @@ class Scene(udi_interface.Node):
                     if event['scenes'].count(self.sid) > 0:
                         try:
                             LOGGER.debug(f'scene {self.sid} update')
-                            # if self.controller.generation == 2:
-                            #     try:
-                            #         data = list(filter(lambda scene: scene['id'] == self.sid, \
-                            #                            self.controller.scenes_array))
-                            #     except:
-                            #         LOGGER.error('scene: sid:{self.sid}, data error')
-                            #         data = None
-                            # else:
-                            #     data = list(filter(lambda scene: scene['_id'] == self.sid, \
-                            #                        self.controller.scenes_array))
                             self.scenedata = self.controller.scenes_array_map[self.sid]
                             # update name if different
                             if self.name != self.scenedata['name']:
@@ -260,12 +249,6 @@ class Scene(udi_interface.Node):
                             self.controller.gateway_event[rem]['scenes'].remove(self.sid)
                         except Exception:
                             LOGGER.error(f"scene event error sid = {self.sid}")
-                    else:
-                        pass
-                        # LOGGER.debug(f'scene {self.sid} home evt but updated already')
-                else:
-                    pass
-                    # LOGGER.debug(f'scene {self.sid} no home evt')
                 
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
@@ -317,9 +300,22 @@ class Scene(udi_interface.Node):
                     LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
                     self.controller.gateway_event.remove(event)
 
+            # shade motion-stopped event
+            # could check if in this scene or just run self.calcActive()
+            # do not remove, shade will do that in a second
+            try:
+                event = list(filter(lambda events: (events['evt'] == 'motion-stopped'),
+                                    self.controller.gateway_event))
+            except Exception as ex:
+                LOGGER.error(f"event {self.sid} scene motion-stopped error: {ex}")
+            else:
+                if event:
+                    event = event[0]
+                    LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
+                    self.calcActive()
+
         self.event_polling_in = False
         # exit events
-
         
     def cmdActivate(self, command = None):
         """

@@ -157,12 +157,6 @@ class Shade(udi_interface.Node):
                                 self.controller.gateway_event[rem]['shades'].remove(self.sid)
                             except Exception as ex:
                                 LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
-                    else:
-                        pass
-                        # LOGGER.debug(f'shortPoll shade {self.sid} home evt but update already')
-                else:
-                    pass
-                    # LOGGER.debug(f'shortPoll shade {self.sid} no home evt')
 
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
@@ -198,6 +192,8 @@ class Shade(udi_interface.Node):
                     if self.updatePositions():
                         self.setDriver('ST', 0,report=True, force=True)
                         LOGGER.info(f'shade {self.sid} motion-stopped event')
+                        # give time for scenes to check if calc acivate
+                        await asyncio.sleep(1)
                         self.controller.gateway_event.remove(event)
                    
             # shade-online event
