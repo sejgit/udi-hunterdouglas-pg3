@@ -217,8 +217,8 @@ class Controller(Node):
 
         # fist update
         if self.updateAllFromServer():
-            self.gateway_event[0]['shades'] = self.shadeIds_array
-            self.gateway_event[0]['scenes'] = self.sceneIds_array
+            self.gateway_event[0]['shades'] = list(self.shadeIds_array)
+            self.gateway_event[0]['scenes'] = list(self.sceneIds_array)
             LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
             # clear inital start-up message
             if self.Notices['hello']:
@@ -435,8 +435,8 @@ class Controller(Node):
                     if event:
                         event = event[0]
                         # seed home event to signal the nodes to update with new gateway data
-                        self.gateway_event[self.gateway_event.index(event)]['shades'] = self.shadeIds_array
-                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = self.sceneIds_array
+                        self.gateway_event[self.gateway_event.index(event)]['shades'] = list(self.shadeIds_array)
+                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.sceneIds_array)
                         LOGGER.debug('trigger nodes {}'.format(self.gateway_event))
                     else:
                         self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
