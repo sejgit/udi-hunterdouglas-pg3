@@ -114,7 +114,7 @@ class Shade(udi_interface.Node):
         """
         self.setDriver('GV0', self.sid,report=True, force=True)
         self.updateData()
-        self.reportDrivers()
+        # self.reportDrivers()
         self.rename(self.name)
         if not self.controller.ready:
             time.sleep(2)
