@@ -569,10 +569,7 @@ class Controller(Node):
         if self.updateAllFromServer():
             for sh in self.shadeIds_array:
                 shade = self.shades_array_map[sh]
-                if self.generation == 2:
-                    shadeId = shade.get()['id']
-                else:
-                    shadeId = shade['shadeId']
+                shadeId = shade['id']
 
                 shTxt = f"shade{shadeId}"
                 nodes_new.append(shTxt)
