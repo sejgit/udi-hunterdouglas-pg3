@@ -165,9 +165,11 @@ class Scene(udi_interface.Node):
                     break
             if match == True:
                 self.controller.sceneIdsActive_array_check=list(set(self.controller.sceneIdsActive_array_check+[self.sid]))
+                self.controller.sceneIdsActive_array_check.sort()
                 LOGGER.info(f"sceneIdsActive_array_check:{self.controller.sceneIdsActive_array_check}")
                 self.setDriver('GV1', 1, report=True, force=True)
             else:
+                self.controller.sceneIdsActive_array_check.remove(self.sid)
                 self.setDriver('GV1', 0, report=True, force=True)
 
         except Exception as ex:
@@ -194,6 +196,7 @@ class Scene(udi_interface.Node):
             return future
             
     async def _poll_events(self):
+        # TODO shade motion-stop, shade sleeps 2s then remove, scene poll_events checks shades in members, activeCheck
         self.event_polling_in = True
         while not Event().is_set():
             await asyncio.sleep(1)

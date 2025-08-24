@@ -804,6 +804,7 @@ class Controller(Node):
             self.sceneIdsActive_array = []
             for sc in scenesActiveData:
                 self.sceneIdsActive_array.append(sc["id"])
+            self.sceneIdsActive_array.sort()
             LOGGER.info(f"activeScenes = {self.sceneIdsActive_array}")
             return True
         except:
