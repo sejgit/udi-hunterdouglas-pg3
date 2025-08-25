@@ -229,7 +229,10 @@ class Scene(udi_interface.Node):
                                         name:{self.scenedata['name']}")
                                 LOGGER.info(f"scene name changed from {self.name} to {self.scenedata['name']}")
                                 self.rename(self.scenedata['name'])
+                        except Exception:
+                            LOGGER.error(f"scene event error sid = {self.sid}")
 
+                        try:
                             # update activation state only if G3, as array is [] for G2
                             if self.controller.generation == 3:
                                 old = self.getDriver('ST')
@@ -248,7 +251,7 @@ class Scene(udi_interface.Node):
                             rem = self.controller.gateway_event.index(event)
                             self.controller.gateway_event[rem]['scenes'].remove(self.sid)
                         except Exception:
-                            LOGGER.error(f"scene event error sid = {self.sid}")
+                            LOGGER.error(f"scene update state error sid = {self.sid}")
                 
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
