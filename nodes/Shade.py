@@ -86,6 +86,7 @@ class Shade(udi_interface.Node):
         self.poly = polyglot
         self.primary = primary
         self.controller = polyglot.getNode(self.primary)
+        self.sid = shade['id']
         self.address = address
         self.name = name
         self.shadedata = shade
@@ -96,7 +97,6 @@ class Shade(udi_interface.Node):
             LOGGER.error(f"no capabilties defined, use default shade")
             self.capabilities = int(0)
 
-        self.sid = shade['id']
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
@@ -237,7 +237,7 @@ class Shade(udi_interface.Node):
                 if event:
                     event = event[0]
                     #self.shadedata["batteryStatus"] = event['batteryLevel']
-                    self.controller.shades_array_map[self.sid]["batteryStatus"] = event['batteryLevel']
+                    self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
                     self.setDriver('GV6', event["batterylevel"],report=True, force=True)
                     self.positions = self.posToPercent(event['currentPositions'])
                     if self.updatePositions():
@@ -249,9 +249,9 @@ class Shade(udi_interface.Node):
 
     def updateData(self):
         if self.controller.no_update == False:
-            # LOGGER.debug(self.controller.shades_array)
-            #data = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades_array))
-            data = self.controller.shades_array_map[self.sid] 
+            # LOGGER.debug(self.controller.shades)
+            #data = list(filter(lambda shade: shade['id'] == self.sid, self.controller.shades))
+            data = self.controller.shades_map[self.sid] 
             LOGGER.debug(f"shade {self.sid} is {data}")
             if data:
                 self.shadedata = data
@@ -281,25 +281,25 @@ class Shade(udi_interface.Node):
         if 'primary' in self.positions:
             p1 = self.positions['primary']
             # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_array_map[self.sid]['positions']['primary'] = p1
+            self.controller.shades_map[self.sid]['positions']['primary'] = p1
         else:
             p1 = None
         if 'secondary' in self.positions:
             p2 = self.positions['secondary']
             # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_array_map[self.sid]['positions']['secondary'] = p2
+            self.controller.shades_map[self.sid]['positions']['secondary'] = p2
         else:
             p2 = None
         if 'tilt' in self.positions:
             t1 = self.positions['tilt']
             # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_array_map[self.sid]['positions']['tilt'] = t1
+            self.controller.shades_map[self.sid]['positions']['tilt'] = t1
         else:
             if self.capabilities in self.tiltCapable:
                 t1 = 0
             else:
                 t1 = None
-        LOGGER.info(f"updatePositions {self.controller.shades_array_map[self.sid]['positions']}")
+        LOGGER.info(f"updatePositions {self.controller.shades_map[self.sid]['positions']}")
             
         if self.capabilities in [7, 8]:
             self.setDriver('GV2', p1,report=True, force=True)

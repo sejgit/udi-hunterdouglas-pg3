@@ -95,16 +95,13 @@ class Controller(Node):
         
         # storage arrays
         self.n_queue = []
-        self.gateway_array = []
+        self.gateways = []
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
-        self.rooms_array = []
-        self.roomIds_array = []
-        self.shades_array_map = {}
-        self.shadeIds_array = []
-        self.sceneIds_array = []
+        self.rooms_map = {}
+        self.shades_map = {}
         self.scenes_array_map = {}
-        self.sceneIdsActive_array = []
-        self.sceneIdsActive_array_calc = []
+        self.sceneIdsActive = []
+        self.sceneIdsActive_calc = []
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
@@ -217,8 +214,8 @@ class Controller(Node):
 
         # fist update
         if self.updateAllFromServer():
-            self.gateway_event[0]['shades'] = list(self.shadeIds_array)
-            self.gateway_event[0]['scenes'] = list(self.sceneIds_array)
+            self.gateway_event[0]['shades'] = list(self.shades_map.keys())
+            self.gateway_event[0]['scenes'] = list(self.scenes_array_map.keys())
             LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
             # clear inital start-up message
             if self.Notices['hello']:
@@ -325,23 +322,23 @@ class Controller(Node):
             return True
         try:
             if type(eval(self.gateway)) == list:
-                self.gateway_array = eval(self.gateway)
-                self.gateway = self.gateway_array[0]
+                self.gateways = eval(self.gateway)
+                self.gateway = self.gateways[0]
         except:
             if type(self.gateway) == str:
-                self.gateway_array.append(self.gateway)
+                self.gateways.append(self.gateway)
             else:
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
         if (self.goodip() and (self.genCheck3() or self.genCheck2())):
-            LOGGER.info('good self.gateway_array %s', self.gateway_array)
+            LOGGER.info('good self.gateways %s', self.gateways)
             LOGGER.info("good self.gateway = %s", self.gateway)
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
             return True
         else:
-            LOGGER.info(f"checkParams: no gateway found in {self.gateway_array}")
+            LOGGER.info(f"checkParams: no gateway found in {self.gateways}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
             return False
                                 
@@ -350,7 +347,7 @@ class Controller(Node):
         Check for valid ip in gateway address.
         """
         good = True
-        for ip in self.gateway_array:
+        for ip in self.gateways:
             try:
                 socket.inet_aton(ip)
             except socket.error:
@@ -363,7 +360,7 @@ class Controller(Node):
         """
         Check for a Generation 3 gateway.
         """
-        for ip in self.gateway_array:
+        for ip in self.gateways:
             res = self.get(URL_GATEWAY.format(g=ip))
             if res.status_code == requests.codes.ok:
                 LOGGER.info(f"{ip} is PowerView G3")
@@ -379,7 +376,7 @@ class Controller(Node):
         """
         Check for a Generation 2 gateway.
         """
-        for ip in self.gateway_array:
+        for ip in self.gateways:
             res = self.get(URL_G2_HUB.format(g=ip))
             if res.status_code == requests.codes.ok:
                 LOGGER.info(f"{ip} is PowerView 2")
@@ -435,8 +432,8 @@ class Controller(Node):
                     if event:
                         event = event[0]
                         # seed home event to signal the nodes to update with new gateway data
-                        self.gateway_event[self.gateway_event.index(event)]['shades'] = list(self.shadeIds_array)
-                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.sceneIds_array)
+                        self.gateway_event[self.gateway_event.index(event)]['shades'] = list(self.shades_map.keys())
+                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.scenes_array_map.keys())
                         LOGGER.debug('trigger nodes {}'.format(self.gateway_event))
                     else:
                         self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
@@ -568,8 +565,8 @@ class Controller(Node):
 
         nodes_new = []
         if self.updateAllFromServer():
-            for sh in self.shadeIds_array:
-                shade = self.shades_array_map[sh]
+            for sh in self.shades_map.keys():
+                shade = self.shades_map[sh]
                 shadeId = shade['id']
 
                 shTxt = f"shade{shadeId}"
@@ -618,7 +615,7 @@ class Controller(Node):
                                                 shade))
                     self.wait_for_node_done()
 
-            for sc in self.sceneIds_array:
+            for sc in self.scenes_array_map.keys():
                 scene = self.scenes_array_map[sc]
                 if self.generation == 2:
                     sceneId = scene['id']
@@ -657,7 +654,7 @@ class Controller(Node):
             self.numNodes = len(nodes_get)
             self.setDriver('GV0', self.numNodes)
             success = True
-            LOGGER.info(f"shades_array_map:  {self.shades_array_map}")
+            LOGGER.info(f"shades_array_map:  {self.shades_map}")
             LOGGER.info(f"scenes_array_map:  {self.scenes_array_map}")
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
@@ -729,17 +726,12 @@ class Controller(Node):
         """
         try:
             if data:
-                self.rooms_array = []
-                self.roomIds_array = []
-                self.shades_array_map = {}
-                self.shadeIds_array = []
+                self.rooms_map = {}
+                self.shades_map = {}
                 self.scenes_array_map = {}
-                self.sceneIds_array = []
 
                 for r in data["rooms"]:
                     LOGGER.debug('Update rooms')
-                    self.roomIds_array.append(r['_id'])
-                    self.rooms_array.append(r)
                     room_name = r['name']
                     room_name = room_name[0:ROOM_NAME_LIMIT]
                     for sh in r["shades"]:
@@ -758,11 +750,11 @@ class Controller(Node):
                                 sh['positions']['tilt'] = self.toPercent(positions['tilt'])
                             if 'velocity' in positions:
                                 sh['positions']['velocity'] = self.toPercent(positions['velocity'])
-                        self.shades_array_map[sh['id']] = sh
+                        self.shades_map[sh['id']] = sh
+                    self.rooms_map[r['_id']] = r
 
-                self.shadeIds_array = self.shades_array_map.keys()
-                LOGGER.info(f"rooms = {self.roomIds_array}")
-                LOGGER.info(f"shades = {self.shadeIds_array}")
+                LOGGER.info(f"rooms = {self.rooms_map.keys()}")
+                LOGGER.info(f"shades = {list(self.shades_map.keys())}")
 
                 for sc in data["scenes"]:
                     LOGGER.debug(f"update scenes {sc}")
@@ -771,14 +763,13 @@ class Controller(Node):
                     if sc['room_Id'] == None:
                         room_name = "Multi"
                     else:
-                        room_name = self.rooms_array[self.roomIds_array.index(sc['room_Id'])]['name']
+                        room_name = self.rooms_map[sc['room_Id']]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
                     sc['name'] = get_valid_node_name('%s - %s' % (room_name, name))
                     self.scenes_array_map[sc['_id']] = sc
                     LOGGER.debug('Update scenes-1')
 
-                self.sceneIds_array = self.scenes_array_map.keys()
-                LOGGER.info(f"scenes = {self.sceneIds_array}")
+                LOGGER.info(f"scenes = {list(self.scenes_array_map.keys())}")
 
                 self.no_update = False
                 return True
@@ -792,11 +783,11 @@ class Controller(Node):
 
     def updateActiveFromServerG3(self, scenesActiveData):
         try:
-            self.sceneIdsActive_array = []
+            self.sceneIdsActive = []
             for sc in scenesActiveData:
-                self.sceneIdsActive_array.append(sc["id"])
-            self.sceneIdsActive_array.sort()
-            LOGGER.info(f"activeScenes = {self.sceneIdsActive_array}")
+                self.sceneIdsActive.append(sc["id"])
+            self.sceneIdsActive.sort()
+            LOGGER.info(f"activeScenes = {self.sceneIdsActive}")
             return True
         except:
             LOGGER.error("updateActiveFromServerG3 error")
@@ -808,19 +799,19 @@ class Controller(Node):
         """
         res = self.get(URL_HOME.format(g=self.gateway))
         code = res.status_code
-        if self.gateway_array:
+        if self.gateways:
             if code == requests.codes.ok:
                 data = res.json()
-                LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG3 gateway good %s, %s", self.gateway, self.gateways)
                 return data
             else:
-                LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateways)
                 if self.genCheck3():
-                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateways)
                 else:
-                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
-            LOGGER.error("getHomeG3 self.gateway_array NONE")
+            LOGGER.error("getHomeG3 self.gateways NONE")
         return None
 
     def getScenesActiveG3(self):
@@ -829,15 +820,15 @@ class Controller(Node):
         """
         res = self.get(URL_SCENES_ACTIVE.format(g=self.gateway))
         code = res.status_code
-        if self.gateway_array:
+        if self.gateways:
             if code == requests.codes.ok:
                 data = res.json()
-                LOGGER.info("getScenesActiveG3 good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getScenesActiveG3 good %s, %s", self.gateway, self.gateways)
                 return data
             else:
-                LOGGER.error("getScenesActiveG3 NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getScenesActiveG3 NOT good %s, %s", self.gateway, self.gateways)
         else:
-            LOGGER.error("getScenesActiveG3 self.gateway_array NONE")
+            LOGGER.error("getScenesActiveG3 self.gateways NONE")
         return None
 
     def updateAllFromServerG2(self, data):
@@ -846,21 +837,17 @@ class Controller(Node):
         """
         try:
             if data:
-                self.rooms_array = []
-                self.roomIds_array = []
-                self.shades_array_map = {}
-                self.shadeIds_array = []
+                self.rooms_map = {}
+                self.shades_map = {}
                 self.scenes_array_map = {}
-                self.sceneIds_array = []
 
                 res = self.get(URL_G2_ROOMS.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
                     data = res.json()
-                    self.rooms_array = data['roomData']
-                    self.roomIds_array = data['roomIds']
-                    for room in self.rooms_array:
+                    for room in data['roomData']:
                         room['name'] = base64.b64decode(room['name']).decode()
-                    LOGGER.info(f"rooms = {self.roomIds_array}")
+                        self.rooms_map[room['id']] = room
+                    LOGGER.info(f"rooms = {self.rooms_map.keys()}")
                     
                 res = self.get(URL_G2_SHADES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
@@ -868,7 +855,7 @@ class Controller(Node):
                     for sh in data['shadeData']:
                         LOGGER.debug(f"Update shade {sh['id']}")
                         name = base64.b64decode(sh['name']).decode()
-                        room_name = self.rooms_array[self.roomIds_array.index(sh['roomId'])]['name']
+                        room_name = self.rooms_map[sh['roomId']]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
                         sh['name'] = get_valid_node_name('%s - %s' % (room_name, name))
                         if 'positions' in sh:
@@ -884,9 +871,8 @@ class Controller(Node):
                                         sh['positions']['tilt'] = self.toPercent(pos['position1'], G2_DIVR)
                             if 'position2' in pos:
                                 sh['positions']['secondary'] = self.toPercent(pos['position2'], G2_DIVR)
-                        self.shades_array_map[sh['id']] = sh
-                    self.shadeIds_array = self.shades_array_map.keys()
-                    LOGGER.info(f"shades = {self.shadeIds_array}")
+                        self.shades_map[sh['id']] = sh
+                    LOGGER.info(f"shades = {list(self.shades_map.keys())}")
                     
                 res = self.get(URL_G2_SCENES.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
@@ -896,12 +882,12 @@ class Controller(Node):
                         if scene['roomId'] == None:
                             room_name = "Multi"
                         else:
-                            room_name = self.rooms_array[self.roomIds_array.index(scene['roomId'])]['name']
+                            room_name = self.rooms_map[scene['roomId']]['name']
                             room_name = room_name[0:ROOM_NAME_LIMIT]
                         scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
                         self.scenes_array_map[scene['_id']] = scene
-                    self.sceneIds_array = self.scenes_array_map.keys()
-                    LOGGER.info(f"scenes = {self.sceneIds_array}")
+
+                    LOGGER.info(f"scenes = {list(self.scenes_array_map.keys())}")
 
                 self.no_update = False
                 LOGGER.info(f"updateAllfromServerG2 = OK")
@@ -921,19 +907,19 @@ class Controller(Node):
         """
         res = self.get(URL_G2_HUB.format(g=self.gateway))
         code = res.status_code
-        if self.gateway_array:
+        if self.gateways:
             if code == requests.codes.ok:
                 data = res.json()
-                LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.info("getHomeG2 gateway good %s, %s", self.gateway, self.gateways)
                 return data
             else:
-                LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateway_array)
+                LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateways)
                 if self.genCheck2():
-                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateways)
                 else:
-                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateway_array)
+                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
-            LOGGER.error("getHomeG2 self.gateway_array NONE")
+            LOGGER.error("getHomeG2 self.gateways NONE")
         return None
     
     def get(self, url):

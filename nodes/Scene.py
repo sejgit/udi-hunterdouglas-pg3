@@ -118,13 +118,13 @@ class Scene(udi_interface.Node):
         # Attempt to provide scene active to G2 and speed up G3
         # TODO add calc after shade event "motion-stop", but would have to calc what scenes its in
         try:
-            members = self.controller.scenes_array_map.get(self.sid)['members']
+            members = self.controller.scenes_map.get(self.sid)['members']
             LOGGER.debug(f"Members: {members}")
             match = False
             for sh in members:
                 scene_shId = sh['shd_Id']                
                 scene_shPos = sh['pos']
-                shade = self.controller.shades_array_map.get(scene_shId)
+                shade = self.controller.shades_map.get(scene_shId)
                 shade_pos = shade['positions']
                 for element in scene_shPos.keys():
                     element2 = element
@@ -168,13 +168,13 @@ class Scene(udi_interface.Node):
                 if match == False:
                     break
             if match == True:
-                self.controller.sceneIdsActive_array_calc=list(set(self.controller.sceneIdsActive_array_calc+[self.sid]))
-                self.controller.sceneIdsActive_array_calc.sort()
-                LOGGER.info(f"sceneIdsActive_array_calc:{self.controller.sceneIdsActive_array_calc}")
+                self.controller.sceneIdsActive_calc=list(set(self.controller.sceneIdsActive_calc+[self.sid]))
+                self.controller.sceneIdsActive_calc.sort()
+                LOGGER.info(f"scene:{self.sid}, sceneIdsActive_calc:{self.controller.sceneIdsActive_calc}")
                 self.setDriver('GV1', 1, report=True, force=True)
             else:
-                if self.sid in self.controller.sceneIdsActive_array_calc:
-                    self.controller.sceneIdsActive_array_calc.remove(self.sid)
+                if self.sid in self.controller.sceneIdsActive_calc:
+                    self.controller.sceneIdsActive_calc.remove(self.sid)
                 self.setDriver('GV1', 0, report=True, force=True)
 
         except Exception as ex:
@@ -215,7 +215,7 @@ class Scene(udi_interface.Node):
                     if event['scenes'].count(self.sid) > 0:
                         try:
                             LOGGER.debug(f'scene {self.sid} update')
-                            self.scenedata = self.controller.scenes_array_map[self.sid]
+                            self.scenedata = self.controller.scenes_map[self.sid]
                             # update name if different
                             if self.name != self.scenedata['name']:
                                 LOGGER.info(f"scene: sid:{self.sid}, name != {self.scenedata['name']}")
@@ -233,7 +233,7 @@ class Scene(udi_interface.Node):
                             # update activation state only if G3, as array is [] for G2
                             if self.controller.generation == 3:
                                 old = self.getDriver('ST')
-                                if self.controller.sceneIdsActive_array.count(self.sid) > 0:
+                                if self.controller.sceneIdsActive.count(self.sid) > 0:
                                     if old != 1:
                                         self.setDriver('ST', 1,report=True, force=True)
                                         LOGGER.info(f"scene {self.sid} activation updated ON")
