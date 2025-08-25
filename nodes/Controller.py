@@ -99,7 +99,7 @@ class Controller(Node):
         self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
         self.rooms_map = {}
         self.shades_map = {}
-        self.scenes_array_map = {}
+        self.scenes_map = {}
         self.sceneIdsActive = []
         self.sceneIdsActive_calc = []
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
@@ -215,7 +215,7 @@ class Controller(Node):
         # fist update
         if self.updateAllFromServer():
             self.gateway_event[0]['shades'] = list(self.shades_map.keys())
-            self.gateway_event[0]['scenes'] = list(self.scenes_array_map.keys())
+            self.gateway_event[0]['scenes'] = list(self.scenes_map.keys())
             LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
             # clear inital start-up message
             if self.Notices['hello']:
@@ -433,7 +433,7 @@ class Controller(Node):
                         event = event[0]
                         # seed home event to signal the nodes to update with new gateway data
                         self.gateway_event[self.gateway_event.index(event)]['shades'] = list(self.shades_map.keys())
-                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.scenes_array_map.keys())
+                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.scenes_map.keys())
                         LOGGER.debug('trigger nodes {}'.format(self.gateway_event))
                     else:
                         self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
@@ -615,8 +615,8 @@ class Controller(Node):
                                                 shade))
                     self.wait_for_node_done()
 
-            for sc in self.scenes_array_map.keys():
-                scene = self.scenes_array_map[sc]
+            for sc in self.scenes_map.keys():
+                scene = self.scenes_map[sc]
                 if self.generation == 2:
                     sceneId = scene['id']
                 else:
@@ -655,7 +655,7 @@ class Controller(Node):
             self.setDriver('GV0', self.numNodes)
             success = True
             LOGGER.info(f"shades_array_map:  {self.shades_map}")
-            LOGGER.info(f"scenes_array_map:  {self.scenes_array_map}")
+            LOGGER.info(f"scenes_array_map:  {self.scenes_map}")
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
         return success
@@ -728,7 +728,7 @@ class Controller(Node):
             if data:
                 self.rooms_map = {}
                 self.shades_map = {}
-                self.scenes_array_map = {}
+                self.scenes_map = {}
 
                 for r in data["rooms"]:
                     LOGGER.debug('Update rooms')
@@ -766,10 +766,10 @@ class Controller(Node):
                         room_name = self.rooms_map[sc['room_Id']]['name']
                         room_name = room_name[0:ROOM_NAME_LIMIT]
                     sc['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                    self.scenes_array_map[sc['_id']] = sc
+                    self.scenes_map[sc['_id']] = sc
                     LOGGER.debug('Update scenes-1')
 
-                LOGGER.info(f"scenes = {list(self.scenes_array_map.keys())}")
+                LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
                 self.no_update = False
                 return True
@@ -839,7 +839,7 @@ class Controller(Node):
             if data:
                 self.rooms_map = {}
                 self.shades_map = {}
-                self.scenes_array_map = {}
+                self.scenes_map = {}
 
                 res = self.get(URL_G2_ROOMS.format(g=self.gateway))
                 if res.status_code == requests.codes.ok:
@@ -885,9 +885,9 @@ class Controller(Node):
                             room_name = self.rooms_map[scene['roomId']]['name']
                             room_name = room_name[0:ROOM_NAME_LIMIT]
                         scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                        self.scenes_array_map[scene['_id']] = scene
+                        self.scenes_map[scene['_id']] = scene
 
-                    LOGGER.info(f"scenes = {list(self.scenes_array_map.keys())}")
+                    LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
                 self.no_update = False
                 LOGGER.info(f"updateAllfromServerG2 = OK")
