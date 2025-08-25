@@ -465,7 +465,7 @@ class Controller(Node):
         except:
             LOGGER.error("event error")
         LOGGER.info("event(total) = {}".format(self.gateway_event))
-        self.poll_in = False
+        self.gateway_events_in = False
 
     async def _poll_sse(self):
         self.sse_polling_in = True
@@ -486,10 +486,10 @@ class Controller(Node):
                                 try:
                                     self.gateway_event.append(json.loads(val))
                                     LOGGER.info(f"new sse: {self.gateway_event}")
-                                    self.gatewayEventsCheck()
                                     self.eventTimer = 0
+                                    self.gatewayEventsCheck()
                                 except:
-                                    LOGGER.debug(f"noadd:{val.decode().strip()}")
+                                    LOGGER.error(f"noadd:{val.decode().strip()}")
                                     pass
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:

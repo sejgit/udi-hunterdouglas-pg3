@@ -74,6 +74,10 @@ class Shade(udi_interface.Node):
         specific node
     """
     def __init__(self, polyglot, primary, address, name, shade):
+        # TODO change shade->sid here and back in controller
+        # TODO start making vars here come from source
+        # TODO start updating positions back to source
+        # TODO anything else to update? don't think so....
         """
         Initialize the node.
 
