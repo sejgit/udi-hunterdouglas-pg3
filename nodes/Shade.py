@@ -75,6 +75,11 @@ class Shade(udi_interface.Node):
     """
     def __init__(self, polyglot, primary, address, name, sid):
         # TODO check all dictionary calls for G2 / G3 correctness
+        # TODO check all commands
+        # TODO more efficient start-up
+        # TODO for G3 use scene calc as activate & calc field as true/false calc was used
+        # TODO more pythonic
+        # TODO check positions again for storage back to main map or not
         """
         Initialize the node.
 
