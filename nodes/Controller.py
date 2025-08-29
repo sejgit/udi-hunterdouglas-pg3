@@ -569,6 +569,35 @@ class Controller(Node):
                 retries += 1
     
         self.sse_polling_in = False
+
+    # TODO install this but modify to only remove the first one found ; give system a chance to deal with rest
+    def clean_old_or_invalid_entries(self, data_list):
+        """
+        Removes and logs events with invalid or old 'isoDate' values.
+        Just in case we get blocked by an old iso event
+        """
+        now = datetime.datetime.now(datetime.UTC)
+        threshold = now - datetime.timedelta(minutes=2)
+        cleaned_list = []
+
+        for item in data_list:
+            if 'isoDate' not in item:
+                # Keep items without 'isoDate'
+                cleaned_list.append(item)
+                continue
+
+            iso_date_str = item['isoDate']
+            try:
+                iso_date = datetime.datetime.fromisoformat(iso_date_str)
+                if iso_date < threshold:
+                    LOGGER.error(f"Old entry removed:{item}")
+                    continue # Remove old entry
+            except (TypeError, ValueError):
+                LOGGER.error(f"Invalid 'isoDate' removed:{item}")
+                continue # Remove invalid entry
+
+            cleaned_list.append(item)
+        return cleaned_list
         
     def query(self, command = None):
         """

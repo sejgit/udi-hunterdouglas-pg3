@@ -298,6 +298,9 @@ class Scene(udi_interface.Node):
                             self.calcActive()
                         rem = self.controller.gateway_event.index(event)
                         self.controller.gateway_event[rem]['scenes'].remove(self.sid)
+                    else:
+                        if event['scenes'] = []:
+                            self.controller.gateway_event.remove(event)                            
                         
             # handle the rest of events in isoDate order
             try:
@@ -317,17 +320,17 @@ class Scene(udi_interface.Node):
 
             # scene-activated
             if event.get('evt') == 'scene-activated':
+                LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                 self.setDriver('ST', 1,report=True, force=True)
                 self.reportCmd("DON",2)
-                LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                 self.controller.gateway_event.remove(event)
                 self.calcActive()
                     
             # scene-deactivated
             if event.get('evt') == 'scene-deactivated':
+                LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                 self.setDriver('ST', 0,report=True, force=True)
                 self.reportCmd("DOF",2)
-                LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                 self.controller.gateway_event.remove(event)
                 self.calcActive()
 

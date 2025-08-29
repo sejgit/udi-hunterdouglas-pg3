@@ -185,49 +185,49 @@ class Shade(udi_interface.Node):
                     
             # motion-started event
             if event.get('evt') == 'motion-started':
+                LOGGER.info(f'shade {self.sid} motion-started event')
                 self.positions = self.posToPercent(event['targetPositions'])
-                if self.updatePositions():
-                    self.setDriver('ST', 1,report=True, force=True)
-                    self.reportCmd('DON', 2)
-                    LOGGER.info(f'shade {self.sid} motion-started event')
-                    self.controller.gateway_event.remove(event)
-                   
+                self.updatePositions()
+                self.setDriver('ST', 1,report=True, force=True)
+                self.reportCmd('DON', 2)
+                self.controller.gateway_event.remove(event)
+
             # motion-stopped event
             if event.get('evt') == 'motion-stopped':
+                LOGGER.info(f'shade {self.sid} motion-stopped event')                    
                 self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    self.setDriver('ST', 0,report=True, force=True)
-                    self.reportCmd('DOF', 2)
-                    LOGGER.info(f'shade {self.sid} motion-stopped event')                    
-                    # add event for scene active calc
-                    d = datetime.datetime.now(datetime.timezone.utc).isoformat().rstrip('+00:00') + 'Z'
-                    e = { "evt":"scene-calc", "isoDate":d, "shadeId":self.sid }
-                    e['scenes'] = list(self.controller.scenes_map.keys())
-                    self.controller.gateway_event.append(e)
-                    self.controller.gateway_event.remove(event)
+                self.updatePositions()
+                self.setDriver('ST', 0,report=True, force=True)
+                self.reportCmd('DOF', 2)
+                # add event for scene active calc
+                d = datetime.datetime.now(datetime.timezone.utc).isoformat().rstrip('+00:00') + 'Z'
+                e = { "evt":"scene-calc", "isoDate":d, "shadeId":self.sid }
+                e['scenes'] = list(self.controller.scenes_map.keys())
+                self.controller.gateway_event.append(e)
+                self.controller.gateway_event.remove(event)
                    
             # shade-online event
             if event.get('evt') == 'shade-online':
+                LOGGER.info(f'shade {self.sid} shade-online event')
                 self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    LOGGER.info(f'shade {self.sid} shade-online event')
-                    self.controller.gateway_event.remove(event)
+                self.updatePositions()
+                self.controller.gateway_event.remove(event)
                    
             # # shade-offline event
             if event.get('evt') == 'shade-offline':
+                LOGGER.error(f'shade {self.sid} shade-offline event')
                 self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    LOGGER.error(f'shade {self.sid} shade-offline event')
-                    self.controller.gateway_event.remove(event)
+                self.updatePositions()
+                self.controller.gateway_event.remove(event)
                    
             # # battery-alert event
             if event.get('evt') == 'battery-alert':
+                LOGGER.error(f'shade {self.sid} battery-event')
                 self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
                 self.setDriver('GV6', event["batterylevel"],report=True, force=True)
                 self.positions = self.posToPercent(event['currentPositions'])
-                if self.updatePositions():
-                    LOGGER.error(f'shade {self.sid} battery-event')
-                    self.controller.gateway_event.remove(event)
+                self.updatePositions()
+                self.controller.gateway_event.remove(event)
 
         self.event_polling_in = False
         # exit events
