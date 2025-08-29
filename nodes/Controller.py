@@ -479,10 +479,13 @@ class Controller(Node):
             LOGGER.error(f"Error filtering or finding minimum event: {ex}")
             event = {}
 
+        acted_upon = False
+
         # homedoc-updated
         if event.get('evt') == 'homedoc-updated':
             LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
             self.gateway_event.remove(event)
+            acted_upon = True
 
         # scene-add if scene does not already exist
         # PowerView app: scene-add can happen if user redefines scene or adds new one
@@ -497,11 +500,23 @@ class Controller(Node):
             if not match:
                 LOGGER.info('gateway event - scene-add, NEW so start Discover - {}'.format(event))
                 self.discover()
-
             self.gateway_event.remove(event)
+            acted_upon = True
+            
+         #If not acted upon, remove if older than 2 minutes to prevent blocking of other events
+        if not acted_upon and event:
+            iso_date_str = event.get('isoDate')
+            try:
+                iso_date = datetime.fromisoformat(iso_date_str)
+                if iso_date < datetime.utcnow() - timedelta(minutes=2):
+                    LOGGER.warning(f"Unacted event!!! removed due to age > 2 min: {event}")
+                    self.gateway_event.remove(event)
+            except (TypeError, ValueError):
+                LOGGER.error(f"Invalid 'isoDate' in unacted event: {event}")
+                self.gateway_event.remove(event)
             
         # clean-up
-        LOGGER.debug("event(total) = {}".format(self.gateway_event))
+        LOGGER.debug(f"event(total) = {self.gateway_event}")
         self.gateway_events_in = False
         return
                     
@@ -564,41 +579,12 @@ class Controller(Node):
                     break
 
                 delay = base_delay * (2 ** retries)
-                LOGGER.error(f"Reconnecting in {delay}s")
+                LOGGER.warning(f"Reconnecting in {delay}s")
                 await asyncio.sleep(delay) # Explicitly use asyncio.sleep
                 retries += 1
     
         self.sse_polling_in = False
 
-    # TODO install this but modify to only remove the first one found ; give system a chance to deal with rest
-    def clean_old_or_invalid_entries(self, data_list):
-        """
-        Removes and logs events with invalid or old 'isoDate' values.
-        Just in case we get blocked by an old iso event
-        """
-        now = datetime.datetime.now(datetime.UTC)
-        threshold = now - datetime.timedelta(minutes=2)
-        cleaned_list = []
-
-        for item in data_list:
-            if 'isoDate' not in item:
-                # Keep items without 'isoDate'
-                cleaned_list.append(item)
-                continue
-
-            iso_date_str = item['isoDate']
-            try:
-                iso_date = datetime.datetime.fromisoformat(iso_date_str)
-                if iso_date < threshold:
-                    LOGGER.error(f"Old entry removed:{item}")
-                    continue # Remove old entry
-            except (TypeError, ValueError):
-                LOGGER.error(f"Invalid 'isoDate' removed:{item}")
-                continue # Remove invalid entry
-
-            cleaned_list.append(item)
-        return cleaned_list
-        
     def query(self, command = None):
         """
         Query all nodes from the gateway.

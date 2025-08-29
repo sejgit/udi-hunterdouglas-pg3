@@ -116,6 +116,7 @@ class Scene(udi_interface.Node):
         if not self.event_polling_in:
             self.start_event_polling()
 
+    # TODO move after polling events
     def calcActive(self):
         # Attempt to provide scene active to G2 and speed up G3 awareness
         try:

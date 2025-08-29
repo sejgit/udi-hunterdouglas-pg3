@@ -80,6 +80,7 @@ class Shade(udi_interface.Node):
         # TODO for G3 use scene calc as activate & calc field as true/false calc was used
         # TODO more pythonic
         # TODO check positions again for storage back to main map or not
+        # TODO duolite calc avtive ; add other two to corrections?
         """
         Initialize the node.
 
