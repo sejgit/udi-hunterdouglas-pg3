@@ -1,21 +1,21 @@
-
 """
 udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 
-(C) 2024 Stephen Jenkins
+(C) 2025 Stephen Jenkins
 
 Shade class
 """
 
 # std libraries
-import math, time, datetime
-import asyncio
-from threading import Event
+import math, datetime
+from datetime import datetime, timezone
+from threading import Thread
 
 # external libraries
 import udi_interface
 
 LOGGER = udi_interface.LOGGER
+
 
 """
 HunterDouglas PowerView G3 url's
@@ -34,6 +34,7 @@ URL_EVENTS = 'http://{g}/home/events'
 URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
 URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
+
 """
 HunterDouglas PowerView G2 url's
 from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
@@ -49,38 +50,14 @@ URL_G2_SCENE = 'http://{g}/api/scenes?sceneid={id}'
 URL_G2_SCENES_ACTIVATE = 'http://{g}/api/scenes?sceneId={id}'
 G2_DIVR = 65535
 
+
 class Shade(udi_interface.Node):
     id = 'shadeid'
     
     """
-    This is the class that all the Nodes will be represented by. You will
-    add this to Polyglot/ISY with the interface.addNode method.
-
-    Class Variables:
-    self.primary: String address of the parent node.
-    self.address: String address of this Node 14 character limit.
-                  (ISY limitation)
-    self.added: Boolean Confirmed added to ISY
-
-    Class Methods:
-    setDriver('ST', 1, report = True, force = False):
-        This sets the driver 'ST' to 1. If report is False we do not report
-        it to Polyglot/ISY. If force is True, we send a report even if the
-        value hasn't changed.
-    reportDriver(driver, force): report the driver value to Polyglot/ISY if
-        it has changed.  if force is true, send regardless.
-    reportDrivers(): Forces a full update of all drivers to Polyglot/ISY.
-    query(): Called when ISY sends a query request to Polyglot for this
-        specific node
+    Node for shades which sets and responds to shade position & status.
     """
     def __init__(self, polyglot, primary, address, name, sid):
-        # TODO check all dictionary calls for G2 / G3 correctness
-        # TODO check all commands
-        # TODO more efficient start-up
-        # TODO for G3 use scene calc as activate & calc field as true/false calc was used
-        # TODO more pythonic
-        # TODO check positions again for storage back to main map or not
-        # TODO duolite calc avtive ; add other two to corrections?
         """
         Initialize the node.
 
@@ -96,31 +73,34 @@ class Shade(udi_interface.Node):
         self.address = address
         self.name = name
         self.sid = sid
-        self.positions = self.controller.shades_map[sid]['positions']
-        self.capabilities = self.controller.shades_map[sid]['capabilities']
 
         self.tiltCapable = [1, 2, 4, 5, 9, 10]
         self.tiltOnly90Capable = [1, 9]
  
         self.lpfx = f'{address}:{name}'
         self.event_polling_in = False
+        self._event_polling_thread = None
 
         self.poly.subscribe(self.poly.START, self.start, address)
         self.poly.subscribe(self.poly.POLL, self.poll)
+
         
     def start(self):
         """
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.setDriver('GV0', self.sid,report=True, force=True)
+        self.setDriver('GV0', self.sid) #,report=True, force=True)
+        
+        # wait for controller start ready
+        self.controller.ready_event.wait()
         self.updateData()
-        self.rename(self.name)
-        while not self.controller.ready:
-            time.sleep(2)
+
+        # start event polling loop    
         if not self.event_polling_in:
             self.start_event_polling()
 
+            
     def poll(self, flag):
         """
         Wait until all start-up is ready
@@ -132,51 +112,67 @@ class Shade(udi_interface.Node):
         
         if 'shortPoll' in flag:
             LOGGER.debug(f'shortPoll shade {self.lpfx}')
+
+            # start event polling loop    
             if not self.event_polling_in:
                 self.start_event_polling()
 
+                
     def start_event_polling(self):
         """
-        Run routine in a thread-safe loop to retrieve events from array loaded by sse client from gateway.
+        Run routine in a separate thread to retrieve events from array loaded by sse client from gateway.
         """
-        future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
         LOGGER.info(f"start: {self.lpfx}")
-        return future
+        if self._event_polling_thread and self._event_polling_thread.is_alive():
+            return  # Already running
 
-    async def _poll_events(self):
+        self.controller.stop_sse_client_event.clear()
+        self._event_polling_thread = Thread(
+            target=self._poll_events,
+            name=f"ShadeEventPollingThread{self.sid}",
+            daemon=True
+        )
+        self._event_polling_thread.start()
+        LOGGER.info(f"exit: {self.lpfx}")
+
+    def _poll_events(self):
         """
         Retrieve gateway sse events from array.
         """
         self.event_polling_in = True
-        while not Event().is_set():
-            await asyncio.sleep(1)
+
+        while not self.controller.stop_sse_client_event.is_set():
+            # wait for events to process
+            gateway_events = self.controller.get_gateway_event()
+
             # home update event
+            # Use next() with a generator expression for efficient lookup
             try:
-                event = list(filter(lambda events: events['evt'] == 'home', self.controller.gateway_event))
+                home_event = next((e for e in gateway_events if e.get('evt') == 'home'), None)
             except Exception as ex:
                 LOGGER.error(f"shade {self.sid} home event error: {ex}", exc_info=True)
-            else:            
-                if event:
-                    event = event[0]
-                    if event['shades'].count(self.sid) > 0:
+                home_event = None
+
+            if home_event:
+                try:
+                    if self.sid in home_event.get('shades', []):
                         LOGGER.debug(f'shade {self.sid} update')
                         if self.updateData():
-                            try:
-                                rem = self.controller.gateway_event.index(event)
-                                self.controller.gateway_event[rem]['shades'].remove(self.sid)
-                            except Exception as ex:
-                                LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
+                            # Directly modify the object reference
+                            home_event['shades'].remove(self.sid)
+                except (KeyError, ValueError) as ex:
+                    LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
 
             ######
             # NOTE rest of the events below are only for G3, will not fire for G2
             ######
             if self.controller.gateway == 2:
                 continue
-            
+
             # handle the rest of events in isoDate order
             try:
                 # filter events without isoDate like home
-                event_nohome = (e for e in self.controller.gateway_event \
+                event_nohome = (e for e in gateway_events 
                                 if e.get('isoDate') is not None)
                 # get most recent isoDate
                 event = min(event_nohome, key=lambda x: x['isoDate'], default={})
@@ -184,161 +180,156 @@ class Shade(udi_interface.Node):
             except (ValueError, TypeError) as ex: # Catch specific exceptions
                 LOGGER.error(f"Error filtering or finding minimum event: {ex}")
                 event = {}
-    
+
             # only continue for this shade
             if event.get('id') != self.sid:
                 continue
-                    
+
             # motion-started event
             if event.get('evt') == 'motion-started':
                 LOGGER.info(f'shade {self.sid} motion-started event')
-                self.positions = self.posToPercent(event['targetPositions'])
-                self.updatePositions()
-                self.setDriver('ST', 1,report=True, force=True)
+                self.updatePositions(self.posToPercent(event['targetPositions']))
+                self.setDriver('ST', 1) #,report=True, force=True)
                 self.reportCmd('DON', 2)
-                self.controller.gateway_event.remove(event)
+                self.controller.remove_gateway_event(event)
 
             # motion-stopped event
             if event.get('evt') == 'motion-stopped':
-                LOGGER.info(f'shade {self.sid} motion-stopped event')                    
-                self.positions = self.posToPercent(event['currentPositions'])
-                self.updatePositions()
-                self.setDriver('ST', 0,report=True, force=True)
+                self.updatePositions(self.posToPercent(event['currentPositions']))
+                self.setDriver('ST', 0) #,report=True, force=True)
                 self.reportCmd('DOF', 2)
                 # add event for scene active calc
-                d = datetime.datetime.now(datetime.timezone.utc).isoformat().rstrip('+00:00') + 'Z'
+                d = datetime.now(timezone.utc).isoformat().rstrip('+00:00') + 'Z'
                 e = { "evt":"scene-calc", "isoDate":d, "shadeId":self.sid }
                 e['scenes'] = list(self.controller.scenes_map.keys())
-                self.controller.gateway_event.append(e)
-                self.controller.gateway_event.remove(event)
-                   
+                self.controller.append_gateway_event(e)
+                self.controller.remove_gateway_event(event)
+
             # shade-online event
             if event.get('evt') == 'shade-online':
                 LOGGER.info(f'shade {self.sid} shade-online event')
-                self.positions = self.posToPercent(event['currentPositions'])
-                self.updatePositions()
-                self.controller.gateway_event.remove(event)
-                   
+                self.updatePositions(self.posToPercent(event['currentPositions']))
+                self.controller.remove_gateway_event(event)
+
             # # shade-offline event
             if event.get('evt') == 'shade-offline':
                 LOGGER.error(f'shade {self.sid} shade-offline event')
-                self.positions = self.posToPercent(event['currentPositions'])
-                self.updatePositions()
-                self.controller.gateway_event.remove(event)
-                   
+                self.updatePositions(self.posToPercent(event['currentPositions']))
+                self.controller.remove_gateway_event(event)
+
             # # battery-alert event
             if event.get('evt') == 'battery-alert':
                 LOGGER.error(f'shade {self.sid} battery-event')
                 self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
-                self.setDriver('GV6', event["batterylevel"],report=True, force=True)
-                self.positions = self.posToPercent(event['currentPositions'])
-                self.updatePositions()
-                self.controller.gateway_event.remove(event)
+                self.setDriver('GV6', event["batterylevel"]) #,report=True, force=True)
+                self.updatePositions(self.posToPercent(event['currentPositions']))
+                self.controller.remove_gateway_event(event)
 
         self.event_polling_in = False
-        # exit events
+        LOGGER.info(f"shade:{self.sid} exiting poll events due to controller shutdown")
 
+        
     def updateData(self):
-        if self.controller.no_update == False:
-            try:
-                data = self.controller.shades_map[self.sid] 
-                LOGGER.debug(f"shade {self.sid} is {data}")
-                if data:
-                    if self.name != data['name']:
-                        LOGGER.warning(f"Name error current:{self.name}  new:{data['name']}")
-                        self.rename(data['name'])
-                        LOGGER.warning(f"Renamed {self.name}")
-                    self.setDriver('ST', 0,report=True, force=True)
-                    self.reportCmd('DOF', 2)
-                    self.setDriver('GV1', data["roomId"],report=True, force=True)
-                    self.setDriver('GV6', data["batteryStatus"],report=True, force=True)
-                    self.capabilities = data["capabilities"]
-                    self.setDriver('GV5', self.capabilities,report=True, force=True)
-                    self.positions = data["positions"]
-                    self.updatePositions()
-                    return True
-            except Exception as ex:
-                LOGGER.error(f"shade {self.sid} updateData error: {ex}")
-                return False
-        else:
+        try:
+            shade = self.controller.get_shade_data(self.sid)
+            self.capabilities = shade.get('capabilities')
+            LOGGER.debug(f"shade {self.sid} is {shade}")
+            if self.name != shade['name']:
+                LOGGER.warning(f"Name error current:{self.name}  new:{shade['name']}")
+                self.rename(shade['name'])
+                LOGGER.warning(f"Renamed {self.name}")
+            self.setDriver('ST', 0) #,report=True, force=True)
+            self.reportCmd('DOF', 2)
+            self.setDriver('GV1', shade["roomId"]) #,report=True, force=True)
+            self.setDriver('GV6', shade["batteryStatus"]) #,report=True, force=True)
+            self.setDriver('GV5', self.capabilities) #,report=True, force=True)
+            self.updatePositions(shade['positions'])
+            return True
+        except Exception as ex:
+            LOGGER.error(f"shade {self.sid} updateData error: {ex}")
             return False
 
-    def updatePositions(self):
+        
+    # A dictionary mapping capabilities to the drivers that should be set.
+    # This is a class-level variable for efficiency.
+    _DRIVER_MAP = {
+        7: [('GV2', 'primary'), ('GV3', 'secondary')],
+        8: [('GV2', 'primary'), ('GV3', 'secondary')],
+        0: [('GV2', 'primary')],
+        3: [('GV2', 'primary')],
+        6: [('GV3', 'secondary')],
+        1: [('GV2', 'primary'), ('GV4', 'tilt')],
+        2: [('GV2', 'primary'), ('GV4', 'tilt')],
+        4: [('GV2', 'primary'), ('GV4', 'tilt')],
+        5: [('GV4', 'tilt')],
+        # The `else` case can be handled with a default lookup.
+    }
+
+    
+    def updatePositions(self, positions):
         """
         Update the positions of the shade.
         """
-        if 'primary' in self.positions:
-            p1 = self.positions['primary']
-            # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_map[self.sid]['positions']['primary'] = p1
-        else:
-            p1 = None
-        if 'secondary' in self.positions:
-            p2 = self.positions['secondary']
-            # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_map[self.sid]['positions']['secondary'] = p2
-        else:
-            p2 = None
-        if 'tilt' in self.positions:
-            t1 = self.positions['tilt']
-            # update map array for quicker access in nodes added in v1.13.0
-            self.controller.shades_map[self.sid]['positions']['tilt'] = t1
-        else:
-            if self.capabilities in self.tiltCapable:
-                t1 = 0
-            else:
-                t1 = None
-        LOGGER.info(f"updatePositions {self.controller.shades_map[self.sid]['positions']}")
-            
-        if self.capabilities in [7, 8]:
-            self.setDriver('GV2', p1,report=True, force=True)
-            self.setDriver('GV3', p2,report=True, force=True)
-        elif self.capabilities in [0, 3]:
-            self.setDriver('GV2', p1,report=True, force=True)
-        elif self.capabilities == 6:
-            self.setDriver('GV3', p2,report=True, force=True)
-        elif self.capabilities in [1, 2, 4]:
-            self.setDriver('GV2', p1,report=True, force=True)
-            self.setDriver('GV4', t1,report=True, force=True)
-        elif self.capabilities == 5:
-            self.setDriver('GV4', t1,report=True, force=True)
-        else: # 9, 10 , unknown
-            self.setDriver('GV2', p1,report=True, force=True)
-            self.setDriver('GV3', p2,report=True, force=True)
-            self.setDriver('GV4', t1,report=True, force=True)
+        LOGGER.info(f"shade:{self.sid}, positions:{positions}")
+        
+        self.controller.update_shade_data(self.sid, {'positions': positions})
+        
+        positions.setdefault('primary', None)
+        positions.setdefault('secondary', None)
+        positions.setdefault('tilt', 0 if self.capabilities in self.tiltCapable else None)
+
+        # Dispatch logic as above
+        drivers_to_set = self._DRIVER_MAP.get(self.capabilities, [
+            ('GV2', 'primary'), ('GV3', 'secondary'), ('GV4', 'tilt')
+        ])
+
+        for driver_key, position_key in drivers_to_set:
+            pos_value = positions.get(position_key)
+            self.setDriver(driver_key, pos_value) #, report=True, force=True)
+
         return True
 
+    
     def posToPercent(self, pos):
         """
         Convert a position to a percentage.
-        only used for PowerView G3 events
+        Only used for PowerView G3 events.
         """
-        for key in pos:
+        new_pos = {}
+        for key, value in pos.items():
             try:
-                pos[key] = self.controller.toPercent(pos[key])
-            except:
-                LOGGER.error(f"pos = {pos}, key = {key}, pos[key] = {pos[key]}")
-                pos[key] = 0
-        return pos
+                if key == 'etaInSeconds':
+                    continue
+                new_pos[key] = self.controller.toPercent(value)
+            except (TypeError, ValueError) as ex:
+                LOGGER.error(f"Failed to convert pos[{key}]='{value}' to percent: {ex}")
+                new_pos[key] = 0
+
+        return new_pos
+
         
     def cmdOpen(self, command):
         """
         open shade
         """
         LOGGER.info(f'cmd Shade Open {self.lpfx}, {command}')
-        self.positions["primary"] = 100
-        self.setShadePosition(self.positions)
+        #self.positions["primary"] = 100
+        self.setShadePosition({"primary": 100})
+        self.reportCmd("OPEN", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
+        
     def cmdClose(self, command):
         """
         close shade
         """
         LOGGER.info(f'cmd Shade Close {self.lpfx}, {command}')
-        self.positions["primary"] = 0
-        self.setShadePosition(self.positions)
+        #self.positions["primary"] = 0
+        self.setShadePosition({"primary":0})
+        self.reportCmd("CLOSE", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
+        
     def cmdStop(self, command):
         """
         stop shade
@@ -347,9 +338,10 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 3:
             shadeUrl = URL_SHADES_STOP.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(shadeUrl)
+            self.reportCmd("STOP", 2)
             LOGGER.info(f'cmd Shade Stop {self.lpfx}, {command}')
         else:
-            LOGGER.debug(f'cmd Shade Stop error (none in gen2) {self.lpfx}, {command}')
+            LOGGER.error(f'cmd Shade Stop error (none in gen2) {self.lpfx}, {command}')
 
 
     def cmdTiltOpen(self, command):
@@ -357,19 +349,23 @@ class Shade(udi_interface.Node):
         tilt shade open
         """
         LOGGER.info(f'cmd Shade TiltOpen {self.lpfx}, {command}')
-        self.positions["tilt"] = 50
+        #self.positions["tilt"] = 50
         self.setShadePosition(pos = {"tilt": 50})
+        self.reportCmd("TILTOPEN", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
+        
     def cmdTiltClose(self, command):
         """
         tilt shade close
         """
         LOGGER.info(f'cmd Shade TiltClose {self.lpfx}, {command}')
-        self.positions['tilt'] = 0
+        #self.positions['tilt'] = 0
         self.setShadePosition(pos = {"tilt": 0})
+        self.reportCmd("TILTCLOSE", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
+        
     def cmdJog(self, command = None):
         """
         jog shade
@@ -386,8 +382,10 @@ class Shade(udi_interface.Node):
                 "motion": "jog"
             }
         self.controller.put(shadeUrl, data=body)
+        self.reportCmd("JOG", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
+        
     def cmdCalibrate(self, command = None):
         """
         calibrate shade
@@ -405,7 +403,8 @@ class Shade(udi_interface.Node):
         else:
             LOGGER.error(f'cmd Shade CALIBRATE error, not implimented in G3 {self.lpfx}, {command}')            
         LOGGER.debug(f"Exit {self.lpfx}")        
-                
+
+        
     def query(self, command = None):
         """
         Called by ISY to report all drivers for this node. This is done in
@@ -417,6 +416,7 @@ class Shade(udi_interface.Node):
         self.reportDrivers()
         LOGGER.debug(f"Exit {self.lpfx}")        
 
+        
     def cmdSetpos(self, command = None):
         """
         Set the position of the shade; setting primary, secondary, tilt
@@ -425,9 +425,8 @@ class Shade(udi_interface.Node):
         if command:
             try:
                 pos = {}
-                LOGGER.info(f'Shade Setpos command {command}')
                 query = command.get("query")
-                LOGGER.info(f'Shade Setpos query {query}')
+                LOGGER.debug(f'Shade Setpos query {query}')
                 if "SETPRIM.uom100" in query:
                     pos["primary"] = int(query["SETPRIM.uom100"])
                 if "SETSECO.uom100" in query:
@@ -437,69 +436,71 @@ class Shade(udi_interface.Node):
                 if pos != {}:
                     LOGGER.info(f'Shade Setpos {pos}')
                     self.setShadePosition(pos)
-                    self.positions.update(pos)
+                    # self.positions.update(pos)
                 else:
                     LOGGER.error('Shade Setpos --nothing to set--')
             except Exception as ex:
                 LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
         else:
             LOGGER.error("No positions given")
-        LOGGER.debug(f"Exit {self.lpfx}")        
+        LOGGER.debug(f"Exit {self.lpfx}")
 
-    def setShadePosition(self, pos):
+        
+    def _get_g2_positions(self, pos):
+        """Helper function to build G2 positions payload."""
         positions_array = {}
+
+        if self.capabilities in self.tiltCapable and 'tilt' in pos:
+            tilt = pos['tilt']
+            if self.capabilities in self.tiltOnly90Capable and tilt >= 50:
+                tilt = 49
+            tilt_val = self.fromPercent(tilt, G2_DIVR)
+            positions_array.update({'posKind1': 3, 'position1': tilt_val})
+
+        if 'primary' in pos:
+            pos1 = self.fromPercent(pos['primary'], G2_DIVR)
+            # Note: posk1 is hardcoded as 1 here. Adjust if more complex.
+            positions_array.update({'posKind1': 1, 'position1': pos1})
+
+        if 'secondary' in pos:
+            pos2 = self.fromPercent(pos['secondary'], G2_DIVR)
+            # Note: posk2 is hardcoded as 2 here. Adjust if more complex.
+            positions_array.update({'posKind2': 2, 'position2': pos2})
+
+        return {"shade": {"positions": positions_array}}
+
+    
+    def _get_g3_positions(self, pos):
+        """Helper function to build G3 positions payload."""
+        positions_array = {}
+
+        for key, value in pos.items():
+            if key == 'tilt' and self.capabilities in self.tiltCapable:
+                if self.capabilities in self.tiltOnly90Capable and value >= 50:
+                    value = 49
+                positions_array['tilt'] = self.fromPercent(value)
+            elif key in ['primary', 'secondary', 'velocity']:
+                positions_array[key] = self.fromPercent(value)
+
+        return {'positions': positions_array}
+
+    
+    def setShadePosition(self, pos):
+        """
+        Sets the shade position based on the gateway generation.
+        """
         if self.controller.generation == 2:
-            if self.capabilities in self.tiltCapable:
-                if 'tilt' in pos:
-                    tilt = pos['tilt']
-                    if self.capabilities in self.tiltOnly90Capable:
-                        if tilt >= 50:
-                            tilt = 49
-                    tilt = self.fromPercent(tilt, G2_DIVR)
-                    posk1 = 3
-                    positions_array.update({'posKind1': posk1, 'position1': tilt})
-
-            if 'primary' in pos:
-                pos1 = self.fromPercent(pos['primary'], G2_DIVR)
-                posk1 = 1
-                positions_array.update({'posKind1': posk1, 'position1': pos1})
-
-            if 'secondary' in pos:
-                pos2 = self.fromPercent(pos['secondary'], G2_DIVR)
-                posk2 = 2 #unknown if this is the only possible number
-                positions_array.update({'posKind2': posk2, 'position2': pos2})
-
-            pos = {
-                "shade": {
-                    "positions": positions_array
-                }
-            }
+            shade_payload = self._get_g2_positions(pos)
             shade_url = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
         else:
-            if 'primary' in pos:
-                positions_array["primary"] = self.fromPercent(pos['primary'])
-
-            if 'secondary' in pos:
-                positions_array["secondary"] = self.fromPercent(pos['secondary'])
-
-            if self.capabilities in self.tiltCapable:
-                if 'tilt' in pos:
-                    tilt = pos['tilt']
-                    if self.capabilities in self.tiltOnly90Capable:
-                        if tilt >= 50:
-                            tilt = 49                    
-                    positions_array["tilt"] = self.fromPercent(tilt)
-
-            if 'velocity' in pos:
-                positions_array["velocity"] = self.fromPercent(pos['velocity'])
-
-            pos = {'positions': positions_array}
+            shade_payload = self._get_g3_positions(pos)
             shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
 
-        self.controller.put(shade_url, data=pos)
-        LOGGER.info(f"setShadePosition = {shade_url} , {pos}")
+        self.controller.put(shade_url, data=shade_payload)
+        LOGGER.info(f"setShadePosition = {shade_url} , {shade_payload}")
         return True
 
+    
     def fromPercent(self, pos, divr=1.0):
         """
         Convert a percentage to a position.
@@ -511,8 +512,9 @@ class Shade(udi_interface.Node):
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")
         return newpos
 
+    
     # all the drivers - for reference
-    # TODO velocity not implemented (available to be used in scenes)
+    # NOTE velocity not implemented, possible for position setting, no use in reading scenes
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
@@ -524,6 +526,7 @@ class Shade(udi_interface.Node):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
+    
     """
     This is a dictionary of commands. If ISY sends a command to the NodeServer,
     this tells it which method to call. DON calls setOn, etc.
@@ -557,6 +560,7 @@ class ShadeNoTilt(Shade):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
+    
 class ShadeOnlyPrimary(Shade):
     id = 'shadeonlyprimid'
 
@@ -569,6 +573,7 @@ class ShadeOnlyPrimary(Shade):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
+    
 class ShadeOnlySecondary(Shade):
     id = 'shadeonlysecondid'
 
@@ -581,6 +586,7 @@ class ShadeOnlySecondary(Shade):
             {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
             ]
 
+    
 class ShadeNoSecondary(Shade):
     id = 'shadenosecondid'
 
@@ -594,6 +600,7 @@ class ShadeNoSecondary(Shade):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
+    
 class ShadeOnlyTilt(Shade):
     id = 'shadeonlytiltid'
 
@@ -605,6 +612,7 @@ class ShadeOnlyTilt(Shade):
         {'driver': 'GV5', 'value': 0, 'uom': 25, 'name': "Capabilities"},
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
+
     
     """
     Shade Capabilities:
@@ -612,8 +620,6 @@ class ShadeOnlyTilt(Shade):
     Type 0 - Bottom Up 
     Examples: Standard roller/screen shades, Duette bottom up 
     Uses the “primary” control type
-
-    
 
     Type 1 - Bottom Up w/ 90° Tilt 
     Examples: Silhouette, Pirouette 

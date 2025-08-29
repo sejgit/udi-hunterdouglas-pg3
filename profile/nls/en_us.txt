@@ -77,12 +77,14 @@ BATTERYST-2 = Medium
 BATTERYST-3 = High
 BATTERYST-4 = Plugged In
 
+BOOL-2 = N/A
+
 # scene
 ND-sceneid-NAME = Scene
 ND-sceneid-ICON = Output
 ST-scene-ST-NAME = Activated
 ST-scene-GV0-NAME = Id
-ST-scene-GV1-NAME = Calc Activated
+ST-scene-GV1-NAME = Calc Agrees
 CMD-scene-ACTIVATE-NAME = Activate
 CMD-scene-QUERY-NAME = Query
 

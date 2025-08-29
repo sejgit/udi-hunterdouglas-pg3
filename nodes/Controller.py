@@ -1,14 +1,15 @@
 """
 udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 
-(C) 2024 Stephen Jenkins
+(C) 2025 Stephen Jenkins
 
 Controller class
 """
 
+
 # std libraries
 import asyncio, base64, json, logging, math, os, socket, time
-from threading import Thread, Event
+from threading import Thread, Event, Lock, Condition, Timer
 
 # external libraries
 from udi_interface import Node, LOGGER, Custom, LOG_HANDLER # not used, ISY
@@ -17,13 +18,16 @@ import markdown2
 import aiohttp
 
 # personal libraries
-from node_funcs import get_valid_node_name # not using  get_valid_node_address as id's seem to behave
+from utils.node_funcs import get_valid_node_name # not using  get_valid_node_address as id's seem to behave
+from utils.time import check_timedelta_iso
 
 # Nodes
 from nodes import *
 
+
 # limit the room label length as room - shade/scene must be < 30
 ROOM_NAME_LIMIT = 15
+
 
 """
 HunterDouglas PowerView G3 url's
@@ -42,6 +46,7 @@ URL_SCENES_ACTIVE = 'http://{g}/home/scenes/active'
 URL_EVENTS = 'http://{g}/home/events?sse=false&raw=true'
 URL_EVENTS_SCENES = 'http://{g}/home/scenes/events'
 URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
+
 
 """
 HunterDouglas PowerView G2 url's
@@ -62,6 +67,7 @@ G2_DIVR = 65535
 # thread which doesn't have a loop
 mainloop = asyncio.get_event_loop()
 
+
 class Controller(Node):
     id = 'hdctrl'
 
@@ -77,7 +83,6 @@ class Controller(Node):
         super(Controller, self).__init__(poly, primary, address, name)
         # importand flags, timers, vars
         self.ready = False
-        self.pollingBypass = False # debug purposes: set true to skip polling
         self.hb = 0 # heartbeat
         self.update_last = 0.0
         self.update_minimum = 3.0 # do not allow updates more often than this
@@ -89,23 +94,33 @@ class Controller(Node):
         # in function vars
         self.update_in = False
         self.discovery_in = False
-        self.discover_done = False
         self.poll_in = False
-        self.sse_polling_in = False
-        self.gateway_events_in = False
+        self.sse_client_in = False
+        self.event_polling_in = False
         
-        # storage arrays
+        # storage arrays & conditions
         self.n_queue = []
+        self.queue_condition = Condition()
         self.gateways = []
-        self.gateway_event = [{'evt': 'home', 'shades': [], 'scenes': []}]
+        self.gateway_event = []
+        self.gateway_event_condition = Condition()
+        self._event_polling_thread = None
+
         self.rooms_map = {}
         self.shades_map = {}
+        self.shades_map_lock = Lock()
+        
         self.scenes_map = {}
         self.sceneIdsActive = []
-        self.sceneIdsActive_calc = []
+        self.sceneIdsActive_calc = set()
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
+        #events
+        self.ready_event = Event()
+        self.stop_sse_client_event = Event()
+        self.all_handlers_st_event = Event()
+        
         # Create data storage classes
         self.Notices         = Custom(self.poly, 'notices')
         self.Parameters      = Custom(self.poly, 'customparams')
@@ -119,9 +134,6 @@ class Controller(Node):
         self.handler_typedparams_st = None
         self.handler_typeddata_st = None
 
-        #events
-        self.stop_polling_event = Event()
-
         # Subscribe to various events from the Interface class.
         # The START event is unique in that you can subscribe to 
         # the start event for each node you define.
@@ -133,7 +145,7 @@ class Controller(Node):
         self.poly.subscribe(self.poly.CUSTOMPARAMS,      self.parameterHandler)
         self.poly.subscribe(self.poly.CUSTOMDATA,        self.dataHandler)
         self.poly.subscribe(self.poly.STOP,              self.stop)
-        self.poly.subscribe(self.poly.DISCOVER,          self.discover)
+        self.poly.subscribe(self.poly.DISCOVER,          self.discover_cmd)
         self.poly.subscribe(self.poly.CUSTOMTYPEDDATA,   self.typedDataHandler)
         self.poly.subscribe(self.poly.CUSTOMTYPEDPARAMS, self.typedParameterHandler)
         self.poly.subscribe(self.poly.ADDNODEDONE,       self.node_queue)
@@ -145,20 +157,7 @@ class Controller(Node):
         # Tell the interface we exist.  
         self.poly.addNode(self, conn_status='ST')
 
-    def node_queue(self, data):
-        '''
-        node_queue() and wait_for_node_event() create a simple way to wait
-        for a node to be created.  The nodeAdd() API call is asynchronous and
-        will return before the node is fully created. Using this, we can wait
-        until it is fully created before we try to use it.
-        '''
-        self.n_queue.append(data['address'])
-
-    def wait_for_node_done(self):
-        while len(self.n_queue) == 0:
-            time.sleep(0.2)
-        self.n_queue.pop()
-
+        
     def start(self):
         """
         Called by handler during startup.
@@ -193,44 +192,119 @@ class Controller(Node):
         if os.path.isfile(configurationHelp):
             cfgdoc = markdown2.markdown_path(configurationHelp)
             self.poly.setCustomParamsDoc(cfgdoc)
-        #
+
         # Wait for all handlers to finish
-        #
-        cnt = 600
-        while ((self.handler_params_st is None or self.handler_data_st is None
-                or self.handler_typedparams_st is None or self.handler_typeddata_st is None) and cnt > 0):
-            LOGGER.warning(f'Waiting for all: params={self.handler_params_st} data={self.handler_data_st}... cnt={cnt}')
-            time.sleep(1)
-            cnt -= 1
-        if cnt == 0:
+        LOGGER.warning(f'Waiting for all haldlers to complete...')
+        self.all_handlers_st_event.wait(timeout=60)
+        if not self.all_handlers_st_event.is_set():
             LOGGER.error("Timed out waiting for handlers to startup")
             self.setDriver('ST', 2) # start-up failed
             return
 
-        # Discover
-        if self.discover():
-            while self.discovery_in == True:
-                time.sleep(1)
-        else:
-            LOGGER.error(f'discover failed exit NODE!!', exc_info=True)
-            self.setDriver('ST', 2) # start-up failed
-            return
+        # Discover and wait for discovery to complete
+        asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
 
         # fist update
         if self.updateAllFromServer():
-            self.gateway_event[0]['shades'] = list(self.shades_map.keys())
-            self.gateway_event[0]['scenes'] = list(self.scenes_map.keys())
-            LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
-            # clear inital start-up message
-            if self.Notices['hello']:
-                self.Notices.delete('hello')
+            with self.shades_map_lock:
+                self.gateway_event.append({
+                    'evt': 'home',
+                    'shades': list(self.shades_map.keys()),
+                    'scenes': list(self.scenes_map.keys())
+                })
+            LOGGER.debug(f"first update event[0]: {self.gateway_event[0]}")
+
+            # first start of sse client via the async loop
+            if not self.sse_client_in:
+                self.start_sse_client()
+
+            # start event polling loop    
+            if not self.event_polling_in:
+                self.start_event_polling()
+
+            # signal to the nodes, its ok to staart
             self.ready = True
+            self.ready_event.set()
+
+            # clear inital start-up message
+            if self.Notices.get('hello'):
+                self.Notices.delete('hello')
         else:
-            self.setDriver('ST', 2) # start-up failed
-            return
+            # start-up failed
+            self.setDriver('ST', 2)
+            LOGGER.error(f'START-UP FAILED!!! exit {self.name}')
 
         LOGGER.info(f'exit {self.name}')
 
+
+    def node_queue(self, data):
+        '''
+        node_queue() and wait_for_node_done() create a simple way to wait
+        for a node to be created.  The nodeAdd() API call is asynchronous and
+        will return before the node is fully created. Using this, we can wait
+        until it is fully created before we try to use it.
+        '''
+        address = data.get('address')
+        if address:
+            with self.queue_condition:
+                self.n_queue.append(address)
+                self.queue_condition.notify()
+
+
+    def wait_for_node_done(self):
+        """ See node_queue for comments."""
+        with self.queue_condition:
+            while not self.n_queue:
+                self.queue_condition.wait(timeout = 0.2)
+            self.n_queue.pop()
+
+
+    def get_shade_data(self, sid):
+        """
+        self.shades_map: Encapsulate read access in a method
+        """
+        with self.shades_map_lock:
+            return self.shades_map.get(sid)
+        
+    def update_shade_data(self, sid, data):
+        """
+        self.shades_map: Encapsulate write access in a method.
+        """
+        with self.shades_map_lock:
+            if sid in self.shades_map:
+                self.shades_map[sid].update(data)
+            else:
+                self.shades_map[sid] = data
+
+
+    def append_gateway_event(self, event):
+        """
+        Called by sse to append to gateway_event array & signal that there is an event to process.
+        """
+        with self.gateway_event_condition:
+            self.gateway_event.append(event)
+            self.gateway_event_condition.notify_all()  # Wake up all waiting consumers
+
+
+    def get_gateway_event(self) -> list[dict]:
+        """
+        Called by consumer fuctions (Controller, Shades, Scenes) to efficiently wait for events to process.
+        """
+        with self.gateway_event_condition:
+            while not self.gateway_event:
+                self.gateway_event_condition.wait()
+            return self.gateway_event  # return reference, not a copy
+
+
+    def remove_gateway_event(self, event):
+        """
+        Called by consumer functions (Controller, Shades, Scenes) to remove processed events.
+        """
+        with self.gateway_event_condition:
+            if event in self.gateway_event:
+                self.gateway_event.remove(event)
+
+                
     def config_done(self):
         """
         For things we only do when have the configuration is loaded...
@@ -239,6 +313,7 @@ class Controller(Node):
         self.poly.addLogLevel('DEBUG_MODULES',9,'Debug + Modules')
         LOGGER.debug(f'exit')
 
+        
     def dataHandler(self,data):
         LOGGER.debug(f'enter: Loading data {data}')
         if data is None:
@@ -246,7 +321,9 @@ class Controller(Node):
         else:
             self.Data.load(data)
         self.handler_data_st = True
+        self.check_handlers()
 
+        
     def parameterHandler(self, params):
         """
         Called via the CUSTOMPARAMS event. When the user enters or
@@ -269,10 +346,13 @@ class Controller(Node):
         while not self.checkParams():
             time.sleep(2)
         self.handler_params_st = True
+        self.check_handlers()
 
+        
     def setParams(self):
         pass
 
+    
     def typedParameterHandler(self, params):
         """
         Called via the CUSTOMTYPEDPARAMS event. This event is sent When
@@ -283,7 +363,9 @@ class Controller(Node):
         self.TypedParameters.load(params)
         LOGGER.debug(params)
         self.handler_typedparams_st = True
+        self.check_handlers()
 
+        
     def typedDataHandler(self, data):
         """
         Called via the CUSTOMTYPEDDATA event. This event is sent when
@@ -297,7 +379,15 @@ class Controller(Node):
             self.TypedData.load(data)
         LOGGER.debug(f'Loaded typed data {data}')
         self.handler_typeddata_st = True
+        self.check_handlers()
 
+        
+    def check_handlers(self):
+        if (self.handler_params_st and self.handler_data_st and
+                    self.handler_typedparams_st and self.handler_typeddata_st):
+                self.all_handlers_st_event.set()
+
+                
     def handleLevelChange(self, level):
         """
         Handle log level change.
@@ -311,6 +401,7 @@ class Controller(Node):
             LOG_HANDLER.set_basic_config(True,logging.WARNING)
         LOGGER.info(f'exit: level={level}')
 
+        
     def checkParams(self):
         """
         Check the custom parameters for the controller.
@@ -336,8 +427,7 @@ class Controller(Node):
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
         if (self.goodip() and (self.genCheck3() or self.genCheck2())):
-            LOGGER.info('good self.gateways %s', self.gateways)
-            LOGGER.info("good self.gateway = %s", self.gateway)
+            LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
             return True
@@ -345,7 +435,8 @@ class Controller(Node):
             LOGGER.info(f"checkParams: no gateway found in {self.gateways}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
             return False
-                                
+
+        
     def goodip(self):
         """
         Check for valid ip in gateway address.
@@ -359,6 +450,7 @@ class Controller(Node):
                 LOGGER.error('we have a bad gateway ip address %s', ip)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
         return good
+
     
     def genCheck3(self):
         """
@@ -376,6 +468,7 @@ class Controller(Node):
                     return True
         return False
 
+    
     def genCheck2(self):
         """
         Check for a Generation 2 gateway.
@@ -388,14 +481,16 @@ class Controller(Node):
                 self.generation = 2
                 return True
         return False
-            
-    def poll(self, polltype):
+
+    
+    def poll(self, flag):
         """
         Wait until all start-up is ready, and pause if in discovery.
         use longPoll for Gen3 update through gateway GET 
         use shortPoll for Gen2 update through gateway GET,
                       as well as heart-beat,
-                      and starting / restarting of sse client
+                      and starting / restarting of sse client,
+                      and starting / restarting of polling event client,
                       and incrementing clock since last event from sse server
         """
         LOGGER.debug('enter')
@@ -409,22 +504,32 @@ class Controller(Node):
             LOGGER.debug('exit, in discovery')
             return
         
-        if polltype == 'longPoll':
-            if self.generation == 3:
-                self.pollUpdate()
-        else:
-            self.heartbeat()
+        if 'shortPoll' in flag:
+            LOGGER.debug(f"shortPoll controller")
+            
             # only PowerView gen3 has sse server
             if self.generation == 2:
                 self.pollUpdate()
+
             else:
                 # start sse polling if not running for G3
-                if not self.sse_polling_in:
-                    self.start_SSE_polling()
+                if not self.sse_client_in:
+                    self.start_sse_client()
                 # eventTimer has no purpose beyond an indicator of how long since the last event
                 self.eventTimer += 1
-                LOGGER.info(f"increment eventTimer = {self.eventTimer}")        
-        LOGGER.debug('exit')
+                LOGGER.info(f"increment eventTimer = {self.eventTimer}")
+            self.heartbeat()
+
+            # start event polling loop    
+            if not self.event_polling_in:
+                self.start_event_polling()
+                
+        if 'longPoll' in flag:
+            if self.generation == 3:
+                self.pollUpdate()
+                
+        LOGGER.debug(f'exit')
+
         
     def pollUpdate(self):
         """
@@ -435,113 +540,145 @@ class Controller(Node):
             LOGGER.error(f"Still in Poll, exiting")
             return
         self.poll_in = True
-        if not self.pollingBypass: # for debugging purposes
-            if self.updateAllFromServer():
-                LOGGER.debug(f"self.gateway_event: {self.gateway_event}")
-                try:
-                    event = list(filter(lambda events: events['evt'] == 'home', self.gateway_event))
-                    if event:
-                        event = event[0]
-                        # seed home event to signal the nodes to update with new gateway data
-                        self.gateway_event[self.gateway_event.index(event)]['shades'] = list(self.shades_map.keys())
-                        self.gateway_event[self.gateway_event.index(event)]['scenes'] = list(self.scenes_map.keys())
-                        LOGGER.debug('trigger nodes {}'.format(self.gateway_event))
-                    else:
-                        self.gateway_event.append({'evt': 'home', 'shades': [], 'scenes': []})
-                        LOGGER.debug('reset {}'.format(self.gateway_event))
-                except:
-                    LOGGER.error("event error")
-                LOGGER.info("event(total) = {}".format(self.gateway_event))
-            else:
-                LOGGER.error(f"data collection error")
-        else:
-            LOGGER.error(f"data pollingBypass:{self.pollingBypass}")
+
+        if not self.updateAllFromServer():
+            LOGGER.error("Data collection error.")
+            self.poll_in = False
+            return
+
+        # find the 'home' event
+        event = next((e for e in self.gateway_event if e.get('evt') == 'home'), None)
+
+        # clear out the old
+        if event:
+            self.remove_gateway_event(event)
+
+        # bring in the new
+        self.append_gateway_event({
+            'evt': 'home',
+            'shades': list(self.shades_map.keys()),
+            'scenes': list(self.scenes_map.keys())
+        })
+        LOGGER.debug("Created new home event.")
+
+        LOGGER.info(f"event(total) = {self.gateway_event}")
         self.poll_in = False
 
-    def gatewayEventsCheck(self):
+        
+    def start_event_polling(self):
+        """
+        Run routine in a separate thread to retrieve events from array loaded by sse client from gateway.
+        """
+        LOGGER.debug(f"start")
+        if self._event_polling_thread and self._event_polling_thread.is_alive():
+            return  # Already running
+
+        self.stop_sse_client_event.clear()
+        self._event_polling_thread = Thread(
+            target=self._poll_events,
+            name="EventPollingThread",
+            daemon=True
+        )
+        self._event_polling_thread.start()
+        LOGGER.debug("exit")
+        return
+
+
+    def _poll_events(self):
         """
         Handles Gateway Events like homedoc-updated & scene-add (for new scenes)
+        Removes unacted events only if isoDate is older than 2 minutes or invalid.
         """
-        if self.gateway_events_in:
-            LOGGER.error(f"Still in Gateway Events, exiting")
-            return
         
-        self.gateway_events_in = True
+        self.event_polling_in = True
 
-        # handle the rest of events in isoDate order
-        try:
-            # filter events without isoDate like home
-            event_nohome = (e for e in self.gateway_event if e.get('isoDate') is not None)
-            # get most recent isoDate
-            event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+        while not self.stop_sse_client_event.is_set():
+            # wait for events to process
+            gateway_events = self.get_gateway_event()
 
-        except (ValueError, TypeError) as ex: # Catch specific exceptions
-            LOGGER.error(f"Error filtering or finding minimum event: {ex}")
-            event = {}
-
-        acted_upon = False
-
-        # homedoc-updated
-        if event.get('evt') == 'homedoc-updated':
-            LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
-            self.gateway_event.remove(event)
-            acted_upon = True
-
-        # scene-add if scene does not already exist
-        # PowerView app: scene-add can happen if user redefines scene or adds new one
-        if event.get('evt') == 'scene-add':
-            # check that scene does not exist
-            match = False
-            for sc in self.scenes_map.keys():
-                if sc == event['id']:
-                    LOGGER.info('gateway event - scene-add, not new, no action - {}'.format(event))
-                    match = True
-                    break
-            if not match:
-                LOGGER.info('gateway event - scene-add, NEW so start Discover - {}'.format(event))
-                self.discover()
-            self.gateway_event.remove(event)
-            acted_upon = True
-            
-         #If not acted upon, remove if older than 2 minutes to prevent blocking of other events
-        if not acted_upon and event:
-            iso_date_str = event.get('isoDate')
+            # find the 'home' event using next() with a default value.
             try:
-                iso_date = datetime.fromisoformat(iso_date_str)
-                if iso_date < datetime.utcnow() - timedelta(minutes=2):
-                    LOGGER.warning(f"Unacted event!!! removed due to age > 2 min: {event}")
+                event = next((e for e in gateway_events
+                              if e.get('evt') == 'home'), None)
+            except Exception as ex:
+                LOGGER.error(f"controller home event lookup error: {ex}", exc_info=True)
+                event = None
+
+            if event:
+                if not event.get('shades') and not event.get('scenes'):
+                        LOGGER.debug("Empty home event. Removing.")
+                        self.remove_gateway_event(event)
+
+            # handle the rest of events in isoDate order
+            try:
+                # filter events without isoDate like home
+                event_nohome = (e for e in gateway_events if e.get('isoDate') is not None)
+                # get most recent isoDate
+                event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+
+            except (ValueError, TypeError) as ex: # Catch specific exceptions
+                LOGGER.error(f"Error filtering or finding minimum event: {ex}")
+                event = {}
+
+            acted_upon = False
+
+            # homedoc-updated
+            if event.get('evt') == 'homedoc-updated':
+                LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
+                self.remove_gateway_event(event)
+                acted_upon = True
+
+            # scene-add if scene does not already exist
+            # PowerView app: scene-add can happen if user redefines scene or adds new one
+            if event.get('evt') == 'scene-add':
+                # check that scene does not exist
+                match = any(sc == event.get('id') for sc in self.scenes_map.keys())
+                if not match:
+                    LOGGER.info(f'gateway event - scene-add, NEW so start Discover - {event}')
+                    asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
+                self.remove_gateway_event(event)
+                acted_upon = True
+
+            #If not acted upon, remove if older than 2 minutes to prevent blocking of other events
+            if not acted_upon and event:
+                try:
+                    # Compare the aware ISO date with the current aware UTC time
+                    if check_timedelta_iso(event.get('isoDate'), minutes = 2):
+                        LOGGER.warning(f"Unacted event!!! removed due to age > 2 min: {event}")
+                        self.gateway_event.remove(event)
+                except (TypeError, ValueError) as ex:
+                    LOGGER.error(f"Invalid 'isoDate' in unacted event: {event}. Error: {ex}")
                     self.gateway_event.remove(event)
-            except (TypeError, ValueError):
-                LOGGER.error(f"Invalid 'isoDate' in unacted event: {event}")
-                self.gateway_event.remove(event)
-            
-        # clean-up
-        LOGGER.debug(f"event(total) = {self.gateway_event}")
-        self.gateway_events_in = False
-        return
                     
-    def start_SSE_polling(self):
+        LOGGER.info(f"controller sse client event exiting while")                
+
+            
+    def start_sse_client(self):
         """
         Run sse client in a thread-safe loop for gateway events polling which then loads the events to an array.
         """
-        LOGGER.info(f"start")
-        self.stop_polling_event.clear()
-        future = asyncio.run_coroutine_threadsafe(self._poll_sse(), self.mainloop)
-        LOGGER.info(f"exit")
-        return future
+        LOGGER.debug(f"start")
+        self.stop_sse_client_event.clear()
+        future = asyncio.run_coroutine_threadsafe(self._client_sse(), self.mainloop)
+        LOGGER.info(f"sse client started: {future}")        
 
-    async def _poll_sse(self):
+        LOGGER.debug("exit")        
+
+    
+    async def _client_sse(self):
         """
         Polls the SSE endpoint with aiohttp for events.
         Includes robust retry logic with exponential backoff.
         """
-        self.sse_polling_in = True
+        self.sse_client_in = True
+        LOGGER.info(f"controller start poll events")
+                
         url = URL_EVENTS.format(g=self.gateway)
         retries = 0
         max_retries = 5
         base_delay = 1
 
-        while not self.stop_polling_event.is_set():
+        while not self.stop_sse_client_event.is_set():
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url) as response:
@@ -551,26 +688,20 @@ class Controller(Node):
                             if not line:
                                 continue
 
-                            LOGGER.info(f"Received: {line}")
+                            LOGGER.debug(f"Received: {line}")
 
                             try:
                                 data = json.loads(line)
-                                self.gateway_event.append(data)
+                                self.append_gateway_event(data)
                                 LOGGER.info(f"new sse: {self.gateway_event}")
                                 self.eventTimer = 0
                             except json.JSONDecodeError:
                                 if line == "100 HELO":
-                                    pass
+                                    LOGGER.info(f"Pulse check: {line}")
                                 else:
                                     LOGGER.error(f"Failed to decode JSON: <<{line}>>")
                             except Exception as ex:
-                                LOGGER.error(f"gatewayEventsCheck error: {ex}")
-
-                            # Move this call outside the inner try-except for clarity
-                            try:
-                                self.gatewayEventsCheck()
-                            except Exception as ex:
-                                LOGGER.error(f"gatewayEventsCheck failed: {ex}")
+                                LOGGER.error(f"sse client error: {ex}")
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 LOGGER.error(f"Connection to sse error: {e}")
@@ -582,9 +713,9 @@ class Controller(Node):
                 LOGGER.warning(f"Reconnecting in {delay}s")
                 await asyncio.sleep(delay) # Explicitly use asyncio.sleep
                 retries += 1
-    
-        self.sse_polling_in = False
+        LOGGER.info(f"controller sse client exiting due to while exit")
 
+        
     def query(self, command = None):
         """
         Query all nodes from the gateway.
@@ -596,6 +727,7 @@ class Controller(Node):
                 nodes[node].reportDrivers()
         LOGGER.debug(f"Exit")
 
+        
     def updateProfile(self,command = None):
         """
         Update the profile.
@@ -605,22 +737,24 @@ class Controller(Node):
         LOGGER.debug(f"Exit")
         return st
 
+    
     def discover_cmd(self, command = None):
         """
         Run Discover from command.
         """
         LOGGER.info(f"Enter {command}")
         # force a gateway check
-        while not self.checkParams():
-            time.sleep(2)
+        self.checkParams()
+        
         # run discover
-        if self.discover():
+        if asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result():
             LOGGER.info(f"Success")
         else:
             LOGGER.error(f"Failure")
         LOGGER.debug(f"Exit")
+
         
-    def discover(self):
+    async def discover(self):
         """
         Discover all nodes from the gateway.
         """
@@ -651,40 +785,40 @@ class Controller(Node):
                 capabilities = int(shade['capabilities'])
                 if shTxt not in nodes:
                     if capabilities in [7, 8]:
-                        self.poly.addNode(ShadeNoTilt(self.poly, \
-                                                self.address, \
-                                                shTxt, \
-                                                shade["name"], \
+                        self.poly.addNode(ShadeNoTilt(self.poly,
+                                                self.address,
+                                                shTxt,
+                                                shade["name"],
                                                 shadeId))
                     elif capabilities in [0, 3]:
-                        self.poly.addNode(ShadeOnlyPrimary(self.poly, \
-                                                self.address, \
-                                                shTxt, \
-                                                shade["name"], \
+                        self.poly.addNode(ShadeOnlyPrimary(self.poly,
+                                                self.address,
+                                                shTxt,
+                                                shade["name"],
                                                 shadeId))
                     elif capabilities in [6]:
-                        self.poly.addNode(ShadeOnlySecondary(self.poly, \
-                                                self.address, \
-                                                shTxt, \
-                                                shade["name"], \
+                        self.poly.addNode(ShadeOnlySecondary(self.poly,
+                                                self.address,
+                                                shTxt,
+                                                shade["name"],
                                                 shadeId))
                     elif capabilities in [1, 2, 4]:
-                        self.poly.addNode(ShadeNoSecondary(self.poly, \
-                                                self.address, \
-                                                shTxt, \
-                                                shade["name"], \
+                        self.poly.addNode(ShadeNoSecondary(self.poly,
+                                                self.address,
+                                                shTxt,
+                                                shade["name"],
                                                 shadeId))
                     elif capabilities in [5]:
-                        self.poly.addNode(ShadeOnlyTilt(self.poly, \
-                                                self.address, \
-                                                shTxt, \
-                                                shade["name"], \
+                        self.poly.addNode(ShadeOnlyTilt(self.poly,
+                                                self.address,
+                                                shTxt,
+                                                shade["name"],
                                                 shadeId))
                     else: # [9, 10] or else
-                        self.poly.addNode(Shade(self.poly, \
-                                                self.address, \
-                                                shTxt, \
-                                                shade["name"], \
+                        self.poly.addNode(Shade(self.poly,
+                                                self.address,
+                                                shTxt,
+                                                shade["name"],
                                                 shadeId))
                     self.wait_for_node_done()
 
@@ -698,10 +832,10 @@ class Controller(Node):
                 scTxt = f"scene{sceneId}"
                 nodes_new.append(scTxt)
                 if scTxt not in nodes:
-                    self.poly.addNode(Scene(self.poly, \
-                                            self.address, \
-                                            scTxt, \
-                                            scene["name"], \
+                    self.poly.addNode(Scene(self.poly,
+                                            self.address,
+                                            scTxt,
+                                            scene["name"],
                                             sceneId))
                     self.wait_for_node_done()
         else:
@@ -712,12 +846,12 @@ class Controller(Node):
         if not (nodes_new == []):
             # remove nodes which do not exist in gateway
             nodes = self.poly.getNodesFromDb()
-            LOGGER.info(f"db nodes = {nodes}")
+            LOGGER.debug(f"db nodes = {nodes}")
             nodes = self.poly.getNodes()
             nodes_get = {key: nodes[key] for key in nodes if key != self.id}
-            LOGGER.info(f"old nodes = {nodes_old}")
-            LOGGER.info(f"new nodes = {nodes_new}")
-            LOGGER.info(f"pre-delete nodes = {nodes_get}")
+            LOGGER.debug(f"old nodes = {nodes_old}")
+            LOGGER.debug(f"new nodes = {nodes_new}")
+            LOGGER.debug(f"pre-delete nodes = {nodes_get}")
             for node in nodes_get:
                 if (node not in nodes_new):
                     LOGGER.info(f"need to delete node {node}")
@@ -733,25 +867,28 @@ class Controller(Node):
         self.discovery_in = False
         return success
 
+    
     def delete(self):
         """
         This is called by Polyglot upon deletion of the NodeServer. If the
         process is co-resident and controlled by Polyglot, it will be
         terminiated within 5 seconds of receiving this message.
         """
-        self.stop_polling_event.set()
+        self.stop_sse_client_event.set()
         LOGGER.info('bye bye ... deleted.')
 
+        
     def stop(self):
         """
         This is called by Polyglot when the node server is stopped.  You have
         the opportunity here to cleanly disconnect from your device or do
         other shutdown type tasks.
         """
-        self.stop_polling_event.set()
+        self.stop_sse_client_event.set()
         self.Notices.clear()
         LOGGER.info('NodeServer stopped.')
 
+        
     def heartbeat(self):
         """
         Heartbeat function uses the long poll interval to alternately send a ON and OFF
@@ -763,6 +900,7 @@ class Controller(Node):
         self.hb = not self.hb
         LOGGER.debug("Exit")
 
+        
     def removeNoticesAll(self, command = None):
         """
         Remove all notices from the ISY.
@@ -772,6 +910,7 @@ class Controller(Node):
         self.Notices.clear()
         LOGGER.debug(f"Exit")
 
+        
     def updateAllFromServer(self):
         """
         Update all nodes from the gateway.
@@ -791,7 +930,8 @@ class Controller(Node):
                 success = False
         self.update_in = False
         return success
-        
+
+    
     def updateAllFromServerG3(self, data):
         """
         Update all nodes from the gateway for Generation 3.
@@ -799,7 +939,7 @@ class Controller(Node):
         try:
             if data:
                 self.rooms_map = {}
-                self.shades_map = {}
+                #self.shades_map = {}
                 self.scenes_map = {}
 
                 for r in data["rooms"]:
@@ -820,7 +960,8 @@ class Controller(Node):
                             if capabilities not in range(1, 11):
                                 sh['capabilities'] = 0
                                 
-                        self.shades_map[sh['id']] = sh
+                        #self.shades_map[sh['id']] = sh
+                        self.update_shade_data(sh['id'], sh)
                     self.rooms_map[r['_id']] = r
 
                 LOGGER.info(f"rooms = {list(self.rooms_map.keys())}")
@@ -838,17 +979,15 @@ class Controller(Node):
 
                 LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
-                self.no_update = False
                 return True
             else:
                 LOGGER.error('updateAllfromServerG2 error, no data')
-                self.no_update = False
                 return False
         except Exception as ex:
             LOGGER.error(f"updateAllfromServerG3 error:{ex}")
-            self.no_update = False
             return False
 
+        
     def updateActiveFromServerG3(self, scenesActiveData):
         try:
             self.sceneIdsActive = []
@@ -860,6 +999,7 @@ class Controller(Node):
         except:
             LOGGER.error("updateActiveFromServerG3 error")
             return False
+
         
     def getHomeG3(self):
         """
@@ -882,6 +1022,7 @@ class Controller(Node):
             LOGGER.error("getHomeG3 self.gateways NONE")
         return None
 
+    
     def getScenesActiveG3(self):
         """
         Get the active scenes from the gateway for Generation 3.
@@ -899,6 +1040,7 @@ class Controller(Node):
             LOGGER.error("getScenesActiveG3 self.gateways NONE")
         return None
 
+    
     def updateAllFromServerG2(self, data):
         """
         Update all nodes from the gateway for Generation 2.
@@ -906,7 +1048,7 @@ class Controller(Node):
         try:
             if data:
                 self.rooms_map = {}
-                self.shades_map = {}
+                #self.shades_map = {}
                 self.scenes_map = {}
 
                 res = self.get(URL_G2_ROOMS.format(g=self.gateway))
@@ -946,7 +1088,8 @@ class Controller(Node):
                             if capabilities not in range(1, 11):
                                 sh['capabilities'] = 0
                             
-                        self.shades_map[sh['id']] = sh
+                        #self.shades_map[sh['id']] = sh
+                        self.update_shade_data(sh['id'], sh)
                     LOGGER.info(f"shades = {list(self.shades_map.keys())}")
                     
                 res = self.get(URL_G2_SCENES.format(g=self.gateway))
@@ -963,15 +1106,12 @@ class Controller(Node):
 
                     LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
-                self.no_update = False
                 return True
             else:
                 LOGGER.error(f"updateAllfromServerG2, no data")
-                self.no_update = False
                 return False
         except Exception as ex:
             LOGGER.error(f'updateAllfromServerG2 error:{ex}')
-            self.no_update = False
             return False
         
     def getHomeG2(self):
@@ -994,6 +1134,7 @@ class Controller(Node):
         else:
             LOGGER.error("getHomeG2 self.gateways NONE")
         return None
+
     
     def get(self, url):
         """
@@ -1030,6 +1171,7 @@ class Controller(Node):
         self.Notices.delete('HomeDoc')
         return res
 
+    
     def toPercent(self, pos, divr=1.0):
         """
         Convert a position to a percentage.
@@ -1038,6 +1180,7 @@ class Controller(Node):
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
+    
     def put(self, url, data=None):
         """
         Put data to the specified URL.
@@ -1071,6 +1214,7 @@ class Controller(Node):
         {'driver': 'ST', 'value': 1, 'uom': 25, 'name': "Controller Status"},
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "NumberOfNodes"},
     ]
+
     
     # Commands that this node can handle.  Should match the
     # 'accepts' section of the nodedef file.
