@@ -299,7 +299,7 @@ class Scene(udi_interface.Node):
                         rem = self.controller.gateway_event.index(event)
                         self.controller.gateway_event[rem]['scenes'].remove(self.sid)
                     else:
-                        if event['scenes'] = []:
+                        if event['scenes'] == []:
                             self.controller.gateway_event.remove(event)                            
                         
             # handle the rest of events in isoDate order
