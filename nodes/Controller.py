@@ -389,20 +389,26 @@ class Controller(Node):
                 return True
         return False
             
-    """
-    Called POLL event is triggerd at the intervals specified
-    in the node server configuration, long poll and a short poll.
-    """
     def poll(self, polltype):
+        """
+        Wait until all start-up is ready, and pause if in discovery.
+        use longPoll for Gen3 update through gateway GET 
+        use shortPoll for Gen2 update through gateway GET,
+                      as well as heart-beat,
+                      and starting / restarting of sse client
+                      and incrementing clock since last event from sse server
+        """
         LOGGER.debug('enter')
         # no updates until node is through start-up
         if not self.ready:
             LOGGER.error(f"Node not ready yet, exiting")
-            return            
+            return
+        
         # pause updates when in discovery
         if self.discovery_in == True:
             LOGGER.debug('exit, in discovery')
             return
+        
         if polltype == 'longPoll':
             if self.generation == 3:
                 self.pollUpdate()
@@ -422,7 +428,8 @@ class Controller(Node):
         
     def pollUpdate(self):
         """
-        Handles poll updates from gateway as well as seeding shade/scene update events
+        Handles poll GET updates from gateway as well as seeding shade/scene update events
+        which command the shade/scene nodes to take the updated data and apply it.
         """
         if self.poll_in:
             LOGGER.error(f"Still in Poll, exiting")
@@ -451,54 +458,57 @@ class Controller(Node):
             LOGGER.error(f"data pollingBypass:{self.pollingBypass}")
         self.poll_in = False
 
-    # TODO MAYBE deal with events in ISO timestamp order (for controller, shade, scene)
     def gatewayEventsCheck(self):
         """
-        Handles Gateway Events like homedoc-updated
+        Handles Gateway Events like homedoc-updated & scene-add (for new scenes)
         """
         if self.gateway_events_in:
             LOGGER.error(f"Still in Gateway Events, exiting")
             return
         
         self.gateway_events_in = True
-        # homedoc-updated
+
+        # handle the rest of events in isoDate order
         try:
-            event = list(filter(lambda events: events['evt'] == 'homedoc-updated', self.gateway_event))
-        except:
-            LOGGER.error("controller homedoc-updated event error")
-        else:
-            if event:
-                event = event[0]
-                LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
-                self.gateway_event.remove(event)
+            # filter events without isoDate like home
+            event_nohome = (e for e in self.gateway_event if e.get('isoDate') is not None)
+            # get most recent isoDate
+            event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+
+        except (ValueError, TypeError) as ex: # Catch specific exceptions
+            LOGGER.error(f"Error filtering or finding minimum event: {ex}")
+            event = {}
+
+        # homedoc-updated
+        if event.get('evt') == 'homedoc-updated':
+            LOGGER.info('gateway event - homedoc-updated - {}'.format(event))
+            self.gateway_event.remove(event)
 
         # scene-add if scene does not already exist
         # PowerView app: scene-add can happen if user redefines scene or adds new one
-        try:
-            event = list(filter(lambda events: events['evt'] == 'scene-add', self.gateway_event))
-        except:
-            LOGGER.error("controller scene-add event error")
-        else:
-            if event:
-                event = event[0]
-                # check that scene does not exist
-                match = False
-                for sc in self.scenes_map.keys():
-                    if sc == event['id']:
-                        LOGGER.info('gateway event - scene-add, not new, no action - {}'.format(event))
-                        match = True
-                        break
-                if not match:
-                    LOGGER.info('gateway event - scene-add, NEW so start Discover - {}'.format(event))
-                    self.discover()
+        if event.get('evt') == 'scene-add':
+            # check that scene does not exist
+            match = False
+            for sc in self.scenes_map.keys():
+                if sc == event['id']:
+                    LOGGER.info('gateway event - scene-add, not new, no action - {}'.format(event))
+                    match = True
+                    break
+            if not match:
+                LOGGER.info('gateway event - scene-add, NEW so start Discover - {}'.format(event))
+                self.discover()
 
-                self.gateway_event.remove(event)
+            self.gateway_event.remove(event)
+            
         # clean-up
         LOGGER.debug("event(total) = {}".format(self.gateway_event))
         self.gateway_events_in = False
         return
                     
     def start_SSE_polling(self):
+        """
+        Run sse client in a thread-safe loop for gateway events polling which then loads the events to an array.
+        """
         LOGGER.info(f"start")
         self.stop_polling_event.clear()
         future = asyncio.run_coroutine_threadsafe(self._poll_sse(), self.mainloop)

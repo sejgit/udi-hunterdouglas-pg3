@@ -173,35 +173,48 @@ class Scene(udi_interface.Node):
                 self.controller.sceneIdsActive_calc.sort()
                 LOGGER.info(f"scene:{self.sid}, sceneIdsActive_calc:{self.controller.sceneIdsActive_calc}")
                 self.setDriver('GV1', 1, report=True, force=True)
+                # self.reportCmd("DON",2) # TODO decide if these become the 'real' activation
             else:
                 if self.sid in self.controller.sceneIdsActive_calc:
                     self.controller.sceneIdsActive_calc.remove(self.sid)
                 self.setDriver('GV1', 0, report=True, force=True)
+                # self.reportCmd("DOF",2)
 
         except Exception as ex:
             LOGGER.error(f"scene:{self.sid} FAIL error:{ex}", exc_info=True)
             self.setDriver('GV1', 0, report=True, force=True)
-
+            # self.reportCmd("DOF",2)
+                
     def poll(self, flag):
-        # wait until all ready
+        """
+        Wait until all start-up is ready
+        Only use shortPoll, no longPoll used
+        """
         if not self.controller.ready:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
-        # only shortPoll no longPoll used
+
         if 'shortPoll' in flag:
             LOGGER.debug(f"shortPoll scene {self.lpfx}")
             if not self.event_polling_in:
                 self.start_event_polling()
             if self.controller.generation == 2:
                 self.setDriver('ST', 0,report=True, force=True)
+                self.reportCmd("DOF",2)
                 # manually turn off activation for G2
 
     def start_event_polling(self):
-            future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
-            LOGGER.info(f"start: {self.lpfx}")
-            return future
+        """
+        Run routine in a thread-safe loop to retrieve events from array loaded by sse client from gateway.
+        """
+        future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
+        LOGGER.info(f"start: {self.lpfx}")
+        return future
             
     async def _poll_events(self):
+        """
+        Retrieve gateway sse events from array.
+        """
         self.event_polling_in = True
         while not Event().is_set():
             await asyncio.sleep(1)
@@ -240,10 +253,12 @@ class Scene(udi_interface.Node):
                                 if self.controller.sceneIdsActive.count(self.sid) > 0:
                                     if old != 1:
                                         self.setDriver('ST', 1,report=True, force=True)
+                                        self.reportCmd("DON",2)
                                         LOGGER.info(f"scene {self.sid} activation updated ON")
                                 else:
                                     if old != 0:
                                         self.setDriver('ST', 0,report=True, force=True)
+                                        self.reportCmd("DOF",2)
                                         LOGGER.info(f"scene {self.sid} activation updated OFF")
                                         
                                 # do a scene active calc
@@ -283,7 +298,8 @@ class Scene(udi_interface.Node):
                             self.calcActive()
                         rem = self.controller.gateway_event.index(event)
                         self.controller.gateway_event[rem]['scenes'].remove(self.sid)
-
+                        
+            # handle the rest of events in isoDate order
             try:
                 # filter events without isoDate like home
                 event_nohome = (e for e in self.controller.gateway_event \
@@ -302,7 +318,7 @@ class Scene(udi_interface.Node):
             # scene-activated
             if event.get('evt') == 'scene-activated':
                 self.setDriver('ST', 1,report=True, force=True)
-                self.reportCmd("ACTIVATE",2)
+                self.reportCmd("DON",2)
                 LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                 self.controller.gateway_event.remove(event)
                 self.calcActive()
@@ -310,6 +326,7 @@ class Scene(udi_interface.Node):
             # scene-deactivated
             if event.get('evt') == 'scene-deactivated':
                 self.setDriver('ST', 0,report=True, force=True)
+                self.reportCmd("DOF",2)
                 LOGGER.info(f"event {event['evt']}: {self.lpfx}")
                 self.controller.gateway_event.remove(event)
                 self.calcActive()
@@ -344,7 +361,7 @@ class Scene(udi_interface.Node):
         if self.controller.generation == 2:
             # manually turn on for G2, turn off on the next longPoll
             self.setDriver('ST', 1,report=True, force=True)
-            self.reportCmd("ACTIVATE",2)
+            self.reportCmd("DON",2)
         LOGGER.debug(f"Exit {self.lpfx}")        
 
     def query(self, command = None):

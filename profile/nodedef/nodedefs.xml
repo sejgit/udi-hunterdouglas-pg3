@@ -35,6 +35,8 @@
         </sts>
         <cmds>
           <sends>
+			<cmd id="DON" />
+			<cmd id="DOF" />
             <cmd id="OPEN" />
             <cmd id="CLOSE" />
             <cmd id="STOP" />
@@ -72,6 +74,8 @@
         </sts>
         <cmds>
           <sends>
+			<cmd id="DON" />
+			<cmd id="DOF" />
             <cmd id="OPEN" />
             <cmd id="CLOSE" />
             <cmd id="STOP" />
@@ -105,6 +109,8 @@
         </sts>
         <cmds>
           <sends>
+			<cmd id="DON" />
+			<cmd id="DOF" />
             <cmd id="OPEN" />
             <cmd id="CLOSE" />
             <cmd id="STOP" />
@@ -135,6 +141,8 @@
         </sts>
         <cmds>
           <sends>
+			<cmd id="DON" />
+			<cmd id="DOF" />
             <cmd id="JOG" />
           </sends>
           <accepts>
@@ -160,6 +168,8 @@
         </sts>
         <cmds>
           <sends>
+			<cmd id="DON" />
+			<cmd id="DOF" />
             <cmd id="OPEN" />
             <cmd id="CLOSE" />
             <cmd id="STOP" />
@@ -195,6 +205,8 @@
         </sts>
         <cmds>
           <sends>
+			<cmd id="DON" />
+			<cmd id="DOF" />
             <cmd id="TILTOPEN" />
             <cmd id="TILTCLOSE" />
             <cmd id="JOG" />
@@ -220,7 +232,8 @@
         </sts>
         <cmds>
           <sends>
-            <cmd id="ACTIVATE" />
+            <cmd id="DON" />
+            <cmd id="DOF" />
           </sends>
           <accepts>
             <cmd id="ACTIVATE" />

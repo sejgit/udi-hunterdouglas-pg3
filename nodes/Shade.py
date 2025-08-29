@@ -116,24 +116,31 @@ class Shade(udi_interface.Node):
             self.start_event_polling()
 
     def poll(self, flag):
-        # wait until all ready
+        """
+        Wait until all start-up is ready
+        Only use shortPoll, no longPoll used
+        """
         if not self.controller.ready:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
-        # only shortPoll no longPoll used
+        
         if 'shortPoll' in flag:
             LOGGER.debug(f'shortPoll shade {self.lpfx}')
             if not self.event_polling_in:
                 self.start_event_polling()
-        else:
-            pass
 
     def start_event_polling(self):
-            future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
-            LOGGER.info(f"start: {self.lpfx}")
-            return future
+        """
+        Run routine in a thread-safe loop to retrieve events from array loaded by sse client from gateway.
+        """
+        future = asyncio.run_coroutine_threadsafe(self._poll_events(), self.controller.mainloop)
+        LOGGER.info(f"start: {self.lpfx}")
+        return future
 
     async def _poll_events(self):
+        """
+        Retrieve gateway sse events from array.
+        """
         self.event_polling_in = True
         while not Event().is_set():
             await asyncio.sleep(1)
@@ -159,7 +166,8 @@ class Shade(udi_interface.Node):
             ######
             if self.controller.gateway == 2:
                 continue
-
+            
+            # handle the rest of events in isoDate order
             try:
                 # filter events without isoDate like home
                 event_nohome = (e for e in self.controller.gateway_event \
@@ -180,6 +188,7 @@ class Shade(udi_interface.Node):
                 self.positions = self.posToPercent(event['targetPositions'])
                 if self.updatePositions():
                     self.setDriver('ST', 1,report=True, force=True)
+                    self.reportCmd('DON', 2)
                     LOGGER.info(f'shade {self.sid} motion-started event')
                     self.controller.gateway_event.remove(event)
                    
@@ -188,6 +197,7 @@ class Shade(udi_interface.Node):
                 self.positions = self.posToPercent(event['currentPositions'])
                 if self.updatePositions():
                     self.setDriver('ST', 0,report=True, force=True)
+                    self.reportCmd('DOF', 2)
                     LOGGER.info(f'shade {self.sid} motion-stopped event')                    
                     # add event for scene active calc
                     d = datetime.datetime.now(datetime.timezone.utc).isoformat().rstrip('+00:00') + 'Z'
@@ -233,6 +243,7 @@ class Shade(udi_interface.Node):
                         self.rename(data['name'])
                         LOGGER.warning(f"Renamed {self.name}")
                     self.setDriver('ST', 0,report=True, force=True)
+                    self.reportCmd('DOF', 2)
                     self.setDriver('GV1', data["roomId"],report=True, force=True)
                     self.setDriver('GV6', data["batteryStatus"],report=True, force=True)
                     self.capabilities = data["capabilities"]
