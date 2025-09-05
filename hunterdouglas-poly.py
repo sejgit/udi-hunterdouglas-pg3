@@ -17,7 +17,6 @@ import sys
 # external libraries
 from udi_interface import Interface, LOGGER
 from nodes import Controller
-import asyncio
 
 
 VERSION = '1.13.0'
@@ -115,7 +114,7 @@ def main():
         polyglot.stop()
         sys.exit(0)
     except Exception as err:
-        LOGGER.error('Excption: {0}'.format(err), exc_info=True)
+        LOGGER.error(f'Excption: {err}, control:{control}', exc_info=True)
         sys.exit(0)
 
     

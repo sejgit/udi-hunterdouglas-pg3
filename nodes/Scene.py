@@ -54,8 +54,8 @@ class Scene(udi_interface.Node):
 
     """
     Node for scenes which sets and responds to activation of scenes.
-    G2 does not have activation feedback so only for control
-    G3 using calculation of shade position as feedback is sometimes slow or unreliable
+    GV0 scene Id is just for reference
+    GV1 using calculation of shade position as feedback check on gateway (just for debug)
     """
     def __init__(self, polyglot, primary, address, name, sid):
         """
@@ -371,7 +371,7 @@ class Scene(udi_interface.Node):
         
     def check_if_calc_active_match_gateway(self):
         if self.controller.gateway == 2:
-            self.setDriver('GV1', 2) #, report=True, force=True)
+            # self.setDriver('GV1', 2) #, report=True, force=True)
             LOGGER.info(f"check = GEN2")
             return False
         
@@ -381,7 +381,7 @@ class Scene(udi_interface.Node):
         # The collections agree if they both contain the element or both do not.
         do_they_agree = is_in_set == is_in_list
 
-        self.setDriver('GV1',int(do_they_agree)) #, report=True, force=True)
+        # self.setDriver('GV1',int(do_they_agree)) #, report=True, force=True)
 
         return do_they_agree
 
@@ -432,7 +432,7 @@ class Scene(udi_interface.Node):
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
-        {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Calc agrees"},
+        # {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Calc agrees"},
     ]
 
     

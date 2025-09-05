@@ -228,7 +228,7 @@
         <sts>
 		  <st id="ST" editor="BOOL" />
           <st id="GV0" editor="ID" />
-          <st id="GV1" editor="BOOL" />
+          <!-- <st id="GV1" editor="BOOL" /> -->
         </sts>
         <cmds>
           <sends>

@@ -84,7 +84,7 @@ ND-sceneid-NAME = Scene
 ND-sceneid-ICON = Output
 ST-scene-ST-NAME = Activated
 ST-scene-GV0-NAME = Id
-ST-scene-GV1-NAME = Calc Agrees
+# ST-scene-GV1-NAME = Calc Agrees
 CMD-scene-ACTIVATE-NAME = Activate
 CMD-scene-QUERY-NAME = Query
 
