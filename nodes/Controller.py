@@ -861,8 +861,8 @@ class Controller(Node):
             self.numNodes = len(nodes_get)
             self.setDriver('GV0', self.numNodes)
             success = True
-            LOGGER.info(f"shades_array_map:  {self.shades_map}")
-            LOGGER.info(f"scenes_array_map:  {self.scenes_map}")
+            LOGGER.debug(f"shades_array_map:  {self.shades_map}")
+            LOGGER.debug(f"scenes_array_map:  {self.scenes_map}")
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
         return success
