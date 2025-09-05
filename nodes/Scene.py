@@ -357,14 +357,14 @@ class Scene(udi_interface.Node):
         """Actions to perform when a match is found."""
         self.controller.sceneIdsActive_calc.add(self.sid)
         LOGGER.info(f"MATCH scene:{self.sid}, sceneIdsActive_calc:{sorted(self.controller.sceneIdsActive_calc)}")
-        self.setDriver('ST', 1) #, report=True, force=True)
+        self.setDriver('ST', 1, report=True, force=True)
         self.reportCmd("DON", 2)
 
         
     def _handle_no_match(self):
         """Actions to perform when no match is found or an error occurs."""
         self.controller.sceneIdsActive_calc.discard(self.sid)
-        self.setDriver('ST', 0) #, report=True, force=True)
+        self.setDriver('ST', 0, report=True, force=True)
         self.reportCmd("DOF", 2)
         LOGGER.debug(f"NOMATCH scene:{self.sid}, sceneIdsActive_calc:{sorted(self.controller.sceneIdsActive_calc)}")
 
@@ -402,7 +402,7 @@ class Scene(udi_interface.Node):
         # PowerView G3 will receive an activate event when the motion is complete
         if self.controller.generation == 2:
             # manually turn on for G2, turn off on the next longPoll
-            self.setDriver('ST', 1) #,report=True, force=True)
+            self.setDriver('ST', 1,report=True, force=True)
             self.reportCmd("DON",2)
         # send activate command for both gen2 and gen3
         # the DON command will come with the scene event
