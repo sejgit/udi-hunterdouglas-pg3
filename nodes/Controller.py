@@ -9,7 +9,7 @@ Controller class
 
 # std libraries
 import asyncio, base64, json, logging, math, os, socket, time
-from threading import Thread, Event, Lock, Condition, Timer
+from threading import Thread, Event, Lock, Condition
 
 # external libraries
 from udi_interface import Node, LOGGER, Custom, LOG_HANDLER # not used, ISY

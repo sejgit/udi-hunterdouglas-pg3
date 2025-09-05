@@ -366,7 +366,7 @@ class Scene(udi_interface.Node):
         self.controller.sceneIdsActive_calc.discard(self.sid)
         self.setDriver('ST', 0) #, report=True, force=True)
         self.reportCmd("DOF", 2)
-        LOGGER.error(f"NOMATCH scene:{self.sid}, sceneIdsActive_calc:{sorted(self.controller.sceneIdsActive_calc)}")
+        LOGGER.debug(f"NOMATCH scene:{self.sid}, sceneIdsActive_calc:{sorted(self.controller.sceneIdsActive_calc)}")
 
         
     def check_if_calc_active_match_gateway(self):
