@@ -267,20 +267,21 @@ class Scene(udi_interface.Node):
         
         
     def calcActive(self):
+        """
+        Uses the positions set in scene members (shades) & compared to those same shades' actual positions. 
+        """
         try:
             # below should work for gen2 as well
             members = self.controller.scenes_map.get(self.sid, {}).get('members', [])
             if not members:
                 self._handle_no_match()
-                self.check_if_calc_active_match_gateway()
-                return
-
-            is_match = self._check_member_positions(members)
-
-            if is_match:
-                self._handle_match()
             else:
-                self._handle_no_match()
+                is_match = self._check_member_positions(members)
+
+                if is_match:
+                    self._handle_match()
+                else:
+                    self._handle_no_match()
 
         except Exception as ex:
             LOGGER.error(f"scene:{self.sid} FAIL error:{ex}", exc_info=True)
@@ -360,7 +361,7 @@ class Scene(udi_interface.Node):
     
     
     def _handle_match(self):
-        """Actions to perform when a match is found."""
+        """Actions to perform when a scene match is found."""
         self.controller.sceneIdsActive_calc.add(self.sid)
         LOGGER.info(f"MATCH scene:{self.sid}, sceneIdsActive_calc:{sorted(self.controller.sceneIdsActive_calc)}")
         self.setDriver('ST', 1, report=True, force=True)
@@ -368,7 +369,7 @@ class Scene(udi_interface.Node):
 
         
     def _handle_no_match(self):
-        """Actions to perform when no match is found or an error occurs."""
+        """Actions to perform when no scene match is found or an error occurs."""
         self.controller.sceneIdsActive_calc.discard(self.sid)
         self.setDriver('ST', 0, report=True, force=True)
         self.reportCmd("DOF", 2)
@@ -376,19 +377,22 @@ class Scene(udi_interface.Node):
 
         
     def check_if_calc_active_match_gateway(self):
+        """
+        Looking to see if calculated Active scene matches the gateway data.
+        """
         if self.controller.gateway == 2:
-            # self.setDriver('GV1', 2) #, report=True, force=True)
-            LOGGER.info(f"check = GEN2")
-            return False
-        
-        is_in_set = self.sid in self.controller.sceneIdsActive_calc
-        is_in_list = self.sid in self.controller.sceneIdsActive
+            LOGGER.info(f"check = GEN2, no action")
+            do_they_agree = False
+        else:        
+            is_in_set = self.sid in self.controller.sceneIdsActive_calc
+            is_in_list = self.sid in self.controller.sceneIdsActive
 
-        # The collections agree if they both contain the element or both do not.
-        do_they_agree = is_in_set == is_in_list
+            # The collections agree if they both contain the element or both do not.
+            do_they_agree = is_in_set == is_in_list
 
-        # self.setDriver('GV1',int(do_they_agree)) #, report=True, force=True)
-
+            if not do_they_agree:
+                LOGGER.warning(f"scene:{self.sid} calc != gateway")
+            
         return do_they_agree
 
     

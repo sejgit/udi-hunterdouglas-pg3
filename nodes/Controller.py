@@ -940,7 +940,6 @@ class Controller(Node):
         try:
             if data:
                 self.rooms_map = {}
-                #self.shades_map = {}
                 self.scenes_map = {}
 
                 for r in data["rooms"]:
@@ -961,7 +960,6 @@ class Controller(Node):
                             if capabilities not in range(1, 11):
                                 sh['capabilities'] = 0
                                 
-                        #self.shades_map[sh['id']] = sh
                         self.update_shade_data(sh['id'], sh)
                     self.rooms_map[r['_id']] = r
 
@@ -1052,7 +1050,6 @@ class Controller(Node):
         try:
             if data:
                 self.rooms_map = {}
-                #self.shades_map = {}
                 self.scenes_map = {}
 
                 res = self.get(URL_G2_ROOMS.format(g=self.gateway))
@@ -1092,7 +1089,6 @@ class Controller(Node):
                             if capabilities not in range(1, 11):
                                 sh['capabilities'] = 0
                             
-                        #self.shades_map[sh['id']] = sh
                         self.update_shade_data(sh['id'], sh)
                     LOGGER.info(f"shades = {list(self.shades_map.keys())}")
                     
