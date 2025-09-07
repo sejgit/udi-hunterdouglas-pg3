@@ -180,59 +180,67 @@ class Scene(udi_interface.Node):
                 except (KeyError, ValueError) as ex:
                     LOGGER.error(f"scene event error sid = {self.sid}: {ex}", exc_info=True)
 
-            ######
-            # NOTE rest of the events below are only for G3, will not fire for G2
-            ######
-            if self.controller.gateway == 2:
-                continue
-
-            # scene-calc event
-            # from shade motion-stopped event which produced scene-calc
-            # run calc active if shade is within scene
-            try:
-                event = next((e for e in gateway_events
-                                         if e.get('evt') == 'scene-calc'), None)
-            except Exception as ex:
-                LOGGER.error(f"scene {self.sid} scene-calc event lookup error: {ex}", exc_info=True)
-                event = None
-
-            if event:
+            # process G3 events
+            if self.controller.gateway == 3:
                 try:
-                    members = self.controller.scenes_map.get(self.sid, {}).get('members', [])
+                    self._poll_events_for_g3(gateway_events)
+                except Exception as ex:
+                    LOGGER.error(f"scene:{self.sid}, g3 event error {ex}", exc_info=True)
 
-                    if any(sh['shd_Id'] == event['shadeId'] for sh in members):
-                        LOGGER.debug(f'scene-calc event:{self.sid}')
-                        LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
-                        self.calcActive()
+        self.event_polling_in = False
+        LOGGER.info(f"shade:{self.sid} exiting poll events due to controller shutdown")
 
-                    # Remove sid from the scenes list in the event
-                    # Use a guard clause to handle potential issues
-                    scenes_list = event.get('scenes', [])
-                    if self.sid in scenes_list:
-                        scenes_list.remove(self.sid)
 
-                    # Clean up the event if the list of scenes is empty
-                    if not scenes_list:
-                        self.controller.remove_gateway_event(event)
+    def _poll_events_for_g3(self, gateway_events):
+        """
+        Separate the G3 ONLY events.  Mostly these are done in isoDate order.
+        """
+        # scene-calc event
+        # from shade motion-stopped event which produced scene-calc
+        # run calc active if shade is within scene
+        try:
+            event = next((e for e in gateway_events
+                                     if e.get('evt') == 'scene-calc'), None)
+        except Exception as ex:
+            LOGGER.error(f"scene {self.sid} scene-calc event lookup error: {ex}", exc_info=True)
+            event = None
 
-                except (KeyError, ValueError) as ex:
-                    LOGGER.error(f"scene-calc event error for sid {self.sid}: {ex}", exc_info=True)
-
-            # handle the rest of events in isoDate order
+        if event:
             try:
-                # filter events without isoDate like home
-                event_nohome = (e for e in gateway_events
-                                if e.get('isoDate') is not None)
-                # get most recent isoDate
-                event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+                members = self.controller.scenes_map.get(self.sid, {}).get('members', [])
 
-            except (ValueError, TypeError) as ex: # Catch specific exceptions
-                LOGGER.error(f"Error filtering or finding minimum event: {ex}")
-                event = {}
+                if any(sh['shd_Id'] == event['shadeId'] for sh in members):
+                    LOGGER.debug(f'scene-calc event:{self.sid}')
+                    LOGGER.info(f"event {event['evt']} for existing scene: {self.lpfx}")
+                    self.calcActive()
 
-            # only continue for this shade
-            if event.get('id') != self.sid:
-                continue
+                # Remove sid from the scenes list in the event
+                # Use a guard clause to handle potential issues
+                scenes_list = event.get('scenes', [])
+                if self.sid in scenes_list:
+                    scenes_list.remove(self.sid)
+
+                # Clean up the event if the list of scenes is empty
+                if not scenes_list:
+                    self.controller.remove_gateway_event(event)
+
+            except (KeyError, ValueError) as ex:
+                LOGGER.error(f"scene-calc event error for sid {self.sid}: {ex}", exc_info=True)
+
+        # handle the rest of events in isoDate order
+        try:
+            # filter events without isoDate like home
+            event_nohome = (e for e in gateway_events
+                            if e.get('isoDate') is not None)
+            # get most recent isoDate
+            event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+
+        except (ValueError, TypeError) as ex: # Catch specific exceptions
+            LOGGER.error(f"Error filtering or finding minimum event: {ex}")
+            event = {}
+
+        # only process events for this shade
+        if event.get('id') == self.sid:
 
             # scene-activated
             if event.get('evt') == 'scene-activated':
@@ -254,11 +262,9 @@ class Scene(udi_interface.Node):
             if event.get('evt') == 'scene-add':
                 LOGGER.info(f"event {event.get('evt')} for existing scene: {self.lpfx}, updating info from gateway.")
                 self.controller.updateAllFromServer()
-                self.calcActive
+                self.calcActive()
                 self.controller.remove_gateway_event(event)
-                    
-        self.event_polling_in = False
-
+        
         
     def calcActive(self):
         try:

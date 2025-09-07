@@ -163,28 +163,36 @@ class Shade(udi_interface.Node):
                 except (KeyError, ValueError) as ex:
                     LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
 
-            ######
-            # NOTE rest of the events below are only for G3, will not fire for G2
-            ######
-            if self.controller.gateway == 2:
-                continue
+            # process G3 events
+            if self.controller.gateway == 3:
+                try:
+                    self._poll_events_for_g3(gateway_events)
+                except Exception as ex:
+                    LOGGER.error(f"shade:{self.sid}, g3 event error {ex}", exc_info=True)
 
-            # handle the rest of events in isoDate order
-            try:
-                # filter events without isoDate like home
-                event_nohome = (e for e in gateway_events 
-                                if e.get('isoDate') is not None)
-                # get most recent isoDate
-                event = min(event_nohome, key=lambda x: x['isoDate'], default={})
+        self.event_polling_in = False
+        LOGGER.info(f"shade:{self.sid} exiting poll events due to controller shutdown")
 
-            except (ValueError, TypeError) as ex: # Catch specific exceptions
-                LOGGER.error(f"Error filtering or finding minimum event: {ex}")
-                event = {}
 
-            # only continue for this shade
-            if event.get('id') != self.sid:
-                continue
+    def _poll_events_for_g3(self, gateway_events):
+        """
+        Separate the G3 ONLY events.  Mostly these are done in isoDate order.
+        """
+        # handle the G3 events in isoDate order
+        try:
+            # filter events without isoDate like home
+            event_nohome = (e for e in gateway_events 
+                            if e.get('isoDate') is not None)
+            # get most recent isoDate
+            event = min(event_nohome, key=lambda x: x['isoDate'], default={})
 
+        except (ValueError, TypeError) as ex: # Catch specific exceptions
+            LOGGER.error(f"Error filtering or finding minimum event: {ex}", exc_info=True)
+            event = {}
+
+        # only process the rest for this particular shade
+        if event.get('id') == self.sid:
+            
             # motion-started event
             if event.get('evt') == 'motion-started':
                 LOGGER.info(f'shade {self.sid} motion-started event')
@@ -195,6 +203,7 @@ class Shade(udi_interface.Node):
 
             # motion-stopped event
             if event.get('evt') == 'motion-stopped':
+                LOGGER.info(f'shade {self.sid} motion-stopped event')
                 self.updatePositions(self.posToPercent(event['currentPositions']))
                 self.setDriver('ST', 0) #,report=True, force=True)
                 self.reportCmd('DOF', 2)
@@ -220,16 +229,17 @@ class Shade(udi_interface.Node):
             # # battery-alert event
             if event.get('evt') == 'battery-alert':
                 LOGGER.error(f'shade {self.sid} battery-event')
+                # the shade/event labels the battery different Status/level
                 self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
                 self.setDriver('GV6', event["batterylevel"]) #,report=True, force=True)
                 self.updatePositions(self.posToPercent(event['currentPositions']))
                 self.controller.remove_gateway_event(event)
 
-        self.event_polling_in = False
-        LOGGER.info(f"shade:{self.sid} exiting poll events due to controller shutdown")
-
         
     def updateData(self):
+        """
+        Updade the ISY from retrieved data. Rename node if changed on gateway.
+        """
         try:
             shade = self.controller.get_shade_data(self.sid)
             self.capabilities = shade.get('capabilities')
@@ -246,7 +256,7 @@ class Shade(udi_interface.Node):
             self.updatePositions(shade['positions'])
             return True
         except Exception as ex:
-            LOGGER.error(f"shade {self.sid} updateData error: {ex}")
+            LOGGER.error(f"shade {self.sid} updateData error: {ex}", exc_info=True)
             return False
 
         
@@ -310,10 +320,9 @@ class Shade(udi_interface.Node):
         
     def cmdOpen(self, command):
         """
-        open shade
+        open shade command from ISY
         """
         LOGGER.info(f'cmd Shade Open {self.lpfx}, {command}')
-        #self.positions["primary"] = 100
         self.setShadePosition({"primary": 100})
         self.reportCmd("OPEN", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
@@ -321,10 +330,9 @@ class Shade(udi_interface.Node):
         
     def cmdClose(self, command):
         """
-        close shade
+        close shade command from ISY
         """
         LOGGER.info(f'cmd Shade Close {self.lpfx}, {command}')
-        #self.positions["primary"] = 0
         self.setShadePosition({"primary":0})
         self.reportCmd("CLOSE", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
@@ -332,7 +340,7 @@ class Shade(udi_interface.Node):
         
     def cmdStop(self, command):
         """
-        stop shade
+        stop shade command from ISY
         only available in PowerView G3
         """
         if self.controller.generation == 3:
@@ -346,7 +354,7 @@ class Shade(udi_interface.Node):
 
     def cmdTiltOpen(self, command):
         """
-        tilt shade open
+        tilt shade open command from ISY
         """
         LOGGER.info(f'cmd Shade TiltOpen {self.lpfx}, {command}')
         #self.positions["tilt"] = 50
@@ -357,7 +365,7 @@ class Shade(udi_interface.Node):
         
     def cmdTiltClose(self, command):
         """
-        tilt shade close
+        tilt shade close command from ISY
         """
         LOGGER.info(f'cmd Shade TiltClose {self.lpfx}, {command}')
         #self.positions['tilt'] = 0
@@ -368,7 +376,7 @@ class Shade(udi_interface.Node):
         
     def cmdJog(self, command = None):
         """
-        jog shade
+        jog shade command from ISY
         PowerView G2 will send updateBatteryLevel which also jogs shade
         Battery level updates are automatic in PowerView G3
         """
@@ -388,7 +396,7 @@ class Shade(udi_interface.Node):
         
     def cmdCalibrate(self, command = None):
         """
-        calibrate shade
+        calibrate shade from ISY
         only available in PowerView G2, automatic in PowerView G3
         """
         LOGGER.info(f'cmd Shade CALIBRATE {self.lpfx}, {command}')
@@ -447,7 +455,10 @@ class Shade(udi_interface.Node):
 
         
     def _get_g2_positions(self, pos):
-        """Helper function to build G2 positions payload."""
+        """
+        Helper function to build G2 positions payload.
+        g2 uses posKind1/2/3 which are mapped
+        """
         positions_array = {}
 
         if self.capabilities in self.tiltCapable and 'tilt' in pos:
@@ -459,12 +470,10 @@ class Shade(udi_interface.Node):
 
         if 'primary' in pos:
             pos1 = self.fromPercent(pos['primary'], G2_DIVR)
-            # Note: posk1 is hardcoded as 1 here. Adjust if more complex.
             positions_array.update({'posKind1': 1, 'position1': pos1})
 
         if 'secondary' in pos:
             pos2 = self.fromPercent(pos['secondary'], G2_DIVR)
-            # Note: posk2 is hardcoded as 2 here. Adjust if more complex.
             positions_array.update({'posKind2': 2, 'position2': pos2})
 
         return {"shade": {"positions": positions_array}}

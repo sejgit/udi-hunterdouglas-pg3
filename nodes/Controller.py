@@ -350,6 +350,7 @@ class Controller(Node):
 
         
     def setParams(self):
+        """ Not used."""
         pass
 
     
@@ -984,11 +985,14 @@ class Controller(Node):
                 LOGGER.error('updateAllfromServerG2 error, no data')
                 return False
         except Exception as ex:
-            LOGGER.error(f"updateAllfromServerG3 error:{ex}")
+            LOGGER.error(f"updateAllfromServerG3 error:{ex}", exc_info=True)
             return False
 
         
     def updateActiveFromServerG3(self, scenesActiveData):
+        """
+        Update active scene array from data previously retrieved.
+        """
         try:
             self.sceneIdsActive = []
             for sc in scenesActiveData:
