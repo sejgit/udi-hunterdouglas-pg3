@@ -164,7 +164,7 @@ class Shade(udi_interface.Node):
                     LOGGER.error(f"shade event error sid = {self.sid}: {ex}", exc_info=True)
 
             # process G3 events
-            if self.controller.gateway == 3:
+            if self.controller.generation == 3:
                 try:
                     self._poll_events_for_g3(gateway_events)
                 except Exception as ex:
