@@ -193,7 +193,7 @@ class Controller(Node):
             self.poly.setCustomParamsDoc(cfgdoc)
 
         # Wait for all handlers to finish
-        LOGGER.warning(f'Waiting for all haldlers to complete...')
+        LOGGER.warning(f'Waiting for all handlers to complete...')
         self.all_handlers_st_event.wait(timeout=60)
         if not self.all_handlers_st_event.is_set():
             LOGGER.error("Timed out waiting for handlers to startup")
@@ -221,7 +221,7 @@ class Controller(Node):
             if not self.event_polling_in:
                 self.start_event_polling()
 
-            # signal to the nodes, its ok to staart
+            # signal to the nodes, its ok to start
             self.ready_event.set()
 
             # clear inital start-up message
