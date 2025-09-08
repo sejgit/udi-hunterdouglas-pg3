@@ -106,7 +106,7 @@ class Shade(udi_interface.Node):
         Wait until all start-up is ready
         Only use shortPoll, no longPoll used
         """
-        if not self.controller.ready:
+        if not self.controller.ready_event:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
         

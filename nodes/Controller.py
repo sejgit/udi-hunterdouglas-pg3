@@ -82,7 +82,6 @@ class Controller(Node):
         """
         super(Controller, self).__init__(poly, primary, address, name)
         # importand flags, timers, vars
-        self.ready = False
         self.hb = 0 # heartbeat
         self.update_last = 0.0
         self.update_minimum = 3.0 # do not allow updates more often than this
@@ -116,7 +115,7 @@ class Controller(Node):
         self.tiltCapable = [1, 2, 4, 5, 9, 10] # shade types
         self.tiltOnly90Capable = [1, 9]
 
-        #events
+        # Events
         self.ready_event = Event()
         self.stop_sse_client_event = Event()
         self.all_handlers_st_event = Event()
@@ -223,7 +222,6 @@ class Controller(Node):
                 self.start_event_polling()
 
             # signal to the nodes, its ok to staart
-            self.ready = True
             self.ready_event.set()
 
             # clear inital start-up message
@@ -496,7 +494,7 @@ class Controller(Node):
         """
         LOGGER.debug('enter')
         # no updates until node is through start-up
-        if not self.ready:
+        if not self.ready_event:
             LOGGER.error(f"Node not ready yet, exiting")
             return
         
