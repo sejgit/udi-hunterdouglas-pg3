@@ -382,6 +382,9 @@ class Controller(Node):
 
         
     def check_handlers(self):
+        """
+        Once all start-up parameters are done then set event.
+        """
         if (self.handler_params_st and self.handler_data_st and
                     self.handler_typedparams_st and self.handler_typeddata_st):
                 self.all_handlers_st_event.set()
