@@ -165,6 +165,7 @@ class Controller(Node):
         LOGGER.info(f"Started HunterDouglas PG3 NodeServer {self.poly.serverdata['version']}")
         self.Notices.clear()
         self.Notices['hello'] = 'Plugin Start-up'
+        self.setDriver('ST', 1, report = True, force = True)
         self.update_last = 0.0
 
         # Send the profile files to the ISY if neccessary or version changed.
@@ -174,7 +175,6 @@ class Controller(Node):
         self.poly.setCustomParamsDoc()
 
         # Initializing heartbeat
-        self.setDriver('ST', 1)
         self.heartbeat()
 
         # set-up async loop
@@ -875,6 +875,7 @@ class Controller(Node):
         process is co-resident and controlled by Polyglot, it will be
         terminiated within 5 seconds of receiving this message.
         """
+        self.setDriver('ST', 0, report = True, force = True)
         self.stop_sse_client_event.set()
         LOGGER.info('bye bye ... deleted.')
 
@@ -885,6 +886,7 @@ class Controller(Node):
         the opportunity here to cleanly disconnect from your device or do
         other shutdown type tasks.
         """
+        self.setDriver('ST', 0, report = True, force = True)
         self.stop_sse_client_event.set()
         self.Notices.clear()
         LOGGER.info('NodeServer stopped.')
