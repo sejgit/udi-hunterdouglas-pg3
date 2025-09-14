@@ -82,6 +82,8 @@ class Controller(Node):
         """
         super(Controller, self).__init__(poly, primary, address, name)
         # importand flags, timers, vars
+        self.address = address
+        self.name = name
         self.hb = 0 # heartbeat
         self.update_last = 0.0
         self.update_minimum = 3.0 # do not allow updates more often than this
