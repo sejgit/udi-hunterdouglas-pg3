@@ -950,7 +950,8 @@ class Controller(Node):
                     room_name = r['name'][0:ROOM_NAME_LIMIT]
                     for sh in r["shades"]:
                         LOGGER.debug(f"Update shade {sh['id']}")
-                        name = base64.b64decode(sh.pop('name')).decode()
+                        
+                        name = base64.b64decode(sh.get('name', '')).decode()
                         sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
@@ -976,8 +977,8 @@ class Controller(Node):
                     if scene['room_Id'] == None:
                         room_name = "Multi"
                     else:
-                        room_name = self.rooms_map[scene['room_Id']]['name'][0:ROOM_NAME_LIMIT]
-                    scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        room_name = self.rooms_map.get(scene['room_Id'], {}).get('name', "Multi")[0:ROOM_NAME_LIMIT]
+                    scene['name'] = get_valid_node_name(f"{room_name} - {name}")
                     self.scenes_map[scene['_id']] = scene
 
                 LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
