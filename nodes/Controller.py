@@ -1183,7 +1183,10 @@ class Controller(Node):
         """
         Convert a position to a percentage.
         """
-        newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
+        if pos:
+            newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
+        else:
+            newpos = 0
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
