@@ -956,11 +956,12 @@ class Controller(Node):
                         if 'positions' in sh:
                             keys_to_convert = ['primary', 'secondary', 'tilt', 'velocity']
                             for key in keys_to_convert:
-                                if key in sh['positions']:
-                                    sh['positions'][key] = self.toPercent(sh['positions'][key])
+                                value = sh['positions'].get(key, 0)
+                                sh['positions'][key] = self.toPercent(value)
+                                    
                             # if non-existent or not 1-10 then set to default 0
                             capabilities = sh.get('capabilities')
-                            if capabilities not in range(1, 11):
+                            if capabilities is None or capabilities not in range(1, 11):
                                 sh['capabilities'] = 0
                                 
                         self.update_shade_data(sh['id'], sh)
