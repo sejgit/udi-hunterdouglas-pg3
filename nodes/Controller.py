@@ -960,8 +960,10 @@ class Controller(Node):
                             keys_to_convert = ['primary', 'secondary', 'tilt', 'velocity']
                             for key in keys_to_convert:
                                 value = sh['positions'].get(key, 0)
-                                sh['positions'][key] = self.toPercent(value)
-                                    
+                                if value != None:
+                                    sh['positions'][key] = self.toPercent(value)
+                                else:
+                                    LOGGER.error("ERROR!!!!")                                    
                             # if non-existent or not 1-10 then set to default 0
                             capabilities = sh.get('capabilities')
                             if capabilities is None or capabilities not in range(1, 11):
