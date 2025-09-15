@@ -953,22 +953,18 @@ class Controller(Node):
                     for sh in r["shades"]:
                         LOGGER.debug(f"Update shade {sh['id']}")
                         
-                        name = base64.b64decode(sh.get('name', '')).decode()
+                        name = base64.b64decode(sh.get('name', 'shade')).decode()
                         sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
                             keys_to_convert = ['primary', 'secondary', 'tilt', 'velocity']
                             for key in keys_to_convert:
                                 value = sh['positions'].get(key, 0)
-                                if value != None:
-                                    sh['positions'][key] = self.toPercent(value)
-                                else:
-                                    LOGGER.error("ERROR!!!!")                                    
+                                sh['positions'][key] = self.toPercent(value)
                             # if non-existent or not 1-10 then set to default 0
                             capabilities = sh.get('capabilities')
                             if capabilities is None or capabilities not in range(1, 11):
-                                sh['capabilities'] = 0
-                                
+                                sh['capabilities'] = 0                                
                         self.update_shade_data(sh['id'], sh)
                     self.rooms_map[r['_id']] = r
 
@@ -1189,7 +1185,7 @@ class Controller(Node):
         if pos:
             newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
         else:
-            newpos = 0
+            newpos = pos
         LOGGER.info(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
