@@ -1181,12 +1181,12 @@ class Controller(Node):
         """
         Convert a position to a percentage.
         """
-        LOGGER.info(f"{self.name}: toPercent:pos={pos}")
+        LOGGER.debug(f"{self.name}: toPercent:pos={pos}")
         if pos:
             newpos = math.trunc((float(pos) / divr * 100.0) + 0.5)
         else:
             newpos = pos
-        LOGGER.info(f"toPercent: pos={pos}, becomes {newpos}")
+        LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
 
     
