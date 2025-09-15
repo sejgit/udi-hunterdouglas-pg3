@@ -74,9 +74,9 @@ class Scene(udi_interface.Node):
         self.controller = polyglot.getNode(self.primary)
         self.address = address
         self.name = name
+        self.sid = sid
 
         self.lpfx = f'{address}:{name}'
-        self.sid = sid
         self.event_polling_in = False
         self._event_polling_thread = None
         
@@ -90,6 +90,7 @@ class Scene(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
+        self.setDriver('GV0', self.sid) #,report=True, force=True)
         self.rename(self.name)
 
         # wait for controller start ready
@@ -442,7 +443,6 @@ class Scene(udi_interface.Node):
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
-        # {'driver': 'GV1', 'value': 0, 'uom': 2, 'name': "Calc agrees"},
     ]
 
     
