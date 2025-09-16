@@ -600,6 +600,20 @@ class Controller(Node):
             # wait for events to process
             gateway_events = self.get_gateway_event()
 
+            # find the 'message' event using next() with a default value.
+            try:
+                event = next((e for e in gateway_events
+                              if e.get('message') == 'Not Found'), None)
+            except Exception as ex:
+                LOGGER.error(f"controller home event lookup error: {ex}", exc_info=True)
+                event = None
+
+            if event:
+                LOGGER.error("Message Error, restart Event loop. Removing.")
+                self.remove_gateway_event(event)
+                self.stop_sse_client_event.set()
+                break
+
             # find the 'home' event using next() with a default value.
             try:
                 event = next((e for e in gateway_events
