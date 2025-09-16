@@ -8,13 +8,12 @@ Controller class
 
 
 # std libraries
-import asyncio, base64, json, logging, math, os, socket, time
+import asyncio, base64, json, logging, math, socket, time
 from threading import Thread, Event, Lock, Condition
 
 # external libraries
 from udi_interface import Node, LOGGER, Custom, LOG_HANDLER # not used, ISY
 import requests
-import markdown2
 import aiohttp
 
 # personal libraries
@@ -188,11 +187,6 @@ class Controller(Node):
         self.checkParams()
 
         self.gateway_sse = None
-
-        configurationHelp = './POLYGLOT_CONFIG.md'
-        if os.path.isfile(configurationHelp):
-            cfgdoc = markdown2.markdown_path(configurationHelp)
-            self.poly.setCustomParamsDoc(cfgdoc)
 
         # Wait for all handlers to finish
         LOGGER.warning(f'Waiting for all handlers to complete...')

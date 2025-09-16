@@ -6,7 +6,6 @@ name = "pypi"
 [packages]
 udi-interface = "*"
 requests = "*"
-markdown2 = "*"
 aiohttp = "*"
 pytest = "*"
 
