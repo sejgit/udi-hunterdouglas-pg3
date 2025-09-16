@@ -1000,7 +1000,7 @@ class Controller(Node):
 
                 return True
             else:
-                LOGGER.error('updateAllfromServerG2 error, no data')
+                LOGGER.error('updateAllfromServerG3 error, no data')
                 return False
         except Exception as ex:
             LOGGER.error(f"updateAllfromServerG3 error:{ex}", exc_info=True)
@@ -1122,7 +1122,7 @@ class Controller(Node):
                         else:
                             room_name = self.rooms_map[scene['roomId']]['name'][0:ROOM_NAME_LIMIT]
                         scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
-                        self.scenes_map[scene['_id']] = scene
+                        self.scenes_map[scene['id']] = scene
 
                     LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
 
