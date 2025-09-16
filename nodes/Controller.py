@@ -330,12 +330,14 @@ class Controller(Node):
         updates Custom Parameters via the dashboard.
         """
         LOGGER.debug('Loading parameters now')
-        self.Parameters.load(params)
+        if params:
+            self.Parameters.update(params)
+        
         defaults = {"gatewayip": "powerview-g3.local"}
-        for param in defaults:
-            if params is None or not param in params:
-                self.Parameters[param] = defaults[param]
-                return
+        for param, default_value in defaults.items():
+            if param not in self.Parameters:
+                self.Parameters[param] = default_value
+
         cnt = 300
         while ((self.handler_data_st is None) and cnt > 0):
             LOGGER.warning(f'Waiting for Data: data={self.handler_data_st}... cnt={cnt}')
