@@ -427,7 +427,8 @@ class Controller(Node):
                 self.gateway = self.gateways[0]
         except:
             if type(self.gateway) == str:
-                self.gateways.append(self.gateway)
+                if self.gateway not in self.gateways:
+                    self.gateways.append(self.gateway)
             else:
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
