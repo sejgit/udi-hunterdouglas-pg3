@@ -676,9 +676,10 @@ class Controller(Node):
         Run sse client in a thread-safe loop for gateway events polling which then loads the events to an array.
         """
         LOGGER.debug(f"start")
-        self.stop_sse_client_event.clear()
-        future = asyncio.run_coroutine_threadsafe(self._client_sse(), self.mainloop)
-        LOGGER.info(f"sse client started: {future}")        
+        if self.generation == 3:
+            self.stop_sse_client_event.clear()
+            future = asyncio.run_coroutine_threadsafe(self._client_sse(), self.mainloop)
+            LOGGER.info(f"sse client started: {future}")        
 
         LOGGER.debug("exit")        
 
