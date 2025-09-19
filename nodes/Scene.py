@@ -91,7 +91,6 @@ class Scene(udi_interface.Node):
         START event subscription above
         """
         self.setDriver('GV0', self.sid) #,report=True, force=True)
-        self.rename(self.name)
 
         # wait for controller start ready
         self.controller.ready_event.wait()
