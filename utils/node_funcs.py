@@ -20,4 +20,4 @@ def get_valid_node_name(name,max_length=32):
     # Remove <>`~!@#$%^&*(){}[]?/\;:"'` characters from name
     sname = re.sub(r"[<>`~!@#$%^&*(){}[\]?/\\;:\"']+", "", name)
     # And return last part of name of over max_length
-    return sname[:offset]
+    return sname[offset:]
