@@ -2,7 +2,7 @@
 # controller
 ND-hdctrl-NAME = Hunter Douglas Controller
 ND-hdctrl-ICON = GenericRspCtl
-ST-ctl-GV0-NAME = NumberOfNodes
+ST-GV0-NAME = NumberOfNodes
 CMD-ctl-QUERY-NAME = Query
 CMD-ctl-DISCOVER-NAME = Discover
 CMD-ctl-UPDATE_PROFILE-NAME = Update Profile
