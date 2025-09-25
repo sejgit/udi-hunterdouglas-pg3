@@ -769,7 +769,7 @@ class Controller(Node):
             LOGGER.error(f"Failure")
         LOGGER.debug(f"Exit")
 
-        
+            
     async def discover(self):
         """
         Discover all nodes from the gateway.
@@ -780,110 +780,96 @@ class Controller(Node):
             return success
 
         self.discovery_in = True
-        LOGGER.info(f"In Discovery...")
+        LOGGER.info("In Discovery...")
 
-        nodes = self.poly.getNodes()
-        LOGGER.debug(f"current nodes = {nodes}")
-        nodes_old = []
-        for node in nodes:
-            LOGGER.debug(f"current node = {node}")
-            if node != 'hdctrl':
-                nodes_old.append(node)
-
+        nodes_existing = self.poly.getNodes()
+        LOGGER.debug(f"current nodes = {nodes_existing}")
+        nodes_old = [node for node in nodes_existing if node != 'hdctrl']
         nodes_new = []
+
         if self.updateAllFromServer():
-            for sh in self.shades_map.keys():
-                shade = self.shades_map[sh]
-                shadeId = shade['id']
-
-                shTxt = f"shade{shadeId}"
-                nodes_new.append(shTxt)
-                capabilities = int(shade['capabilities'])
-                if shTxt not in nodes:
-                    if capabilities in [7, 8]:
-                        self.poly.addNode(ShadeNoTilt(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [0, 3]:
-                        self.poly.addNode(ShadeOnlyPrimary(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [6]:
-                        self.poly.addNode(ShadeOnlySecondary(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [1, 2, 4]:
-                        self.poly.addNode(ShadeNoSecondary(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [5]:
-                        self.poly.addNode(ShadeOnlyTilt(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    else: # [9, 10] or else
-                        self.poly.addNode(Shade(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    self.wait_for_node_done()
-
-            for sc in self.scenes_map.keys():
-                scene = self.scenes_map[sc]
-                if self.generation == 2:
-                    sceneId = scene['id']
-                else:
-                    sceneId = scene['_id']
-
-                scTxt = f"scene{sceneId}"
-                nodes_new.append(scTxt)
-                if scTxt not in nodes:
-                    self.poly.addNode(Scene(self.poly,
-                                            self.address,
-                                            scTxt,
-                                            scene["name"],
-                                            sceneId))
-                    self.wait_for_node_done()
-        else:
-            LOGGER.error('Discovery Failure')
-            self.discovery_in = False
-            return success
-
-        if not (nodes_new == []):
-            # remove nodes which do not exist in gateway
-            nodes = self.poly.getNodesFromDb()
-            LOGGER.debug(f"db nodes = {nodes}")
-            nodes = self.poly.getNodes()
-            nodes_get = {key: nodes[key] for key in nodes if key != self.id}
-            LOGGER.debug(f"old nodes = {nodes_old}")
-            LOGGER.debug(f"new nodes = {nodes_new}")
-            LOGGER.debug(f"pre-delete nodes = {nodes_get}")
-            for node in nodes_get:
-                if (node not in nodes_new):
-                    LOGGER.info(f"need to delete node {node}")
-                    self.poly.delNode(node)
-            if nodes_get == nodes_new:
-                LOGGER.info('Discovery NO NEW activity')
-            self.numNodes = len(nodes_get)
+            self._discover_shades(nodes_existing, nodes_new)
+            self._discover_scenes(nodes_existing, nodes_new)
+            self._cleanup_nodes(nodes_new, nodes_old)
+            self.numNodes = len(nodes_new)
             self.setDriver('GV0', self.numNodes)
-            success = True
             LOGGER.debug(f"shades_array_map:  {self.shades_map}")
             LOGGER.debug(f"scenes_array_map:  {self.scenes_map}")
+            success = True
+        else:
+            LOGGER.error('Discovery Failure')
+
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
         return success
 
-    
+
+    def _discover_shades(self, nodes_existing, nodes_new):
+        for sh in self.shades_map:
+            shade = self.shades_map[sh]
+            shade_id = shade['id']
+            shTxt = f"shade{shade_id}"
+            capabilities = int(shade['capabilities'])
+
+            nodes_new.append(shTxt)
+            if shTxt not in nodes_existing:
+                node = self._create_shade_node(shade, shTxt, capabilities)
+                self.poly.addNode(node)
+                self.wait_for_node_done()
+
+
+    def _discover_scenes(self, nodes_existing, nodes_new):
+        for sc in self.scenes_map:
+            scene = self.scenes_map[sc]
+            scene_id = scene.get('id') or scene.get('_id')
+            scTxt = f"scene{scene_id}"
+
+            nodes_new.append(scTxt)
+            if scTxt not in nodes_existing:
+                node = Scene(self.poly, self.address, scTxt, scene["name"], scene_id)
+                self.poly.addNode(node)
+                self.wait_for_node_done()
+
+
+    def _cleanup_nodes(self, nodes_new, nodes_old):
+        nodes_db = self.poly.getNodesFromDb()
+        LOGGER.debug(f"db nodes = {nodes_db}")
+
+        nodes_current = self.poly.getNodes()
+        nodes_get = {key: nodes_current[key] for key in nodes_current if key != self.id}
+
+        LOGGER.debug(f"old nodes = {nodes_old}")
+        LOGGER.debug(f"new nodes = {nodes_new}")
+        LOGGER.debug(f"pre-delete nodes = {nodes_get}")
+
+        for node in nodes_get:
+            if node not in nodes_new:
+                LOGGER.info(f"need to delete node {node}")
+                self.poly.delNode(node)
+
+        if set(nodes_get) == set(nodes_new):
+            LOGGER.info('Discovery NO NEW activity')
+
+
+    def _create_shade_node(self, shade, shTxt, capabilities):
+        """
+        Helper function to create the appropriate node type during discovery.
+        """
+        node_classes = {
+            (7, 8): ShadeNoTilt,
+            (0, 3): ShadeOnlyPrimary,
+            (6,): ShadeOnlySecondary,
+            (1, 2, 4): ShadeNoSecondary,
+            (5,): ShadeOnlyTilt,
+        }
+
+        cls = next(
+            (cls for caps, cls in node_classes.items() if capabilities in caps),
+            Shade
+        )
+        return cls(self.poly, self.address, shTxt, shade["name"], shade["id"])
+
+        
     def delete(self):
         """
         This is called by Polyglot upon deletion of the NodeServer. If the
@@ -1130,6 +1116,7 @@ class Controller(Node):
         except Exception as ex:
             LOGGER.error(f'updateAllfromServerG2 error:{ex}')
             return False
+        
         
     def getHomeG2(self):
         """
