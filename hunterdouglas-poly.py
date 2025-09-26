@@ -22,7 +22,7 @@ from nodes import Controller
 VERSION = '1.13.1'
 """
 1.13.1
-DONE refactor discovery, put, get function
+DONE refactor discovery, put, get, goodip function
 
 1.13.0
 DONE polling rewrite, controller: shortPoll=G2 poll, heartbeat for all, re-start G3 events, longPoll=G3 poll

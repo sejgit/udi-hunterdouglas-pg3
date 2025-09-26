@@ -438,20 +438,27 @@ class Controller(Node):
             return False
 
         
-    def goodip(self):
+    def goodip(self) -> bool:
         """
-        Check for valid ip in gateway address.
+        Check for valid IPs in gateway addresses.
         """
-        good = True
+        bad_ips = []
+
         for ip in self.gateways:
             try:
                 socket.inet_aton(ip)
             except socket.error:
-                good = False
-                LOGGER.error('we have a bad gateway ip address %s', ip)
-                self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
-        return good
+                bad_ips.append(ip)
 
+        if bad_ips:
+            for ip in bad_ips:
+                LOGGER.error("Bad gateway IP address: %s", ip)
+            self.Notices['gateway'] = "Please note bad gateway address. Check 'gatewayip' in customParams"
+            return False
+
+        self.Notices.delete('gateway')
+        return True
+    
     
     def genCheck3(self):
         """
