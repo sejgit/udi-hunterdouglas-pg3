@@ -1140,41 +1140,48 @@ class Controller(Node):
         return None
 
     
-    def get(self, url):
+    def get(self, url: str) -> requests.Response:
         """
         Get data from the specified URL.
         """
-        res = None
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error fetching {url}: {e}")
+            self.Notices['badfetch'] = "Error fetching from gateway"
+            # Create a dummy response object with error info
             res = requests.Response()
             res.status_code = 300
-            res.raw = {"errMsg":"Error fetching from gateway, check configuration"}
-            self.Notices['badfetch'] = "Error fetching from gateway"
+            res._content = b'{"errMsg": "Error fetching from gateway, check configuration"}'
             return res
-        if res.status_code == 400:
-            LOGGER.error(f"Check if not primary {url}: {res.status_code}")
-            self.Notices['notPrimary'] = "Multi-Gateway environment - cannot determine primary"
+
+        status_handlers = {
+            400: ("notPrimary", "Multi-Gateway environment - cannot determine primary"),
+            503: ("HomeDoc", "PowerView Set-up not Complete See TroubleShooting Guide"),
+        }
+
+        if res.status_code in status_handlers:
+            key, message = status_handlers[res.status_code]
+            LOGGER.error(f"{message} ({url}): {res.status_code}")
+            self.Notices[key] = message
             return res
+
         if res.status_code == 404:
             LOGGER.error(f"Gateway wrong {url}: {res.status_code}")
             return res
-        if res.status_code == 503:
-            LOGGER.error(f"HomeDoc not set-up {url}: {res.status_code}")
-            self.Notices['HomeDoc'] = "PowerView Set-up not Complete See TroubleShooting Guide"
-            return res
-        elif res.status_code != requests.codes.ok:
+
+        if res.status_code != requests.codes.ok:
             LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
             return res
-        else:
-            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
-        self.Notices.delete('badfetch')
-        self.Notices.delete('notPrimary')
-        self.Notices.delete('HomeDoc')
-        return res
 
+        LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+
+        # Clean up any previous notices
+        for key in ['badfetch', 'notPrimary', 'HomeDoc']:
+            self.Notices.delete(key)
+
+        return res
+    
     
     def toPercent(self, pos, divr=1.0):
         """
