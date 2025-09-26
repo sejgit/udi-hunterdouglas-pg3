@@ -19,8 +19,11 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = '1.13.0'
+VERSION = '1.13.1'
 """
+1.13.1
+DONE refactor discovery, put function
+
 1.13.0
 DONE polling rewrite, controller: shortPoll=G2 poll, heartbeat for all, re-start G3 events, longPoll=G3 poll
 DONE polling rewrite, shade: shortPoll: re-start events if stopped, longPoll: not-used

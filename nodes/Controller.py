@@ -1187,35 +1187,37 @@ class Controller(Node):
             newpos = pos
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
-
     
-    def put(self, url, data=None):
+
+    def put(self, url: str, data: dict | None = None) -> dict | bool:
         """
         Put data to the specified URL.
         """
-        res = None
         try:
-            if data:
-                res = requests.put(url, json=data, headers={'accept': 'application/json'})
-            else:
-                res = requests.put(url, headers={'accept': 'application/json'})
+            headers = {'accept': 'application/json'}
+            res = requests.put(
+                url,
+                headers=headers,
+                json=data if data is not None else None,
+                timeout=10)
+
+            if res.status_code != requests.codes.ok:
+                LOGGER.error(f"Unexpected response in put {url}: {res.status_code}")
+                LOGGER.debug(f"Response body: {res.text}")
+                return False
+
+            LOGGER.debug(f"Put to '{url}' succeeded with status {res.status_code}, response body: {res.text}")
+            try:
+                return res.json()
+            except ValueError:
+                LOGGER.error(f"Invalid JSON response from {url}")
+                return False        
 
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error in put {url} with data {data}: {e}", exc_info=True)
-            if res:
-                LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
 
-        if res and res.status_code != requests.codes.ok:
-            LOGGER.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
-            LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
-            return False
-
-        response = res.json()
-        LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
-        return response
-
-
+    
     # Status that this node has. Should match the 'sts' section
     # of the nodedef file.
     drivers = [
