@@ -427,7 +427,10 @@ class Controller(Node):
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
-        if (self.goodip() and (self.genCheck3() or self.genCheck2())):
+        if not self.goodip():
+            return False
+        
+        if (self.genCheck3() or self.genCheck2()):
             LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
@@ -442,22 +445,27 @@ class Controller(Node):
         """
         Check for valid IPs in gateway addresses.
         """
+        good_ips = []
         bad_ips = []
 
         for ip in self.gateways:
             try:
                 socket.inet_aton(ip)
+                good_ips.append(ip)
             except socket.error:
                 bad_ips.append(ip)
 
         if bad_ips:
             for ip in bad_ips:
                 LOGGER.error("Bad gateway IP address: %s", ip)
-            self.Notices['gateway'] = "Please note bad gateway address. Check 'gatewayip' in customParams"
-            return False
 
-        self.Notices.delete('gateway')
-        return True
+        if good_ips:
+            self.Notices.delete('gateway')
+            self.gateways = good_ips
+            return True
+        else:
+            self.Notices['gateway'] = "All Gateway IPs unreachable. Check 'gatewayip' in customParams"
+            return False
     
     
     def genCheck3(self):
