@@ -429,6 +429,7 @@ class Controller(Node):
                 return False
         if not self.goodip():
             return False
+        LOGGER.info(f'good IPs:{self.gateways}')
         
         if (self.genCheck3() or self.genCheck2()):
             LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
