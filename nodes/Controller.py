@@ -183,50 +183,55 @@ class Controller(Node):
         self.connect_thread = Thread(target=mainloop.run_forever)
         self.connect_thread.start()
 
-        self.setParams()
-        self.checkParams()
+        #self.setParams() # null function
+        #self.checkParams() # remove as I believe redundant
 
-        self.gateway_sse = None
+        # self.gateway_sse = None # remove as not used
 
         # Wait for all handlers to finish
         LOGGER.warning(f'Waiting for all handlers to complete...')
         self.all_handlers_st_event.wait(timeout=60)
         if not self.all_handlers_st_event.is_set():
+            # start-up failed
             LOGGER.error("Timed out waiting for handlers to startup")
             self.setDriver('ST', 2) # start-up failed
+            self.Notices['error'] = 'Error start-up timeout.  Check config / hardware & restart'
             return
 
         # Discover and wait for discovery to complete
         asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
 
-        # fist update
-        if self.updateAllFromServer():
-            with self.shades_map_lock:
-                self.gateway_event.append({
-                    'evt': 'home',
-                    'shades': list(self.shades_map.keys()),
-                    'scenes': list(self.scenes_map.keys())
-                })
-            LOGGER.debug(f"first update event[0]: {self.gateway_event[0]}")
-
-            # first start of sse client via the async loop
-            if not self.sse_client_in:
-                self.start_sse_client()
-
-            # start event polling loop    
-            if not self.event_polling_in:
-                self.start_event_polling()
-
-            # signal to the nodes, its ok to start
-            self.ready_event.set()
-
-            # clear inital start-up message
-            if self.Notices.get('hello'):
-                self.Notices.delete('hello')
-        else:
+        # first update from Gateway
+        if not self.updateAllFromServer():
             # start-up failed
+            LOGGER.error(f'First discovery & update from Gateway failed!!! exit {self.name}')
+            self.Notices['error'] = 'Error first discovery-update.  Check config / hardware & restart'
             self.setDriver('ST', 2)
-            LOGGER.error(f'START-UP FAILED!!! exit {self.name}')
+            return
+
+        # fist update of shade & scene nodes
+        with self.shades_map_lock:
+            self.gateway_event.append({
+                'evt': 'home',
+                'shades': list(self.shades_map.keys()),
+                'scenes': list(self.scenes_map.keys())
+            })
+        LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
+
+        # first start of sse client via the async loop
+        if not self.sse_client_in:
+            self.start_sse_client()
+
+        # start event polling loop    
+        if not self.event_polling_in:
+            self.start_event_polling()
+
+        # signal to the nodes, its ok to start
+        self.ready_event.set()
+
+        # clear inital start-up message
+        if self.Notices.get('hello'):
+            self.Notices.delete('hello')
 
         LOGGER.info(f'exit {self.name}')
 
@@ -309,11 +314,16 @@ class Controller(Node):
 
         
     def dataHandler(self,data):
+        """
+        Called on start-up to retrieve persistence data from poly
+        NOTE: currently none stored or used in this plugin
+        """
         LOGGER.debug(f'enter: Loading data {data}')
         if data is None:
             LOGGER.warning("No custom data")
         else:
             self.Data.load(data)
+            LOGGER.info(f"Custom data:{self.Data}")
         self.handler_data_st = True
         self.check_handlers()
 
@@ -331,16 +341,6 @@ class Controller(Node):
         for param, default_value in defaults.items():
             if param not in self.Parameters:
                 self.Parameters[param] = default_value
-
-        cnt = 300
-        while ((self.handler_data_st is None) and cnt > 0):
-            LOGGER.warning(f'Waiting for Data: data={self.handler_data_st}... cnt={cnt}')
-            time.sleep(1)
-            cnt -= 1
-        if cnt == 0:
-            LOGGER.error("Timed out waiting for data to be loaded")
-        while not self.checkParams():
-            time.sleep(2)
         self.handler_params_st = True
         self.check_handlers()
 
@@ -381,12 +381,13 @@ class Controller(Node):
         
     def check_handlers(self):
         """
-        Once all start-up parameters are done then set event.
+        Once all start-up parameters are done then checkParams() and set event.
         """
         if (self.handler_params_st and self.handler_data_st and
                     self.handler_typedparams_st and self.handler_typeddata_st):
+            if self.checkParams():
                 self.all_handlers_st_event.set()
-
+                LOGGER.info("All parameters loaded & good")
                 
     def handleLevelChange(self, level):
         """
@@ -410,11 +411,15 @@ class Controller(Node):
         self.Notices.delete('gateway')
         # gatewaycheck = self.gateway
         self.gateway = self.Parameters.gatewayip
+
+        # gatewayip is None ; assign default
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
             LOGGER.info('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
-            self.Notices['gateway'] = 'Using default gateway local address; better to use a defined ip address.'
+            self.Notices['gateway'] = 'No gateway defined, assume G3 default; no check; best define ip address(es)'
             return True
+
+        # gatewayip is list or string
         try:
             if type(eval(self.gateway)) == list:
                 self.gateways = eval(self.gateway)
@@ -427,10 +432,52 @@ class Controller(Node):
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
-        if not self.goodip():
+
+        # check if valid ip address(es)
+        if not self._goodip():
             return False
         LOGGER.info(f'good IPs:{self.gateways}')
-        
+
+        # set self.generation during G2 or G3 check
+        if self._g2_or_g3():
+            return True
+        else:
+            return False
+
+
+    def _goodip(self) -> bool:
+        """
+        Check for valid IPs in gateway addresses.
+        """
+        good_ips = []
+        bad_ips = []
+
+        for ip in self.gateways:
+                try:
+                        socket.inet_aton(ip)
+                        good_ips.append(ip)
+                except socket.error:
+                        bad_ips.append(ip)
+
+        if bad_ips:
+                for ip in bad_ips:
+                        LOGGER.error("Bad gateway IP address: %s", ip)
+
+        if good_ips:
+                self.Notices.delete('gateway')
+                self.gateways = good_ips
+                return True
+        else:
+                self.Notices['gateway'] = "All Gateway IPs unreachable. Check 'gatewayip' in customParams"
+                return False
+
+
+    def _g2_or_g3(self):
+        """
+        Set self.generation to 2, 3, or unSet based on test return True if 2, 3 or False if unSet.
+        """
+        # TODO is there a way with one GET to figure out which gen?
+        # decide if G2 or G3
         if (self.genCheck3() or self.genCheck2()):
             LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
             self.Notices.delete('gateway')
@@ -442,37 +489,11 @@ class Controller(Node):
             return False
 
         
-    def goodip(self) -> bool:
-        """
-        Check for valid IPs in gateway addresses.
-        """
-        good_ips = []
-        bad_ips = []
-
-        for ip in self.gateways:
-            try:
-                socket.inet_aton(ip)
-                good_ips.append(ip)
-            except socket.error:
-                bad_ips.append(ip)
-
-        if bad_ips:
-            for ip in bad_ips:
-                LOGGER.error("Bad gateway IP address: %s", ip)
-
-        if good_ips:
-            self.Notices.delete('gateway')
-            self.gateways = good_ips
-            return True
-        else:
-            self.Notices['gateway'] = "All Gateway IPs unreachable. Check 'gatewayip' in customParams"
-            return False
-    
-    
     def genCheck3(self):
         """
         Check for a Generation 3 gateway.
         """
+        # TODO figure out way to settle on just one GET
         for ip in self.gateways:
             res = self.get(URL_GATEWAY.format(g=ip))
             if res.status_code == requests.codes.ok:
@@ -1035,10 +1056,6 @@ class Controller(Node):
                 return data
             else:
                 LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateways)
-                if self.genCheck3():
-                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateways)
-                else:
-                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
             LOGGER.error("getHomeG3 self.gateways NONE")
         return None
@@ -1147,10 +1164,6 @@ class Controller(Node):
                 return data
             else:
                 LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateways)
-                if self.genCheck2():
-                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateways)
-                else:
-                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
             LOGGER.error("getHomeG2 self.gateways NONE")
         return None
