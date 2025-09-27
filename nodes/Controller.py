@@ -330,7 +330,7 @@ class Controller(Node):
         """
         LOGGER.debug('Loading parameters now')
         if params:
-            self.Parameters.update(params)
+            self.Parameters.load(params)
         
         defaults = {"gatewayip": "powerview-g3.local"}
         for param, default_value in defaults.items():
