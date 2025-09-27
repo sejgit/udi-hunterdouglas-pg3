@@ -192,10 +192,10 @@ class Controller(Node):
             return
 
         # Discover and wait for discovery to complete
-        asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
+        discoverSuccess = asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
 
         # first update from Gateway
-        if not self.updateAllFromServer():
+        if not discoverSuccess:
             # start-up failed
             LOGGER.error(f'First discovery & update from Gateway failed!!! exit {self.name}')
             self.Notices['error'] = 'Error first discovery-update.  Check config / hardware & restart'
