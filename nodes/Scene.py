@@ -405,7 +405,7 @@ class Scene(udi_interface.Node):
         if self.controller.generation == 2:
             activateSceneUrl = URL_G2_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
             self.controller.get(activateSceneUrl)
-        else:
+        elif self.controller.generation == 3:
             activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(activateSceneUrl)
 

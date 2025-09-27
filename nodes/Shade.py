@@ -349,7 +349,7 @@ class Shade(udi_interface.Node):
             self.controller.put(shadeUrl)
             self.reportCmd("STOP", 2)
             LOGGER.info(f'cmd Shade Stop {self.lpfx}, {command}')
-        else:
+        elif self.controller.generation == 2:
             LOGGER.error(f'cmd Shade Stop error (none in gen2) {self.lpfx}, {command}')
 
 
@@ -385,11 +385,13 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 2:
             shadeUrl = URL_G2_SHADE_BATTERY.format(g=self.controller.gateway, id=self.sid)
             body = {}
-        else:
+        elif self.controller.generation == 3:
             shadeUrl = URL_SHADES_MOTION.format(g=self.controller.gateway, id=self.sid)
             body = {
                 "motion": "jog"
             }
+        else:
+            return
         self.controller.put(shadeUrl, data=body)
         self.reportCmd("JOG", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
@@ -409,7 +411,7 @@ class Shade(udi_interface.Node):
                 }
             }
             self.controller.put(shadeUrl, data=body)
-        else:
+        elif self.controller.generation == 3:
             LOGGER.error(f'cmd Shade CALIBRATE error, not implimented in G3 {self.lpfx}, {command}')            
         LOGGER.debug(f"Exit {self.lpfx}")        
 
@@ -502,10 +504,11 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 2:
             shade_payload = self._get_g2_positions(pos)
             shade_url = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
-        else:
+        elif self.controller.generation == 3:
             shade_payload = self._get_g3_positions(pos)
             shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
-
+        else:
+            return False
         self.controller.put(shade_url, data=shade_payload)
         LOGGER.info(f"setShadePosition = {shade_url} , {shade_payload}")
         return True
@@ -517,8 +520,10 @@ class Shade(udi_interface.Node):
         """
         if self.controller.generation == 2:
             newpos = math.trunc((float(pos) / 100.0) * divr)
-        else:
+        elif self.controller.generation == 3:
             newpos = (float(pos) / 100.0) * divr
+        else:
+            return 0
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")
         return newpos
 

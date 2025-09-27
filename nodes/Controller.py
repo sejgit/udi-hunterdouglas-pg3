@@ -541,7 +541,7 @@ class Controller(Node):
             if self.generation == 2:
                 self.pollUpdate()
 
-            else:
+            elif self.generation == 3:
                 # start sse polling if not running for G3
                 if not self.sse_client_in:
                     self.start_sse_client()
