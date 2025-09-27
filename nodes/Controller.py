@@ -168,6 +168,12 @@ class Controller(Node):
         self.setDriver('ST', 1, report = True, force = True)
         self.update_last = 0.0
 
+	# startup completion flags
+        self.handler_params_st = False
+        self.handler_data_st = False
+        self.handler_typedparams_st = False
+        self.handler_typeddata_st = False
+
         # Send the profile files to the ISY if neccessary or version changed.
         self.poly.updateProfile()
 
@@ -182,11 +188,6 @@ class Controller(Node):
         asyncio.set_event_loop(mainloop)
         self.connect_thread = Thread(target=mainloop.run_forever)
         self.connect_thread.start()
-
-        #self.setParams() # null function
-        #self.checkParams() # remove as I believe redundant
-
-        # self.gateway_sse = None # remove as not used
 
         # Wait for all handlers to finish
         LOGGER.warning(f'Waiting for all handlers to complete...')
@@ -345,11 +346,6 @@ class Controller(Node):
         self.check_handlers()
 
         
-    def setParams(self):
-        """ Not used."""
-        pass
-
-    
     def typedParameterHandler(self, params):
         """
         Called via the CUSTOMTYPEDPARAMS event. This event is sent When
@@ -478,7 +474,7 @@ class Controller(Node):
         """
         # TODO is there a way with one GET to figure out which gen?
         # decide if G2 or G3
-        if (self.genCheck3() or self.genCheck2()):
+        if (self._genCheck3() or self._genCheck2()):
             LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
@@ -489,7 +485,7 @@ class Controller(Node):
             return False
 
         
-    def genCheck3(self):
+    def _genCheck3(self):
         """
         Check for a Generation 3 gateway.
         """
@@ -507,7 +503,7 @@ class Controller(Node):
         return False
 
     
-    def genCheck2(self):
+    def _genCheck2(self):
         """
         Check for a Generation 2 gateway.
         """
