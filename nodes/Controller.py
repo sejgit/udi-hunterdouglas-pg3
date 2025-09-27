@@ -129,10 +129,10 @@ class Controller(Node):
         self.TypedData       = Custom(self.poly, 'customtypeddata')
 
         # startup completion flags
-        self.handler_params_st = None
-        self.handler_data_st = None
-        self.handler_typedparams_st = None
-        self.handler_typeddata_st = None
+        self.handler_params_st = False
+        self.handler_data_st = False
+        self.handler_typedparams_st = False
+        self.handler_typeddata_st = False
 
         # Subscribe to various events from the Interface class.
         # The START event is unique in that you can subscribe to 
@@ -167,13 +167,7 @@ class Controller(Node):
         self.Notices['hello'] = 'Plugin Start-up'
         self.setDriver('ST', 1, report = True, force = True)
         self.update_last = 0.0
-
-	# startup completion flags
-        self.handler_params_st = False
-        self.handler_data_st = False
-        self.handler_typedparams_st = False
-        self.handler_typeddata_st = False
-
+        
         # Send the profile files to the ISY if neccessary or version changed.
         self.poly.updateProfile()
 
