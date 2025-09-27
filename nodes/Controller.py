@@ -12,17 +12,15 @@ import asyncio, base64, json, logging, math, socket, time
 from threading import Thread, Event, Lock, Condition
 
 # external libraries
-from udi_interface import Node, LOGGER, Custom, LOG_HANDLER # not used, ISY
+from udi_interface import Node, LOGGER, Custom, LOG_HANDLER
 import requests
 import aiohttp
 
 # personal libraries
-from utils.node_funcs import get_valid_node_name # not using  get_valid_node_address as id's seem to behave
 from utils.time import check_timedelta_iso
 
 # Nodes
 from nodes import *
-
 
 # limit the room label length as room - shade/scene must be < 30
 ROOM_NAME_LIMIT = 15
@@ -344,8 +342,7 @@ class Controller(Node):
     def typedParameterHandler(self, params):
         """
         Called via the CUSTOMTYPEDPARAMS event. This event is sent When
-        the Custom Typed Parameters are created.  See the checkParams()
-        below.  Generally, this event can be ignored.
+        the Custom Typed Parameters are created.
         """
         LOGGER.debug('Loading typed parameters now')
         self.TypedParameters.load(params)
@@ -372,7 +369,7 @@ class Controller(Node):
         
     def check_handlers(self):
         """
-        Once all start-up parameters are done then checkParams() and set event.
+        Once all start-up parameters are done then set event.
         """
         if (self.handler_params_st and self.handler_data_st and
                     self.handler_typedparams_st and self.handler_typeddata_st):
@@ -406,7 +403,7 @@ class Controller(Node):
         # gatewayip is None ; assign default
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
-            LOGGER.info('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
+            LOGGER.info('Gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
             self.Notices['gateway'] = 'No gateway defined, assume G3 default; no check; best define ip address(es)'
             return True
 
@@ -475,7 +472,7 @@ class Controller(Node):
             self.Notices.delete('notPrimary')
             return True
         else:
-            LOGGER.info(f"checkParams: no gateway found in {self.gateways}")
+            LOGGER.info(f"No gateway found in {self.gateways}")
             self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
             return False
 
@@ -787,9 +784,6 @@ class Controller(Node):
         Run Discover from command.
         """
         LOGGER.info(f"Enter {command}")
-        # force a gateway check
-        self.checkParams()
-        
         # run discover
         if asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result():
             LOGGER.info(f"Success")
@@ -980,7 +974,7 @@ class Controller(Node):
                         LOGGER.debug(f"Update shade {sh['id']}")
                         
                         name = base64.b64decode(sh.get('name', 'shade')).decode()
-                        sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
+                        sh['name'] = self.poly.getValidName(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
                             keys_to_convert = ['primary', 'secondary', 'tilt', 'velocity']
@@ -1004,7 +998,7 @@ class Controller(Node):
                         room_name = "Multi"
                     else:
                         room_name = self.rooms_map.get(scene['room_Id'], {}).get('name', "Multi")[0:ROOM_NAME_LIMIT]
-                    scene['name'] = get_valid_node_name(f"{room_name} - {name}")
+                    scene['name'] = self.poly.getValidName(f"{room_name} - {name}")
                     self.scenes_map[scene['_id']] = scene
 
                 LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
@@ -1094,7 +1088,7 @@ class Controller(Node):
                         LOGGER.debug(f"Update shade {sh['id']}")
                         name = base64.b64decode(sh['name']).decode()
                         room_name = self.rooms_map[sh['roomId']]['name'][0:ROOM_NAME_LIMIT]
-                        sh['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        sh['name'] = self.poly.getValidName('%s - %s' % (room_name, name))
                         if 'positions' in sh:
                             pos = sh['positions']
                             # Use .get() to safely retrieve values and provide defaults
@@ -1128,7 +1122,7 @@ class Controller(Node):
                             room_name = "Multi"
                         else:
                             room_name = self.rooms_map[scene['roomId']]['name'][0:ROOM_NAME_LIMIT]
-                        scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        scene['name'] = self.poly.getValidName('%s - %s' % (room_name, name))
                         self.scenes_map[scene['id']] = scene
 
                     LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
