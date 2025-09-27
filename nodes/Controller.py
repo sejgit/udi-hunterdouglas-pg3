@@ -342,7 +342,8 @@ class Controller(Node):
         for param, default_value in defaults.items():
             if param not in self.Parameters:
                 self.Parameters[param] = default_value
-        self.handler_params_st = True
+            if self.checkParams():
+                self.handler_params_st = True
         self.check_handlers()
 
         
@@ -381,9 +382,9 @@ class Controller(Node):
         """
         if (self.handler_params_st and self.handler_data_st and
                     self.handler_typedparams_st and self.handler_typeddata_st):
-            if self.checkParams():
-                self.all_handlers_st_event.set()
-                LOGGER.info("All parameters loaded & good")
+            self.all_handlers_st_event.set()
+            LOGGER.info("All parameters loaded & good")
+                
                 
     def handleLevelChange(self, level):
         """
