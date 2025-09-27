@@ -47,7 +47,7 @@ URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
 HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
 """
 URL_G2_HUB = 'http://{g}/api/userdata/'
 URL_G2_ROOMS = 'http://{g}/api/rooms'
@@ -435,80 +435,83 @@ class Controller(Node):
 
     def _goodip(self) -> bool:
         """
-        Check for valid IPs in gateway addresses.
+        Validate gateway IP addresses.
+        Keeps only valid ones in self.gateways.
+        Returns True if at least one valid IP remains, False otherwise.
         """
         good_ips = []
-        bad_ips = []
-
         for ip in self.gateways:
-                try:
-                        socket.inet_aton(ip)
-                        good_ips.append(ip)
-                except socket.error:
-                        bad_ips.append(ip)
-
-        if bad_ips:
-                for ip in bad_ips:
-                        LOGGER.error("Bad gateway IP address: %s", ip)
+            try:
+                socket.inet_aton(ip)
+                good_ips.append(ip)
+            except OSError:  # OSError is the modern base for socket.error
+                LOGGER.error("Bad gateway IP address: %s", ip)
 
         if good_ips:
-                self.Notices.delete('gateway')
-                self.gateways = good_ips
-                return True
-        else:
-                self.Notices['gateway'] = "All Gateway IPs unreachable. Check 'gatewayip' in customParams"
-                return False
+            self.Notices.delete('gateway')
+            self.gateways = good_ips
+            return True
+
+        self.Notices['gateway'] = "All Gateway IPs unreachable. Check 'gatewayip' in customParams"
+        return False
 
 
     def _g2_or_g3(self):
         """
-        Set self.generation to 2, 3, or unSet based on test return True if 2, 3 or False if unSet.
+        Set self.generation to 2, 3, or unSet.
+        Returns True if a gateway is found, False otherwise.
         """
-        # TODO is there a way with one GET to figure out which gen?
-        # decide if G2 or G3
-        if (self._genCheck3() or self._genCheck2()):
+        if (self._set_gateway(3, self._is_g3_primary) or
+            self._set_gateway(2, self._is_g2)):
             LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
             return True
-        else:
-            LOGGER.info(f"No gateway found in {self.gateways}")
-            self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
-            return False
 
-        
-    def _genCheck3(self):
-        """
-        Check for a Generation 3 gateway.
-        """
-        # TODO figure out way to settle on just one GET
-        for ip in self.gateways:
-            res = self.get(URL_GATEWAY.format(g=ip))
-            if res.status_code == requests.codes.ok:
-                LOGGER.info(f"{ip} is PowerView G3")
-                res = self.get(URL_HOME.format(g=ip))
-                if res.status_code == requests.codes.ok:
-                    LOGGER.info(f"{ip} is PowerView G3 Primary")
-                    self.gateway = ip
-                    self.generation = 3
-                    return True
+        LOGGER.info(f"No gateway found in {self.gateways}")
+        self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
         return False
 
-    
-    def _genCheck2(self):
+        
+    def _set_gateway(self, generation, check_func):
         """
-        Check for a Generation 2 gateway.
+        Generic gateway checker.
+        Iterates over self.gateways, applies check_func(ip).
+        If True, sets self.gateway and self.generation, then returns True.
         """
         for ip in self.gateways:
-            res = self.get(URL_G2_HUB.format(g=ip))
-            if res.status_code == requests.codes.ok:
-                LOGGER.info(f"{ip} is PowerView 2")
+            if check_func(ip):
                 self.gateway = ip
-                self.generation = 2
+                self.generation = generation
                 return True
         return False
 
     
+    def _is_g3_primary(self, ip):
+        """Return True if ip is a G3 primary gateway."""
+        res = self.get(URL_GATEWAY.format(g=ip))
+        if res.status_code != requests.codes.ok:
+            return False
+
+        LOGGER.info(f"{ip} is PowerView G3, now checking if Primary")
+        res = self.get(URL_ROOMS.format(g=ip))
+        if res.status_code == requests.codes.ok:
+            LOGGER.info(f"{ip} is verified PowerView G3 Primary")
+            return True
+
+        LOGGER.error(f"{ip} is NOT PowerView G3 Primary")
+        return False
+
+
+    def _is_g2(self, ip):
+        """Return True if ip is a G2 gateway."""
+        res = self.get(URL_G2_HUB.format(g=ip))
+        if res.status_code == requests.codes.ok:
+            LOGGER.info(f"{ip} is PowerView 2")
+            return True
+        return False
+
+
     def poll(self, flag):
         """
         Wait until all start-up is ready, and pause if in discovery.
