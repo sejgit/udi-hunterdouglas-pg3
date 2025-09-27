@@ -21,7 +21,8 @@ HunterDouglas PowerView G3 url's
 URL_DEFAULT_GATEWAY = 'powerview-g3.local'
 URL_GATEWAY = 'http://{g}/gateway'
 URL_HOME = 'http://{g}/home'
-URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_ROOMS = 'http://{g}/home/rooms'
+URL_ROOM = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
 URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
 URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
@@ -35,7 +36,7 @@ URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
 HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
 """
 URL_G2_HUB = 'http://{g}/api/userdata/'
 URL_G2_ROOMS = 'http://{g}/api/rooms'
