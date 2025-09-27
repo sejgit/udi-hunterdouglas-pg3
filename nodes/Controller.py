@@ -386,8 +386,8 @@ class Controller(Node):
             LOGGER.info("Setting basic config to DEBUG...")
             LOG_HANDLER.set_basic_config(True,logging.DEBUG)
         else:
-            LOGGER.info("Setting basic config to WARNING...")
-            LOG_HANDLER.set_basic_config(True,logging.WARNING)
+            LOGGER.info("Setting basic config to INFO...")
+            LOG_HANDLER.set_basic_config(True,logging.INFO)
         LOGGER.info(f'exit: level={level}')
 
         
