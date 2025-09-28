@@ -93,7 +93,7 @@ class Scene(udi_interface.Node):
         """
         self.setDriver('ST', 2,report=True, force=True)
         self.setDriver('GV0', 0,report=True, force=True)
-        self.setDriver('GV0', self.sid) #,report=True, force=True)
+        self.setDriver('GV0', self.sid,report=True, force=True)
 
         # wait for controller start ready
         self.controller.ready_event.wait()
