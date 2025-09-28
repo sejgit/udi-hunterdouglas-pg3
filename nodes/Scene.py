@@ -91,6 +91,8 @@ class Scene(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
+        self.setDriver('ST', 2,report=True, force=True)
+        self.setDriver('GV0', 0,report=True, force=True)
         self.setDriver('GV0', self.sid) #,report=True, force=True)
 
         # wait for controller start ready
