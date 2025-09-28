@@ -135,6 +135,7 @@ class Shade(udi_interface.Node):
         )
         self._event_polling_thread.start()
         LOGGER.info(f"exit: {self.lpfx}")
+        
 
     def _poll_events(self):
         """
@@ -433,30 +434,39 @@ class Shade(udi_interface.Node):
         Set the position of the shade; setting primary, secondary, tilt
         """
         LOGGER.info(f'cmdSetpos {self.lpfx}, {command}')
-        if command:
-            try:
-                pos = {}
-                query = command.get("query")
-                LOGGER.debug(f'Shade Setpos query {query}')
-                if "SETPRIM.uom100" in query:
-                    pos["primary"] = int(query["SETPRIM.uom100"])
-                if "SETSECO.uom100" in query:
-                    pos["secondary"] = int(query["SETSECO.uom100"])
-                if "SETTILT.uom100" in query:
-                    pos["tilt"] = int(query["SETTILT.uom100"])
-                if pos != {}:
-                    LOGGER.info(f'Shade Setpos {pos}')
-                    self.setShadePosition(pos)
-                    # self.positions.update(pos)
-                else:
-                    LOGGER.error('Shade Setpos --nothing to set--')
-            except Exception as ex:
-                LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
-        else:
+
+        if not command:
             LOGGER.error("No positions given")
+            return
+        
+        try:
+            query = command.get("query", {})
+            LOGGER.debug(f'Shade Setpos query {query}')
+
+            key_map = {
+                "SETPRIM.uom100": "primary",
+                "SETSECO.uom100": "secondary",
+                "SETTILT.uom100": "tilt",
+            }
+
+            pos = {
+                        name: int(query[key])
+                        for key, name in key_map.items()
+                        if key in query
+                    }
+
+            if pos:
+                LOGGER.info(f"Shade Setpos {pos}")
+                self.setShadePosition(pos)
+            else:
+                LOGGER.error("Shade Setpos --nothing to set--")
+
+        except (ValueError, TypeError, KeyError) as ex:
+            LOGGER.error(f"Shade Setpos failed {self.lpfx}: {ex}", exc_info=True)
+
         LOGGER.debug(f"Exit {self.lpfx}")
 
-        
+
     def _get_g2_positions(self, pos):
         """
         Helper function to build G2 positions payload.

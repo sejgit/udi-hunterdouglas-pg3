@@ -24,7 +24,7 @@ VERSION = '1.13.1'
 1.13.1
 DONE refactor controller discovery, put, get, goodip functions
 DONE refactor controller startup, config, params, naming, logging
-TODO figure out how to get query() to refresh in eisy-ui
+DONE refactor cmdSetPos
 
 1.13.0
 DONE polling rewrite, controller: shortPoll=G2 poll, heartbeat for all, re-start G3 events, longPoll=G3 poll
