@@ -91,7 +91,7 @@ class Shade(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.setDriver('GV0', self.sid) #,report=True, force=True)
+        self.setDriver('GV0', self.sid,report=True, force=True)
         
         # wait for controller start ready
         self.controller.ready_event.wait()
@@ -198,7 +198,7 @@ class Shade(udi_interface.Node):
             if event.get('evt') == 'motion-started':
                 LOGGER.info(f'shade {self.sid} motion-started event')
                 self.updatePositions(self.posToPercent(event['targetPositions']))
-                self.setDriver('ST', 1) #,report=True, force=True)
+                self.setDriver('ST', 1,report=True, force=True)
                 self.reportCmd('DON', 2)
                 self.controller.remove_gateway_event(event)
 
@@ -206,7 +206,7 @@ class Shade(udi_interface.Node):
             if event.get('evt') == 'motion-stopped':
                 LOGGER.info(f'shade {self.sid} motion-stopped event')
                 self.updatePositions(self.posToPercent(event['currentPositions']))
-                self.setDriver('ST', 0) #,report=True, force=True)
+                self.setDriver('ST', 0,report=True, force=True)
                 self.reportCmd('DOF', 2)
                 # add event for scene active calc
                 d = datetime.now(timezone.utc).isoformat().rstrip('+00:00') + 'Z'
@@ -232,7 +232,7 @@ class Shade(udi_interface.Node):
                 LOGGER.error(f'shade {self.sid} battery-event')
                 # the shade/event labels the battery different Status/level
                 self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
-                self.setDriver('GV6', event["batterylevel"]) #,report=True, force=True)
+                self.setDriver('GV6', event["batterylevel"],report=True, force=True)
                 self.updatePositions(self.posToPercent(event['currentPositions']))
                 self.controller.remove_gateway_event(event)
 
@@ -249,11 +249,11 @@ class Shade(udi_interface.Node):
                 LOGGER.warning(f"Name error current:{self.name}  new:{shade['name']}")
                 self.rename(shade['name'])
                 LOGGER.warning(f"Renamed {self.name}")
-            self.setDriver('ST', 0) #,report=True, force=True)
+            self.setDriver('ST', 0,report=True, force=True)
             self.reportCmd('DOF', 2)
-            self.setDriver('GV1', shade["roomId"]) #,report=True, force=True)
-            self.setDriver('GV6', shade["batteryStatus"]) #,report=True, force=True)
-            self.setDriver('GV5', self.capabilities) #,report=True, force=True)
+            self.setDriver('GV1', shade["roomId"],report=True, force=True)
+            self.setDriver('GV6', shade["batteryStatus"],report=True, force=True)
+            self.setDriver('GV5', self.capabilities,report=True, force=True)
             self.updatePositions(shade['positions'])
             return True
         except Exception as ex:
