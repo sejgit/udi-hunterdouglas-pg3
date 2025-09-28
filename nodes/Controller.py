@@ -80,6 +80,7 @@ class Controller(Node):
         """
         super(Controller, self).__init__(poly, primary, address, name)
         # importand flags, timers, vars
+        self.poly = poly
         self.address = address
         self.name = name
         self.hb = 0 # heartbeat

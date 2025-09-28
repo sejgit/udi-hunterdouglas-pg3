@@ -58,7 +58,7 @@ class Scene(udi_interface.Node):
     GV0 scene Id is just for reference
     GV1 using calculation of shade position as feedback check on gateway (just for debug)
     """
-    def __init__(self, polyglot, primary, address, name, sid):
+    def __init__(self, poly, primary, address, name, sid):
         """
         Initialize the node.
 
@@ -68,11 +68,11 @@ class Scene(udi_interface.Node):
         :param name: This nodes name
         :param sid: scene id
         """
-        super().__init__(polyglot, primary, address, name)
+        super().__init__(poly, primary, address, name)
 
-        self.poly = polyglot
+        self.poly = poly
         self.primary = primary
-        self.controller = polyglot.getNode(self.primary)
+        self.controller = poly.getNode(self.primary)
         self.address = address
         self.name = name
         self.sid = sid

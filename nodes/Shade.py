@@ -58,7 +58,7 @@ class Shade(udi_interface.Node):
     """
     Node for shades which sets and responds to shade position & status.
     """
-    def __init__(self, polyglot, primary, address, name, sid):
+    def __init__(self, poly, primary, address, name, sid):
         """
         Initialize the node.
 
@@ -67,10 +67,10 @@ class Shade(udi_interface.Node):
         :param address: This nodes address
         :param name: This nodes name
         """
-        super().__init__(polyglot, primary, address, name)
-        self.poly = polyglot
+        super().__init__(poly, primary, address, name)
+        self.poly = poly
         self.primary = primary
-        self.controller = polyglot.getNode(self.primary)
+        self.controller = poly.getNode(self.primary)
         self.address = address
         self.name = name
         self.sid = sid
