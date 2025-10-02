@@ -21,7 +21,8 @@ HunterDouglas PowerView G3 url's
 URL_DEFAULT_GATEWAY = 'powerview-g3.local'
 URL_GATEWAY = 'http://{g}/gateway'
 URL_HOME = 'http://{g}/home'
-URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_ROOMS = 'http://{g}/home/rooms'
+URL_ROOM = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
 URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
 URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
@@ -35,7 +36,7 @@ URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
 HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
 """
 URL_G2_HUB = 'http://{g}/api/userdata/'
 URL_G2_ROOMS = 'http://{g}/api/rooms'
@@ -57,7 +58,7 @@ class Scene(udi_interface.Node):
     GV0 scene Id is just for reference
     GV1 using calculation of shade position as feedback check on gateway (just for debug)
     """
-    def __init__(self, polyglot, primary, address, name, sid):
+    def __init__(self, poly, primary, address, name, sid):
         """
         Initialize the node.
 
@@ -67,11 +68,11 @@ class Scene(udi_interface.Node):
         :param name: This nodes name
         :param sid: scene id
         """
-        super().__init__(polyglot, primary, address, name)
+        super().__init__(poly, primary, address, name)
 
-        self.poly = polyglot
+        self.poly = poly
         self.primary = primary
-        self.controller = polyglot.getNode(self.primary)
+        self.controller = poly.getNode(self.primary)
         self.address = address
         self.name = name
         self.sid = sid
@@ -90,7 +91,7 @@ class Scene(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.setDriver('GV0', self.sid) #,report=True, force=True)
+        self.setDriver('GV0', self.sid)
 
         # wait for controller start ready
         self.controller.ready_event.wait()
@@ -404,7 +405,7 @@ class Scene(udi_interface.Node):
         if self.controller.generation == 2:
             activateSceneUrl = URL_G2_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
             self.controller.get(activateSceneUrl)
-        else:
+        elif self.controller.generation == 3:
             activateSceneUrl = URL_SCENES_ACTIVATE.format(g=self.controller.gateway, id=self.sid)
             self.controller.put(activateSceneUrl)
 
