@@ -23,7 +23,8 @@ HunterDouglas PowerView G3 url's
 URL_DEFAULT_GATEWAY = 'powerview-g3.local'
 URL_GATEWAY = 'http://{g}/gateway'
 URL_HOME = 'http://{g}/home'
-URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_ROOMS = 'http://{g}/home/rooms'
+URL_ROOM = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
 URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
 URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
@@ -37,7 +38,7 @@ URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
 HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
 """
 URL_G2_HUB = 'http://{g}/api/userdata/'
 URL_G2_ROOMS = 'http://{g}/api/rooms'
@@ -57,7 +58,7 @@ class Shade(udi_interface.Node):
     """
     Node for shades which sets and responds to shade position & status.
     """
-    def __init__(self, polyglot, primary, address, name, sid):
+    def __init__(self, poly, primary, address, name, sid):
         """
         Initialize the node.
 
@@ -66,10 +67,10 @@ class Shade(udi_interface.Node):
         :param address: This nodes address
         :param name: This nodes name
         """
-        super().__init__(polyglot, primary, address, name)
-        self.poly = polyglot
+        super().__init__(poly, primary, address, name)
+        self.poly = poly
         self.primary = primary
-        self.controller = polyglot.getNode(self.primary)
+        self.controller = poly.getNode(self.primary)
         self.address = address
         self.name = name
         self.sid = sid
@@ -90,7 +91,7 @@ class Shade(udi_interface.Node):
         This method is called after Polyglot has added the node per the
         START event subscription above
         """
-        self.setDriver('GV0', self.sid) #,report=True, force=True)
+        self.setDriver('GV0', self.sid,report=True, force=True)
         
         # wait for controller start ready
         self.controller.ready_event.wait()
@@ -134,6 +135,7 @@ class Shade(udi_interface.Node):
         )
         self._event_polling_thread.start()
         LOGGER.info(f"exit: {self.lpfx}")
+        
 
     def _poll_events(self):
         """
@@ -197,7 +199,7 @@ class Shade(udi_interface.Node):
             if event.get('evt') == 'motion-started':
                 LOGGER.info(f'shade {self.sid} motion-started event')
                 self.updatePositions(self.posToPercent(event['targetPositions']))
-                self.setDriver('ST', 1) #,report=True, force=True)
+                self.setDriver('ST', 1,report=True, force=True)
                 self.reportCmd('DON', 2)
                 self.controller.remove_gateway_event(event)
 
@@ -205,7 +207,7 @@ class Shade(udi_interface.Node):
             if event.get('evt') == 'motion-stopped':
                 LOGGER.info(f'shade {self.sid} motion-stopped event')
                 self.updatePositions(self.posToPercent(event['currentPositions']))
-                self.setDriver('ST', 0) #,report=True, force=True)
+                self.setDriver('ST', 0,report=True, force=True)
                 self.reportCmd('DOF', 2)
                 # add event for scene active calc
                 d = datetime.now(timezone.utc).isoformat().rstrip('+00:00') + 'Z'
@@ -231,7 +233,7 @@ class Shade(udi_interface.Node):
                 LOGGER.error(f'shade {self.sid} battery-event')
                 # the shade/event labels the battery different Status/level
                 self.controller.shades_map[self.sid]["batteryStatus"] = event['batteryLevel']
-                self.setDriver('GV6', event["batterylevel"]) #,report=True, force=True)
+                self.setDriver('GV6', event["batterylevel"],report=True, force=True)
                 self.updatePositions(self.posToPercent(event['currentPositions']))
                 self.controller.remove_gateway_event(event)
 
@@ -248,11 +250,11 @@ class Shade(udi_interface.Node):
                 LOGGER.warning(f"Name error current:{self.name}  new:{shade['name']}")
                 self.rename(shade['name'])
                 LOGGER.warning(f"Renamed {self.name}")
-            self.setDriver('ST', 0) #,report=True, force=True)
+            self.setDriver('ST', 0,report=True, force=True)
             self.reportCmd('DOF', 2)
-            self.setDriver('GV1', shade["roomId"]) #,report=True, force=True)
-            self.setDriver('GV6', shade["batteryStatus"]) #,report=True, force=True)
-            self.setDriver('GV5', self.capabilities) #,report=True, force=True)
+            self.setDriver('GV1', shade["roomId"],report=True, force=True)
+            self.setDriver('GV6', shade["batteryStatus"],report=True, force=True)
+            self.setDriver('GV5', self.capabilities,report=True, force=True)
             self.updatePositions(shade['positions'])
             return True
         except Exception as ex:
@@ -348,7 +350,7 @@ class Shade(udi_interface.Node):
             self.controller.put(shadeUrl)
             self.reportCmd("STOP", 2)
             LOGGER.info(f'cmd Shade Stop {self.lpfx}, {command}')
-        else:
+        elif self.controller.generation == 2:
             LOGGER.error(f'cmd Shade Stop error (none in gen2) {self.lpfx}, {command}')
 
 
@@ -384,11 +386,13 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 2:
             shadeUrl = URL_G2_SHADE_BATTERY.format(g=self.controller.gateway, id=self.sid)
             body = {}
-        else:
+        elif self.controller.generation == 3:
             shadeUrl = URL_SHADES_MOTION.format(g=self.controller.gateway, id=self.sid)
             body = {
                 "motion": "jog"
             }
+        else:
+            return
         self.controller.put(shadeUrl, data=body)
         self.reportCmd("JOG", 2)
         LOGGER.debug(f"Exit {self.lpfx}")        
@@ -408,7 +412,7 @@ class Shade(udi_interface.Node):
                 }
             }
             self.controller.put(shadeUrl, data=body)
-        else:
+        elif self.controller.generation == 3:
             LOGGER.error(f'cmd Shade CALIBRATE error, not implimented in G3 {self.lpfx}, {command}')            
         LOGGER.debug(f"Exit {self.lpfx}")        
 
@@ -430,30 +434,39 @@ class Shade(udi_interface.Node):
         Set the position of the shade; setting primary, secondary, tilt
         """
         LOGGER.info(f'cmdSetpos {self.lpfx}, {command}')
-        if command:
-            try:
-                pos = {}
-                query = command.get("query")
-                LOGGER.debug(f'Shade Setpos query {query}')
-                if "SETPRIM.uom100" in query:
-                    pos["primary"] = int(query["SETPRIM.uom100"])
-                if "SETSECO.uom100" in query:
-                    pos["secondary"] = int(query["SETSECO.uom100"])
-                if "SETTILT.uom100" in query:
-                    pos["tilt"] = int(query["SETTILT.uom100"])
-                if pos != {}:
-                    LOGGER.info(f'Shade Setpos {pos}')
-                    self.setShadePosition(pos)
-                    # self.positions.update(pos)
-                else:
-                    LOGGER.error('Shade Setpos --nothing to set--')
-            except Exception as ex:
-                LOGGER.error(f'Shade Setpos failed {self.lpfx}: {ex}', exc_info=True)
-        else:
+
+        if not command:
             LOGGER.error("No positions given")
+            return
+        
+        try:
+            query = command.get("query", {})
+            LOGGER.debug(f'Shade Setpos query {query}')
+
+            key_map = {
+                "SETPRIM.uom100": "primary",
+                "SETSECO.uom100": "secondary",
+                "SETTILT.uom100": "tilt",
+            }
+
+            pos = {
+                        name: int(query[key])
+                        for key, name in key_map.items()
+                        if key in query
+                    }
+
+            if pos:
+                LOGGER.info(f"Shade Setpos {pos}")
+                self.setShadePosition(pos)
+            else:
+                LOGGER.error("Shade Setpos --nothing to set--")
+
+        except (ValueError, TypeError, KeyError) as ex:
+            LOGGER.error(f"Shade Setpos failed {self.lpfx}: {ex}", exc_info=True)
+
         LOGGER.debug(f"Exit {self.lpfx}")
 
-        
+
     def _get_g2_positions(self, pos):
         """
         Helper function to build G2 positions payload.
@@ -501,10 +514,11 @@ class Shade(udi_interface.Node):
         if self.controller.generation == 2:
             shade_payload = self._get_g2_positions(pos)
             shade_url = URL_G2_SHADE.format(g=self.controller.gateway, id=self.sid)
-        else:
+        elif self.controller.generation == 3:
             shade_payload = self._get_g3_positions(pos)
             shade_url = URL_SHADES_POSITIONS.format(g=self.controller.gateway, id=self.sid)
-
+        else:
+            return False
         self.controller.put(shade_url, data=shade_payload)
         LOGGER.info(f"setShadePosition = {shade_url} , {shade_payload}")
         return True
@@ -516,8 +530,10 @@ class Shade(udi_interface.Node):
         """
         if self.controller.generation == 2:
             newpos = math.trunc((float(pos) / 100.0) * divr)
-        else:
+        elif self.controller.generation == 3:
             newpos = (float(pos) / 100.0) * divr
+        else:
+            return 0
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")
         return newpos
 

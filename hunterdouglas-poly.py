@@ -19,8 +19,13 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = '1.13.0'
+VERSION = '1.13.1'
 """
+1.13.1
+DONE refactor controller discovery, put, get, goodip functions
+DONE refactor controller startup, config, params, naming, logging
+DONE refactor cmdSetPos
+
 1.13.0
 DONE polling rewrite, controller: shortPoll=G2 poll, heartbeat for all, re-start G3 events, longPoll=G3 poll
 DONE polling rewrite, shade: shortPoll: re-start events if stopped, longPoll: not-used
@@ -75,6 +80,7 @@ for previous version see versionHistory.md
 
 
 def main():
+    polyglot = None
     try:
         """
         Instantiates the Interface to Polyglot.
@@ -98,6 +104,7 @@ def main():
           to automatically update node server status
         """
         control = Controller(polyglot, 'hdctrl', 'hdctrl', 'HunterDouglas')
+        LOGGER.debug(f'Controller:{control}')
 
         """
         Sits around and does nothing forever, keeping your program running.
@@ -111,10 +118,11 @@ def main():
         """
         Catch SIGTERM or Control-C and exit cleanly.
         """
-        polyglot.stop()
+        if polyglot is not None:
+            polyglot.stop()
         sys.exit(0)
     except Exception as err:
-        LOGGER.error(f'Excption: {err}, control:{control}', exc_info=True)
+        LOGGER.error(f'Excption: {err}', exc_info=True)
         sys.exit(0)
 
     

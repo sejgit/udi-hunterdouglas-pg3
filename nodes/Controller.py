@@ -12,17 +12,15 @@ import asyncio, base64, json, logging, math, socket, time
 from threading import Thread, Event, Lock, Condition
 
 # external libraries
-from udi_interface import Node, LOGGER, Custom, LOG_HANDLER # not used, ISY
+from udi_interface import Node, LOGGER, Custom, LOG_HANDLER
 import requests
 import aiohttp
 
 # personal libraries
-from utils.node_funcs import get_valid_node_name # not using  get_valid_node_address as id's seem to behave
 from utils.time import check_timedelta_iso
 
 # Nodes
 from nodes import *
-
 
 # limit the room label length as room - shade/scene must be < 30
 ROOM_NAME_LIMIT = 15
@@ -34,7 +32,8 @@ HunterDouglas PowerView G3 url's
 URL_DEFAULT_GATEWAY = 'powerview-g3.local'
 URL_GATEWAY = 'http://{g}/gateway'
 URL_HOME = 'http://{g}/home'
-URL_ROOMS = 'http://{g}/home/rooms/{id}'
+URL_ROOMS = 'http://{g}/home/rooms'
+URL_ROOM = 'http://{g}/home/rooms/{id}'
 URL_SHADES = 'http://{g}/home/shades/{id}'
 URL_SHADES_MOTION = 'http://{g}/home/shades/{id}/motion'
 URL_SHADES_POSITIONS = 'http://{g}/home/shades/positions?ids={id}'
@@ -49,7 +48,7 @@ URL_EVENTS_SHADES = 'http://{g}/home/shades/events'
 
 """
 HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerViewG2api.md]]
+from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
 """
 URL_G2_HUB = 'http://{g}/api/userdata/'
 URL_G2_ROOMS = 'http://{g}/api/rooms'
@@ -81,6 +80,7 @@ class Controller(Node):
         """
         super(Controller, self).__init__(poly, primary, address, name)
         # importand flags, timers, vars
+        self.poly = poly
         self.address = address
         self.name = name
         self.hb = 0 # heartbeat
@@ -129,10 +129,10 @@ class Controller(Node):
         self.TypedData       = Custom(self.poly, 'customtypeddata')
 
         # startup completion flags
-        self.handler_params_st = None
-        self.handler_data_st = None
-        self.handler_typedparams_st = None
-        self.handler_typeddata_st = None
+        self.handler_params_st = False
+        self.handler_data_st = False
+        self.handler_typedparams_st = False
+        self.handler_typeddata_st = False
 
         # Subscribe to various events from the Interface class.
         # The START event is unique in that you can subscribe to 
@@ -167,7 +167,7 @@ class Controller(Node):
         self.Notices['hello'] = 'Plugin Start-up'
         self.setDriver('ST', 1, report = True, force = True)
         self.update_last = 0.0
-
+        
         # Send the profile files to the ISY if neccessary or version changed.
         self.poly.updateProfile()
 
@@ -183,50 +183,50 @@ class Controller(Node):
         self.connect_thread = Thread(target=mainloop.run_forever)
         self.connect_thread.start()
 
-        self.setParams()
-        self.checkParams()
-
-        self.gateway_sse = None
-
         # Wait for all handlers to finish
         LOGGER.warning(f'Waiting for all handlers to complete...')
         self.all_handlers_st_event.wait(timeout=60)
         if not self.all_handlers_st_event.is_set():
+            # start-up failed
             LOGGER.error("Timed out waiting for handlers to startup")
             self.setDriver('ST', 2) # start-up failed
+            self.Notices['error'] = 'Error start-up timeout.  Check config / hardware & restart'
             return
 
         # Discover and wait for discovery to complete
-        asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
+        discoverSuccess = asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result()
 
-        # fist update
-        if self.updateAllFromServer():
-            with self.shades_map_lock:
-                self.gateway_event.append({
-                    'evt': 'home',
-                    'shades': list(self.shades_map.keys()),
-                    'scenes': list(self.scenes_map.keys())
-                })
-            LOGGER.debug(f"first update event[0]: {self.gateway_event[0]}")
-
-            # first start of sse client via the async loop
-            if not self.sse_client_in:
-                self.start_sse_client()
-
-            # start event polling loop    
-            if not self.event_polling_in:
-                self.start_event_polling()
-
-            # signal to the nodes, its ok to start
-            self.ready_event.set()
-
-            # clear inital start-up message
-            if self.Notices.get('hello'):
-                self.Notices.delete('hello')
-        else:
+        # first update from Gateway
+        if not discoverSuccess:
             # start-up failed
+            LOGGER.error(f'First discovery & update from Gateway failed!!! exit {self.name}')
+            self.Notices['error'] = 'Error first discovery-update.  Check config / hardware & restart'
             self.setDriver('ST', 2)
-            LOGGER.error(f'START-UP FAILED!!! exit {self.name}')
+            return
+
+        # fist update of shade & scene nodes
+        with self.shades_map_lock:
+            self.gateway_event.append({
+                'evt': 'home',
+                'shades': list(self.shades_map.keys()),
+                'scenes': list(self.scenes_map.keys())
+            })
+        LOGGER.info(f"first update event[0]: {self.gateway_event[0]}")
+
+        # first start of sse client via the async loop
+        if not self.sse_client_in:
+            self.start_sse_client()
+
+        # start event polling loop    
+        if not self.event_polling_in:
+            self.start_event_polling()
+
+        # signal to the nodes, its ok to start
+        self.ready_event.set()
+
+        # clear inital start-up message
+        if self.Notices.get('hello'):
+            self.Notices.delete('hello')
 
         LOGGER.info(f'exit {self.name}')
 
@@ -309,11 +309,16 @@ class Controller(Node):
 
         
     def dataHandler(self,data):
+        """
+        Called on start-up to retrieve persistence data from poly
+        NOTE: currently none stored or used in this plugin
+        """
         LOGGER.debug(f'enter: Loading data {data}')
         if data is None:
             LOGGER.warning("No custom data")
         else:
             self.Data.load(data)
+            LOGGER.info(f"Custom data:{self.Data}")
         self.handler_data_st = True
         self.check_handlers()
 
@@ -325,36 +330,21 @@ class Controller(Node):
         """
         LOGGER.debug('Loading parameters now')
         if params:
-            self.Parameters.update(params)
+            self.Parameters.load(params)
         
         defaults = {"gatewayip": "powerview-g3.local"}
         for param, default_value in defaults.items():
             if param not in self.Parameters:
                 self.Parameters[param] = default_value
-
-        cnt = 300
-        while ((self.handler_data_st is None) and cnt > 0):
-            LOGGER.warning(f'Waiting for Data: data={self.handler_data_st}... cnt={cnt}')
-            time.sleep(1)
-            cnt -= 1
-        if cnt == 0:
-            LOGGER.error("Timed out waiting for data to be loaded")
-        while not self.checkParams():
-            time.sleep(2)
-        self.handler_params_st = True
+            if self.checkParams():
+                self.handler_params_st = True
         self.check_handlers()
 
         
-    def setParams(self):
-        """ Not used."""
-        pass
-
-    
     def typedParameterHandler(self, params):
         """
         Called via the CUSTOMTYPEDPARAMS event. This event is sent When
-        the Custom Typed Parameters are created.  See the checkParams()
-        below.  Generally, this event can be ignored.
+        the Custom Typed Parameters are created.
         """
         LOGGER.debug('Loading typed parameters now')
         self.TypedParameters.load(params)
@@ -385,8 +375,9 @@ class Controller(Node):
         """
         if (self.handler_params_st and self.handler_data_st and
                     self.handler_typedparams_st and self.handler_typeddata_st):
-                self.all_handlers_st_event.set()
-
+            self.all_handlers_st_event.set()
+            LOGGER.info("All parameters loaded & good")
+                
                 
     def handleLevelChange(self, level):
         """
@@ -397,8 +388,8 @@ class Controller(Node):
             LOGGER.info("Setting basic config to DEBUG...")
             LOG_HANDLER.set_basic_config(True,logging.DEBUG)
         else:
-            LOGGER.info("Setting basic config to WARNING...")
-            LOG_HANDLER.set_basic_config(True,logging.WARNING)
+            LOGGER.info("Setting basic config to INFO...")
+            LOG_HANDLER.set_basic_config(True,logging.INFO)
         LOGGER.info(f'exit: level={level}')
 
         
@@ -410,11 +401,15 @@ class Controller(Node):
         self.Notices.delete('gateway')
         # gatewaycheck = self.gateway
         self.gateway = self.Parameters.gatewayip
+
+        # gatewayip is None ; assign default
         if self.gateway is None:
             self.gateway = URL_DEFAULT_GATEWAY
-            LOGGER.info('checkParams: gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
-            self.Notices['gateway'] = 'Using default gateway local address; better to use a defined ip address.'
+            LOGGER.info('Gateway not defined in customParams, using {}'.format(URL_DEFAULT_GATEWAY))
+            self.Notices['gateway'] = 'No gateway defined, assume G3 default; no check; best define ip address(es)'
             return True
+
+        # gatewayip is list or string
         try:
             if type(eval(self.gateway)) == list:
                 self.gateways = eval(self.gateway)
@@ -427,63 +422,98 @@ class Controller(Node):
                 LOGGER.error('we have a bad gateway %s', self.gateway)
                 self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
                 return False
-        if (self.goodip() and (self.genCheck3() or self.genCheck2())):
+
+        # check if valid ip address(es)
+        if not self._goodip():
+            return False
+        LOGGER.info(f'good IPs:{self.gateways}')
+
+        # set self.generation during G2 or G3 check
+        if self._g2_or_g3():
+            return True
+        else:
+            return False
+
+
+    def _goodip(self) -> bool:
+        """
+        Validate gateway IP addresses.
+        Keeps only valid ones in self.gateways.
+        Returns True if at least one valid IP remains, False otherwise.
+        """
+        good_ips = []
+        for ip in self.gateways:
+            try:
+                socket.inet_aton(ip)
+                good_ips.append(ip)
+            except OSError:  # OSError is the modern base for socket.error
+                LOGGER.error("Bad gateway IP address: %s", ip)
+
+        if good_ips:
+            self.Notices.delete('gateway')
+            self.gateways = good_ips
+            return True
+
+        self.Notices['gateway'] = "All Gateway IPs unreachable. Check 'gatewayip' in customParams"
+        return False
+
+
+    def _g2_or_g3(self):
+        """
+        Set self.generation to 2, 3, or unSet.
+        Returns True if a gateway is found, False otherwise.
+        """
+        if (self._set_gateway(3, self._is_g3_primary) or
+            self._set_gateway(2, self._is_g2)):
             LOGGER.info(f'good!! gateway:{self.gateway}, gateways:{self.gateways}')
             self.Notices.delete('gateway')
             self.Notices.delete('notPrimary')
             return True
-        else:
-            LOGGER.info(f"checkParams: no gateway found in {self.gateways}")
-            self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
-            return False
 
-        
-    def goodip(self):
-        """
-        Check for valid ip in gateway address.
-        """
-        good = True
-        for ip in self.gateways:
-            try:
-                socket.inet_aton(ip)
-            except socket.error:
-                good = False
-                LOGGER.error('we have a bad gateway ip address %s', ip)
-                self.Notices['gateway'] = 'Please note bad gateway address check gatewayip in customParams'
-        return good
-
-    
-    def genCheck3(self):
-        """
-        Check for a Generation 3 gateway.
-        """
-        for ip in self.gateways:
-            res = self.get(URL_GATEWAY.format(g=ip))
-            if res.status_code == requests.codes.ok:
-                LOGGER.info(f"{ip} is PowerView G3")
-                res = self.get(URL_HOME.format(g=ip))
-                if res.status_code == requests.codes.ok:
-                    LOGGER.info(f"{ip} is PowerView G3 Primary")
-                    self.gateway = ip
-                    self.generation = 3
-                    return True
+        LOGGER.info(f"No gateway found in {self.gateways}")
+        self.Notices['gateway'] = 'Please note no primary gateway found in gatewayip'
         return False
 
-    
-    def genCheck2(self):
+        
+    def _set_gateway(self, generation, check_func):
         """
-        Check for a Generation 2 gateway.
+        Generic gateway checker.
+        Iterates over self.gateways, applies check_func(ip).
+        If True, sets self.gateway and self.generation, then returns True.
         """
         for ip in self.gateways:
-            res = self.get(URL_G2_HUB.format(g=ip))
-            if res.status_code == requests.codes.ok:
-                LOGGER.info(f"{ip} is PowerView 2")
+            if check_func(ip):
                 self.gateway = ip
-                self.generation = 2
+                self.generation = generation
                 return True
         return False
 
     
+    def _is_g3_primary(self, ip):
+        """Return True if ip is a G3 primary gateway."""
+        res = self.get(URL_GATEWAY.format(g=ip))
+        if res.status_code != requests.codes.ok:
+            return False
+
+        LOGGER.info(f"{ip} is PowerView G3, now checking if Primary")
+        res = self.get(URL_ROOMS.format(g=ip))
+        if res.status_code == requests.codes.ok:
+            LOGGER.info(f"{ip} is verified PowerView G3 Primary")
+            return True
+
+        LOGGER.error(f"{ip} is NOT PowerView G3 Primary")
+        return False
+
+
+    def _is_g2(self, ip):
+        """Return True if ip is a G2 gateway."""
+        res = self.get(URL_G2_HUB.format(g=ip))
+        if res.status_code == requests.codes.ok:
+            LOGGER.info(f"{ip} is PowerView 2")
+            return True
+        return False
+
+
     def poll(self, flag):
         """
         Wait until all start-up is ready, and pause if in discovery.
@@ -512,7 +542,7 @@ class Controller(Node):
             if self.generation == 2:
                 self.pollUpdate()
 
-            else:
+            elif self.generation == 3:
                 # start sse polling if not running for G3
                 if not self.sse_client_in:
                     self.start_sse_client()
@@ -759,9 +789,6 @@ class Controller(Node):
         Run Discover from command.
         """
         LOGGER.info(f"Enter {command}")
-        # force a gateway check
-        self.checkParams()
-        
         # run discover
         if asyncio.run_coroutine_threadsafe(self.discover(), self.mainloop).result():
             LOGGER.info(f"Success")
@@ -769,7 +796,7 @@ class Controller(Node):
             LOGGER.error(f"Failure")
         LOGGER.debug(f"Exit")
 
-        
+            
     async def discover(self):
         """
         Discover all nodes from the gateway.
@@ -780,110 +807,96 @@ class Controller(Node):
             return success
 
         self.discovery_in = True
-        LOGGER.info(f"In Discovery...")
+        LOGGER.info("In Discovery...")
 
-        nodes = self.poly.getNodes()
-        LOGGER.debug(f"current nodes = {nodes}")
-        nodes_old = []
-        for node in nodes:
-            LOGGER.debug(f"current node = {node}")
-            if node != 'hdctrl':
-                nodes_old.append(node)
-
+        nodes_existing = self.poly.getNodes()
+        LOGGER.debug(f"current nodes = {nodes_existing}")
+        nodes_old = [node for node in nodes_existing if node != 'hdctrl']
         nodes_new = []
+
         if self.updateAllFromServer():
-            for sh in self.shades_map.keys():
-                shade = self.shades_map[sh]
-                shadeId = shade['id']
-
-                shTxt = f"shade{shadeId}"
-                nodes_new.append(shTxt)
-                capabilities = int(shade['capabilities'])
-                if shTxt not in nodes:
-                    if capabilities in [7, 8]:
-                        self.poly.addNode(ShadeNoTilt(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [0, 3]:
-                        self.poly.addNode(ShadeOnlyPrimary(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [6]:
-                        self.poly.addNode(ShadeOnlySecondary(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [1, 2, 4]:
-                        self.poly.addNode(ShadeNoSecondary(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    elif capabilities in [5]:
-                        self.poly.addNode(ShadeOnlyTilt(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    else: # [9, 10] or else
-                        self.poly.addNode(Shade(self.poly,
-                                                self.address,
-                                                shTxt,
-                                                shade["name"],
-                                                shadeId))
-                    self.wait_for_node_done()
-
-            for sc in self.scenes_map.keys():
-                scene = self.scenes_map[sc]
-                if self.generation == 2:
-                    sceneId = scene['id']
-                else:
-                    sceneId = scene['_id']
-
-                scTxt = f"scene{sceneId}"
-                nodes_new.append(scTxt)
-                if scTxt not in nodes:
-                    self.poly.addNode(Scene(self.poly,
-                                            self.address,
-                                            scTxt,
-                                            scene["name"],
-                                            sceneId))
-                    self.wait_for_node_done()
-        else:
-            LOGGER.error('Discovery Failure')
-            self.discovery_in = False
-            return success
-
-        if not (nodes_new == []):
-            # remove nodes which do not exist in gateway
-            nodes = self.poly.getNodesFromDb()
-            LOGGER.debug(f"db nodes = {nodes}")
-            nodes = self.poly.getNodes()
-            nodes_get = {key: nodes[key] for key in nodes if key != self.id}
-            LOGGER.debug(f"old nodes = {nodes_old}")
-            LOGGER.debug(f"new nodes = {nodes_new}")
-            LOGGER.debug(f"pre-delete nodes = {nodes_get}")
-            for node in nodes_get:
-                if (node not in nodes_new):
-                    LOGGER.info(f"need to delete node {node}")
-                    self.poly.delNode(node)
-            if nodes_get == nodes_new:
-                LOGGER.info('Discovery NO NEW activity')
-            self.numNodes = len(nodes_get)
+            self._discover_shades(nodes_existing, nodes_new)
+            self._discover_scenes(nodes_existing, nodes_new)
+            self._cleanup_nodes(nodes_new, nodes_old)
+            self.numNodes = len(nodes_new)
             self.setDriver('GV0', self.numNodes)
-            success = True
             LOGGER.debug(f"shades_array_map:  {self.shades_map}")
             LOGGER.debug(f"scenes_array_map:  {self.scenes_map}")
+            success = True
+        else:
+            LOGGER.error('Discovery Failure')
+
         LOGGER.info(f"Discovery complete. success = {success}")
         self.discovery_in = False
         return success
 
-    
+
+    def _discover_shades(self, nodes_existing, nodes_new):
+        for sh in self.shades_map:
+            shade = self.shades_map[sh]
+            shade_id = shade['id']
+            shTxt = f"shade{shade_id}"
+            capabilities = int(shade['capabilities'])
+
+            nodes_new.append(shTxt)
+            if shTxt not in nodes_existing:
+                node = self._create_shade_node(shade, shTxt, capabilities)
+                self.poly.addNode(node)
+                self.wait_for_node_done()
+
+
+    def _discover_scenes(self, nodes_existing, nodes_new):
+        for sc in self.scenes_map:
+            scene = self.scenes_map[sc]
+            scene_id = scene.get('id') or scene.get('_id')
+            scTxt = f"scene{scene_id}"
+
+            nodes_new.append(scTxt)
+            if scTxt not in nodes_existing:
+                node = Scene(self.poly, self.address, scTxt, scene["name"], scene_id)
+                self.poly.addNode(node)
+                self.wait_for_node_done()
+
+
+    def _cleanup_nodes(self, nodes_new, nodes_old):
+        nodes_db = self.poly.getNodesFromDb()
+        LOGGER.debug(f"db nodes = {nodes_db}")
+
+        nodes_current = self.poly.getNodes()
+        nodes_get = {key: nodes_current[key] for key in nodes_current if key != self.id}
+
+        LOGGER.debug(f"old nodes = {nodes_old}")
+        LOGGER.debug(f"new nodes = {nodes_new}")
+        LOGGER.debug(f"pre-delete nodes = {nodes_get}")
+
+        for node in nodes_get:
+            if node not in nodes_new:
+                LOGGER.info(f"need to delete node {node}")
+                self.poly.delNode(node)
+
+        if set(nodes_get) == set(nodes_new):
+            LOGGER.info('Discovery NO NEW activity')
+
+
+    def _create_shade_node(self, shade, shTxt, capabilities):
+        """
+        Helper function to create the appropriate node type during discovery.
+        """
+        node_classes = {
+            (7, 8): ShadeNoTilt,
+            (0, 3): ShadeOnlyPrimary,
+            (6,): ShadeOnlySecondary,
+            (1, 2, 4): ShadeNoSecondary,
+            (5,): ShadeOnlyTilt,
+        }
+
+        cls = next(
+            (cls for caps, cls in node_classes.items() if capabilities in caps),
+            Shade
+        )
+        return cls(self.poly, self.address, shTxt, shade["name"], shade["id"])
+
+        
     def delete(self):
         """
         This is called by Polyglot upon deletion of the NodeServer. If the
@@ -966,7 +979,7 @@ class Controller(Node):
                         LOGGER.debug(f"Update shade {sh['id']}")
                         
                         name = base64.b64decode(sh.get('name', 'shade')).decode()
-                        sh['name'] = get_valid_node_name(('%s - %s') % (room_name, name))
+                        sh['name'] = self.poly.getValidName(('%s - %s') % (room_name, name))
                         LOGGER.debug(sh['name'])
                         if 'positions' in sh:
                             keys_to_convert = ['primary', 'secondary', 'tilt', 'velocity']
@@ -990,7 +1003,7 @@ class Controller(Node):
                         room_name = "Multi"
                     else:
                         room_name = self.rooms_map.get(scene['room_Id'], {}).get('name', "Multi")[0:ROOM_NAME_LIMIT]
-                    scene['name'] = get_valid_node_name(f"{room_name} - {name}")
+                    scene['name'] = self.poly.getValidName(f"{room_name} - {name}")
                     self.scenes_map[scene['_id']] = scene
 
                 LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
@@ -1033,10 +1046,6 @@ class Controller(Node):
                 return data
             else:
                 LOGGER.error("getHomeG3 gateway NOT good %s, %s", self.gateway, self.gateways)
-                if self.genCheck3():
-                    LOGGER.error("getHomeG3 fixed %s, %s", self.gateway, self.gateways)
-                else:
-                    LOGGER.error("getHomeG3 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
             LOGGER.error("getHomeG3 self.gateways NONE")
         return None
@@ -1084,7 +1093,7 @@ class Controller(Node):
                         LOGGER.debug(f"Update shade {sh['id']}")
                         name = base64.b64decode(sh['name']).decode()
                         room_name = self.rooms_map[sh['roomId']]['name'][0:ROOM_NAME_LIMIT]
-                        sh['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        sh['name'] = self.poly.getValidName('%s - %s' % (room_name, name))
                         if 'positions' in sh:
                             pos = sh['positions']
                             # Use .get() to safely retrieve values and provide defaults
@@ -1118,7 +1127,7 @@ class Controller(Node):
                             room_name = "Multi"
                         else:
                             room_name = self.rooms_map[scene['roomId']]['name'][0:ROOM_NAME_LIMIT]
-                        scene['name'] = get_valid_node_name('%s - %s' % (room_name, name))
+                        scene['name'] = self.poly.getValidName('%s - %s' % (room_name, name))
                         self.scenes_map[scene['id']] = scene
 
                     LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
@@ -1130,6 +1139,7 @@ class Controller(Node):
         except Exception as ex:
             LOGGER.error(f'updateAllfromServerG2 error:{ex}')
             return False
+        
         
     def getHomeG2(self):
         """
@@ -1144,50 +1154,53 @@ class Controller(Node):
                 return data
             else:
                 LOGGER.error("getHomeG2 gateway NOT good %s, %s", self.gateway, self.gateways)
-                if self.genCheck2():
-                    LOGGER.error("getHomeG2 fixed %s, %s", self.gateway, self.gateways)
-                else:
-                    LOGGER.error("getHomeG2 still NOT fixed %s, %s", self.gateway, self.gateways)
         else:
             LOGGER.error("getHomeG2 self.gateways NONE")
         return None
 
     
-    def get(self, url):
+    def get(self, url: str) -> requests.Response:
         """
         Get data from the specified URL.
         """
-        res = None
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error fetching {url}: {e}")
+            self.Notices['badfetch'] = "Error fetching from gateway"
+            # Create a dummy response object with error info
             res = requests.Response()
             res.status_code = 300
-            res.raw = {"errMsg":"Error fetching from gateway, check configuration"}
-            self.Notices['badfetch'] = "Error fetching from gateway"
+            res._content = b'{"errMsg": "Error fetching from gateway, check configuration"}'
             return res
-        if res.status_code == 400:
-            LOGGER.error(f"Check if not primary {url}: {res.status_code}")
-            self.Notices['notPrimary'] = "Multi-Gateway environment - cannot determine primary"
+
+        status_handlers = {
+            400: ("notPrimary", "Multi-Gateway environment - cannot determine primary"),
+            503: ("HomeDoc", "PowerView Set-up not Complete See TroubleShooting Guide"),
+        }
+
+        if res.status_code in status_handlers:
+            key, message = status_handlers[res.status_code]
+            LOGGER.error(f"{message} ({url}): {res.status_code}")
+            self.Notices[key] = message
             return res
+
         if res.status_code == 404:
             LOGGER.error(f"Gateway wrong {url}: {res.status_code}")
             return res
-        if res.status_code == 503:
-            LOGGER.error(f"HomeDoc not set-up {url}: {res.status_code}")
-            self.Notices['HomeDoc'] = "PowerView Set-up not Complete See TroubleShooting Guide"
-            return res
-        elif res.status_code != requests.codes.ok:
+
+        if res.status_code != requests.codes.ok:
             LOGGER.error(f"Unexpected response fetching {url}: {res.status_code}")
             return res
-        else:
-            LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
-        self.Notices.delete('badfetch')
-        self.Notices.delete('notPrimary')
-        self.Notices.delete('HomeDoc')
-        return res
 
+        LOGGER.debug(f"Get from '{url}' returned {res.status_code}, response body '{res.text}'")
+
+        # Clean up any previous notices
+        for key in ['badfetch', 'notPrimary', 'HomeDoc']:
+            self.Notices.delete(key)
+
+        return res
+    
     
     def toPercent(self, pos, divr=1.0):
         """
@@ -1200,35 +1213,37 @@ class Controller(Node):
             newpos = pos
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
-
     
-    def put(self, url, data=None):
+
+    def put(self, url: str, data: dict | None = None) -> dict | bool:
         """
         Put data to the specified URL.
         """
-        res = None
         try:
-            if data:
-                res = requests.put(url, json=data, headers={'accept': 'application/json'})
-            else:
-                res = requests.put(url, headers={'accept': 'application/json'})
+            headers = {'accept': 'application/json'}
+            res = requests.put(
+                url,
+                headers=headers,
+                json=data if data is not None else None,
+                timeout=10)
+
+            if res.status_code != requests.codes.ok:
+                LOGGER.error(f"Unexpected response in put {url}: {res.status_code}")
+                LOGGER.debug(f"Response body: {res.text}")
+                return False
+
+            LOGGER.debug(f"Put to '{url}' succeeded with status {res.status_code}, response body: {res.text}")
+            try:
+                return res.json()
+            except ValueError:
+                LOGGER.error(f"Invalid JSON response from {url}")
+                return False        
 
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error in put {url} with data {data}: {e}", exc_info=True)
-            if res:
-                LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
             return False
 
-        if res and res.status_code != requests.codes.ok:
-            LOGGER.error('Unexpected response in put %s: %s' % (url, str(res.status_code)))
-            LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
-            return False
-
-        response = res.json()
-        LOGGER.debug(f"Put from '{url}' returned {res.status_code}, response body '{res.text}'")
-        return response
-
-
+    
     # Status that this node has. Should match the 'sts' section
     # of the nodedef file.
     drivers = [
