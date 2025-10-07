@@ -185,7 +185,7 @@ class Controller(Node):
 
         # Wait for all handlers to finish
         LOGGER.warning(f'Waiting for all handlers to complete...')
-        self.all_handlers_st_event.wait(timeout=60)
+        self.all_handlers_st_event.wait(timeout=300)
         if not self.all_handlers_st_event.is_set():
             # start-up failed
             LOGGER.error("Timed out waiting for handlers to startup")
