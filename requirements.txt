@@ -1,3 +1,12 @@
+--find-links ./vendor-wheels
+--no-binary :all:
+--only-binary aiohttp,yarl,multidict,frozenlist
+
 udi_interface
+pyyaml
 requests
-aiohttp
+
+aiohttp==3.10.10
+yarl==1.9.4
+multidict==6.1.0
+frozenlist==1.4.1
