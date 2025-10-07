@@ -19,8 +19,11 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = '1.13.1'
+VERSION = '1.13.2'
 """
+1.13.2
+INPROCESS requirements.txt changes
+
 1.13.1
 DONE refactor controller discovery, put, get, goodip functions
 DONE refactor controller startup, config, params, naming, logging
