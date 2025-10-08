@@ -4,6 +4,5 @@
 
 udi_interface
 requests
-
-aiohttp==3.11.18
+aiohttp
 
