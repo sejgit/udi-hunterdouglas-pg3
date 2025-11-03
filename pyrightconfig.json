@@ -1,0 +1,9 @@
+{
+	"pythonVersion": "3.11",
+	"extraPaths": ["./", "./src"],
+	"reportImportCycles": false,
+	"reportMissingTypeStubs": false,
+	"typeCheckingMode": "basic"
+}
+
+
