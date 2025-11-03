@@ -22,7 +22,8 @@ from nodes import Controller
 VERSION = '1.13.2'
 """
 1.13.2
-INPROCESS requirements.txt changes
+DONE requirements.txt changes
+DONE comments improvements
 
 1.13.1
 DONE refactor controller discovery, put, get, goodip functions
