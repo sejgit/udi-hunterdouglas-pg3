@@ -1,9 +1,10 @@
-"""
-udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
+"""Module for the Hunter Douglas PowerView Scene node in a Polyglot v3 NodeServer.
+
+This module defines the Scene class, which represents a Hunter Douglas PowerView
+scene. It allows for activation of scenes and monitors their active state based
+on shade positions and gateway events.
 
 (C) 2025 Stephen Jenkins
-
-Scene class
 """
 # std libraries
 from threading import Thread
@@ -51,22 +52,26 @@ G2_DIVR = 65535
 
 
 class Scene(udi_interface.Node):
+    """Polyglot v3 NodeServer node for Hunter Douglas PowerView Scenes.
+
+    This class represents a Hunter Douglas PowerView scene. It allows for
+    activation of scenes and monitors their active state based on shade
+    positions and gateway events.
+
+    Attributes:
+        id (str): The Polyglot node ID for scenes.
+    """
     id = 'sceneid'
 
-    """
-    Node for scenes which sets and responds to activation of scenes.
-    GV0 scene Id is just for reference
-    GV1 using calculation of shade position as feedback check on gateway (just for debug)
-    """
     def __init__(self, poly, primary, address, name, sid):
-        """
-        Initialize the node.
+        """Initializes the Scene node.
 
-        :param polyglot: Reference to the Interface class
-        :param primary: Parent address
-        :param address: This nodes address
-        :param name: This nodes name
-        :param sid: scene id
+        Args:
+            poly: The Polyglot interface object.
+            primary: The address of the primary controller node.
+            address: The address of this scene node.
+            name: The name of this scene node.
+            sid (str): The unique ID of the Hunter Douglas PowerView scene.
         """
         super().__init__(poly, primary, address, name)
 
@@ -86,10 +91,11 @@ class Scene(udi_interface.Node):
 
         
     def start(self):
-        """
-        Optional.
-        This method is called after Polyglot has added the node per the
-        START event subscription above
+        """Handles the startup sequence for the scene node.
+
+        This method is called after Polyglot has added the node. It sets
+        the scene ID driver and waits for the controller node to be ready
+        before starting the event polling loop.
         """
         self.setDriver('GV0', self.sid)
 
@@ -102,9 +108,14 @@ class Scene(udi_interface.Node):
 
             
     def poll(self, flag):
-        """
-        Wait until all start-up is ready
-        Only use shortPoll, no longPoll used
+        """Handles polling requests from Polyglot.
+
+        This method is called by Polyglot for polling. It ensures the
+        controller is ready and starts the event polling loop if not already running.
+        Currently only shortPolls are used.
+
+        Args:
+            flag (str): A string indicating the type of poll ('shortPoll').
         """
         if not self.controller.ready_event:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
@@ -119,8 +130,10 @@ class Scene(udi_interface.Node):
 
                 
     def start_event_polling(self):
-        """
-        Run routine in a separate thread to retrieve events from array loaded by sse client from gateway.
+        """Starts the background thread for polling and processing gateway events.
+
+        This ensures that the event processing loop is running in its own thread,
+        consuming events that are queued by the SSE client.
         """
         LOGGER.info(f"start: {self.lpfx}")
         if self._event_polling_thread and self._event_polling_thread.is_alive():
@@ -137,8 +150,10 @@ class Scene(udi_interface.Node):
   
             
     def _poll_events(self):
-        """
-        Retrieve gateway sse events from array.
+        """The main loop for processing events from the gateway event queue.
+
+        This method runs in a dedicated thread and continuously processes events
+        relevant to this scene, such as 'home' updates and Gen 3 specific events.
         """
         self.event_polling_in = True
 
@@ -193,8 +208,14 @@ class Scene(udi_interface.Node):
 
 
     def _poll_events_for_g3(self, gateway_events):
-        """
-        Separate the G3 ONLY events.  Mostly these are done in isoDate order.
+        """Processes Gen 3 specific gateway events for the scene.
+
+        This method handles events like 'scene-calc', 'scene-activated',
+        'scene-deactivated', and 'scene-add' that are specific to Gen 3
+        gateways.
+
+        Args:
+            gateway_events (list[dict]): A list of gateway events to process.
         """
         # scene-calc event
         # from shade motion-stopped event which produced scene-calc
@@ -268,8 +289,11 @@ class Scene(udi_interface.Node):
         
         
     def calcActive(self):
-        """
-        Uses the positions set in scene members (shades) & compared to those same shades' actual positions. 
+        """Calculates if the scene is currently active based on shade positions.
+
+        This method compares the target positions of shades within the scene
+        to their actual current positions to determine if the scene is active.
+        It then updates the scene's status driver accordingly.
         """
         try:
             # below should work for gen2 as well
@@ -293,6 +317,15 @@ class Scene(udi_interface.Node):
 
     
     def _check_member_positions(self, members: list) -> bool:
+        """Checks if all members of the scene are in their target positions.
+
+        Args:
+            members (list): A list of scene members, each containing shade ID
+                            and target positions.
+
+        Returns:
+            bool: True if all members are in their target positions, False otherwise.
+        """
         for sh in members:
             shade_id = sh.get('shd_Id')
             scene_pos = sh.get('pos', {})
@@ -318,6 +351,17 @@ class Scene(udi_interface.Node):
     
 
     def _check_individual_positions(self, scene_pos, shade_pos, shade) -> bool:
+        """Compares the target and actual positions for an individual shade.
+
+        Args:
+            scene_pos (dict): The target positions for the shade within the scene.
+            shade_pos (dict): The actual current positions of the shade.
+            shade (dict): The shade's full data dictionary.
+
+        Returns:
+            bool: True if the shade's actual positions match the scene's target
+                  positions within an acceptable tolerance, False otherwise.
+        """
         for element, scene_value in scene_pos.items():
             if element in ['vel', 'etaInSeconds']:
                 continue
@@ -345,8 +389,15 @@ class Scene(udi_interface.Node):
     
 
     def _get_shade_position_and_div(self, scene_pos_key, shade):
-        """
-        Helper function to determine the correct shade position key and divisor.
+        """Determines the correct shade position key and divisor for conversion.
+
+        Args:
+            scene_pos_key (str): The key from the scene's position data (e.g., 'pos1', 'tilt').
+            shade (dict): The shade's full data dictionary.
+
+        Returns:
+            tuple: A tuple containing the shade position key (str) and the
+                   divisor (int or float), or (None, None) if not applicable.
         """
         if scene_pos_key == 'vel':
             return None, None
@@ -362,7 +413,11 @@ class Scene(udi_interface.Node):
     
     
     def _handle_match(self):
-        """Actions to perform when a scene match is found."""
+        """Performs actions when the scene is determined to be active.
+
+        This includes adding the scene to the calculated active scenes set,
+        setting the 'ST' driver to 1 (on), and reporting a 'DON' command.
+        """
         self.controller.sceneIdsActive_calc.add(self.sid)
         LOGGER.info(f"MATCH scene:{self.sid}, sceneIdsActive_calc:{sorted(self.controller.sceneIdsActive_calc)}")
         self.setDriver('ST', 1, report=True, force=True)
@@ -370,7 +425,11 @@ class Scene(udi_interface.Node):
 
         
     def _handle_no_match(self):
-        """Actions to perform when no scene match is found or an error occurs."""
+        """Performs actions when the scene is determined to be inactive or an error occurs.
+
+        This includes removing the scene from the calculated active scenes set,
+        setting the 'ST' driver to 0 (off), and reporting a 'DOF' command.
+        """
         self.controller.sceneIdsActive_calc.discard(self.sid)
         self.setDriver('ST', 0, report=True, force=True)
         self.reportCmd("DOF", 2)
@@ -378,8 +437,15 @@ class Scene(udi_interface.Node):
 
         
     def check_if_calc_active_match_gateway(self):
-        """
-        Looking to see if calculated Active scene matches the gateway data.
+        """Compares the calculated active state with the gateway's reported active state.
+
+        This method is primarily for Gen 3 gateways to verify consistency
+        between the NodeServer's internal calculation and the gateway's
+        understanding of scene activity.
+
+        Returns:
+            bool: True if the calculated active state matches the gateway's
+                  reported state, False otherwise.
         """
         if self.controller.gateway == 2:
             LOGGER.info(f"check = GEN2, no action")
@@ -398,8 +464,15 @@ class Scene(udi_interface.Node):
 
     
     def cmdActivate(self, command = None):
-        """
-        activate scene
+        """Activates the scene on the Hunter Douglas PowerView gateway.
+
+        This method sends the appropriate command to either a Gen 2 or Gen 3
+        gateway to activate the scene. For Gen 2, it manually updates the
+        driver status as no event is received.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f"cmdActivate initiate {self.lpfx} , {command}")
         if self.controller.generation == 2:
@@ -422,10 +495,14 @@ class Scene(udi_interface.Node):
 
         
     def query(self, command = None):
-        """
-        Called by ISY to report all drivers for this node. This is done in
-        the parent class, so you don't need to override this method unless
-        there is a need.
+        """Queries the node and reports all drivers to the ISY.
+
+        This method recalculates the scene's active state and then reports
+        all driver values to the ISY.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f'cmd Query {self.lpfx} , {command}')
         self.calcActive()
@@ -434,12 +511,13 @@ class Scene(udi_interface.Node):
         LOGGER.debug(f"Exit {self.lpfx}")        
 
         
-    """
-    This is an array of dictionary items containing the variable names(drivers)
-    values and uoms(units of measure) from ISY. This is how ISY knows what kind
-    of variable to display. Check the UOM's in the WSDK for a complete list.
-    UOM 2 is boolean so the ISY will display 'True/False'
-    """
+    # UOMs:
+    # 2: boolean
+    # 25: index
+    #
+    # Driver controls:
+    # ST: Status (Activated)
+    # GV0: Custom Control 0 (Scene Id)
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},
