@@ -896,7 +896,7 @@ class Controller(Node):
         )
         return cls(self.poly, self.address, shTxt, shade["name"], shade["id"])
 
-        
+
     def delete(self):
         """
         This is called by Polyglot upon deletion of the NodeServer. If the
@@ -907,7 +907,7 @@ class Controller(Node):
         self.stop_sse_client_event.set()
         LOGGER.info('bye bye ... deleted.')
 
-        
+
     def stop(self):
         """
         This is called by Polyglot when the node server is stopped.  You have
@@ -919,7 +919,7 @@ class Controller(Node):
         self.Notices.clear()
         LOGGER.info('NodeServer stopped.')
 
-        
+
     def heartbeat(self):
         """
         Heartbeat function uses the long poll interval to alternately send a ON and OFF
@@ -931,7 +931,7 @@ class Controller(Node):
         self.hb = not self.hb
         LOGGER.debug("Exit")
 
-        
+
     def removeNoticesAll(self, command = None):
         """
         Remove all notices from the ISY.
@@ -941,7 +941,7 @@ class Controller(Node):
         self.Notices.clear()
         LOGGER.debug(f"Exit")
 
-        
+
     def updateAllFromServer(self):
         """
         Update all nodes from the gateway.
@@ -962,7 +962,7 @@ class Controller(Node):
         self.update_in = False
         return success
 
-    
+
     def updateAllFromServerG3(self, data):
         """
         Update all nodes from the gateway for Generation 3.
@@ -1032,7 +1032,7 @@ class Controller(Node):
             LOGGER.error("updateActiveFromServerG3 error")
             return False
 
-        
+
     def getHomeG3(self):
         """
         Get the home data from the gateway for Generation 3.
@@ -1050,7 +1050,7 @@ class Controller(Node):
             LOGGER.error("getHomeG3 self.gateways NONE")
         return None
 
-    
+
     def getScenesActiveG3(self):
         """
         Get the active scenes from the gateway for Generation 3.
@@ -1068,7 +1068,7 @@ class Controller(Node):
             LOGGER.error("getScenesActiveG3 self.gateways NONE")
         return None
 
-    
+
     def updateAllFromServerG2(self, data):
         """
         Update all nodes from the gateway for Generation 2.
@@ -1139,8 +1139,8 @@ class Controller(Node):
         except Exception as ex:
             LOGGER.error(f'updateAllfromServerG2 error:{ex}')
             return False
-        
-        
+
+
     def getHomeG2(self):
         """
         Get the home data from the gateway for Generation 2.
@@ -1158,7 +1158,7 @@ class Controller(Node):
             LOGGER.error("getHomeG2 self.gateways NONE")
         return None
 
-    
+
     def get(self, url: str) -> requests.Response:
         """
         Get data from the specified URL.
@@ -1200,8 +1200,8 @@ class Controller(Node):
             self.Notices.delete(key)
 
         return res
-    
-    
+
+
     def toPercent(self, pos, divr=1.0):
         """
         Convert a position to a percentage.
@@ -1213,7 +1213,7 @@ class Controller(Node):
             newpos = pos
         LOGGER.debug(f"toPercent: pos={pos}, becomes {newpos}")
         return newpos
-    
+
 
     def put(self, url: str, data: dict | None = None) -> dict | bool:
         """
@@ -1243,9 +1243,15 @@ class Controller(Node):
             LOGGER.error(f"Error in put {url} with data {data}: {e}", exc_info=True)
             return False
 
-    
-    # Status that this node has. Should match the 'sts' section
-    # of the nodedef file.
+        
+    # all the drivers - for reference
+    # UOMs of interest:
+    # 25: index
+    # 107: Raw 1-byte unsigned value
+    #
+    # Driver controls of interest:
+    # ST: Status
+    # GV0: Custom Control 0
     drivers = [
         {'driver': 'ST', 'value': 1, 'uom': 25, 'name': "Controller Status"},
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "NumberOfNodes"},
