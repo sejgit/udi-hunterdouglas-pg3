@@ -1,9 +1,11 @@
-"""
-udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
+"""Module for the Hunter Douglas PowerView Controller node in a Polyglot v3 NodeServer.
+
+This module defines the Controller class, which is the primary node for interacting
+with the Hunter Douglas PowerView Hub (Gen 2 and Gen 3). It handles discovery of
+shades and scenes, manages the connection to the gateway, polls for updates, and
+processes events.
 
 (C) 2025 Stephen Jenkins
-
-Controller class
 """
 
 
@@ -67,16 +69,23 @@ mainloop = asyncio.get_event_loop()
 
 
 class Controller(Node):
+    """Polyglot v3 NodeServer node for Hunter Douglas PowerView Gateways.
+
+    This class represents the main controller node that communicates with the
+    Hunter Douglas PowerView gateway. It is responsible for discovering and
+    managing shade and scene nodes, handling user configuration, processing
+    events from the gateway, and reporting status to the ISY.
+    """
     id = 'hdctrl'
 
     def __init__(self, poly, primary, address, name):
-        """
-        super
-        self definitions
-        data storage classes
-        subscribes
-        ready
-        we exist!
+        """Initializes the Controller node.
+
+        Args:
+            poly: An instance of the Polyglot interface.
+            primary: The address of the primary node.
+            address: The address of this node.
+            name: The name of this node.
         """
         super(Controller, self).__init__(poly, primary, address, name)
         # importand flags, timers, vars
@@ -159,8 +168,12 @@ class Controller(Node):
 
         
     def start(self):
-        """
-        Called by handler during startup.
+        """Handles the startup sequence for the node.
+
+        This method is called once by Polyglot at startup. It initializes
+        the controller, sets up custom parameters, establishes a connection
+        to the gateway, performs initial discovery, and starts background
+        tasks for event polling.
         """
         LOGGER.info(f"Started HunterDouglas PG3 NodeServer {self.poly.serverdata['version']}")
         self.Notices.clear()
@@ -232,12 +245,16 @@ class Controller(Node):
 
 
     def node_queue(self, data):
-        '''
-        node_queue() and wait_for_node_done() create a simple way to wait
-        for a node to be created.  The nodeAdd() API call is asynchronous and
-        will return before the node is fully created. Using this, we can wait
-        until it is fully created before we try to use it.
-        '''
+        """Queues a node address to signify its creation is complete.
+
+        This method, used in conjunction with wait_for_node_done(), provides a
+        mechanism to synchronize node creation, as the addNode operation is
+        asynchronous.
+
+        Args:
+            data (dict): The data payload from the ADDNODEDONE event,
+                         containing the node's address.
+        """
         address = data.get('address')
         if address:
             with self.queue_condition:
@@ -246,7 +263,10 @@ class Controller(Node):
 
 
     def wait_for_node_done(self):
-        """ See node_queue for comments."""
+        """Waits for a node to be fully added before proceeding.
+
+        See node_queue() for more details on the synchronization mechanism.
+        """
         with self.queue_condition:
             while not self.n_queue:
                 self.queue_condition.wait(timeout = 0.2)
@@ -254,15 +274,23 @@ class Controller(Node):
 
 
     def get_shade_data(self, sid):
-        """
-        self.shades_map: Encapsulate read access in a method
+        """Gets shade data from the internal map in a thread-safe manner.
+
+        Args:
+            sid (int): The ID of the shade to retrieve.
+
+        Returns:
+            dict or None: The shade data dictionary if found, otherwise None.
         """
         with self.shades_map_lock:
             return self.shades_map.get(sid)
         
     def update_shade_data(self, sid, data):
-        """
-        self.shades_map: Encapsulate write access in a method.
+        """Updates or adds shade data in the internal map in a thread-safe manner.
+
+        Args:
+            sid (int): The ID of the shade to update or add.
+            data (dict): The dictionary of shade data to store.
         """
         with self.shades_map_lock:
             if sid in self.shades_map:
@@ -272,8 +300,14 @@ class Controller(Node):
 
 
     def append_gateway_event(self, event):
-        """
-        Called by sse to append to gateway_event array & signal that there is an event to process.
+        """Appends a new event from the gateway to the event queue.
+
+        This method is called by the SSE client thread to add an incoming event
+        to the shared gateway_event list and notify consumer threads that a new
+        event is available.
+
+        Args:
+            event (dict): The event data received from the gateway.
         """
         with self.gateway_event_condition:
             self.gateway_event.append(event)
@@ -281,8 +315,13 @@ class Controller(Node):
 
 
     def get_gateway_event(self) -> list[dict]:
-        """
-        Called by consumer fuctions (Controller, Shades, Scenes) to efficiently wait for events to process.
+        """Waits for and returns the list of gateway events.
+
+        This method is used by consumer threads to wait for new events to be
+        posted to the gateway_event list. It blocks until events are available.
+
+        Returns:
+            list[dict]: A reference to the list containing gateway events.
         """
         with self.gateway_event_condition:
             while not self.gateway_event:
@@ -291,8 +330,10 @@ class Controller(Node):
 
 
     def remove_gateway_event(self, event):
-        """
-        Called by consumer functions (Controller, Shades, Scenes) to remove processed events.
+        """Removes a processed event from the gateway event queue.
+
+        Args:
+            event (dict): The event object to remove from the queue.
         """
         with self.gateway_event_condition:
             if event in self.gateway_event:
@@ -300,8 +341,11 @@ class Controller(Node):
 
                 
     def config_done(self):
-        """
-        For things we only do when have the configuration is loaded...
+        """Finalizes configuration setup after Polyglot has loaded.
+
+        This method is called by Polyglot once the configuration is fully loaded.
+        It's used to set up features that depend on the initial configuration,
+        such as custom log levels.
         """
         LOGGER.debug(f'enter')
         self.poly.addLogLevel('DEBUG_MODULES',9,'Debug + Modules')
@@ -309,9 +353,13 @@ class Controller(Node):
 
         
     def dataHandler(self,data):
-        """
-        Called on start-up to retrieve persistence data from poly
-        NOTE: currently none stored or used in this plugin
+        """Handles the loading of custom data from Polyglot.
+
+        This method is called on startup to load any persistent custom data
+        that was saved by the node.
+
+        Args:
+            data (dict): A dictionary containing the custom data.
         """
         LOGGER.debug(f'enter: Loading data {data}')
         if data is None:
@@ -324,9 +372,13 @@ class Controller(Node):
 
         
     def parameterHandler(self, params):
-        """
-        Called via the CUSTOMPARAMS event. When the user enters or
-        updates Custom Parameters via the dashboard.
+        """Handles updates to custom parameters from the Polyglot dashboard.
+
+        This method is called when a user changes the custom parameters in the
+        Polyglot UI. It loads the new parameters and re-validates them.
+
+        Args:
+            params (dict): A dictionary of the custom parameters.
         """
         LOGGER.debug('Loading parameters now')
         if params:
@@ -342,9 +394,13 @@ class Controller(Node):
 
         
     def typedParameterHandler(self, params):
-        """
-        Called via the CUSTOMTYPEDPARAMS event. This event is sent When
-        the Custom Typed Parameters are created.
+        """Handles the creation of custom typed parameters.
+
+        This method is called when the custom typed parameters are first
+        created by Polyglot.
+
+        Args:
+            params (dict): A dictionary of the typed parameters' structure.
         """
         LOGGER.debug('Loading typed parameters now')
         self.TypedParameters.load(params)
@@ -354,10 +410,13 @@ class Controller(Node):
 
         
     def typedDataHandler(self, data):
-        """
-        Called via the CUSTOMTYPEDDATA event. This event is sent when
-        the user enters or updates Custom Typed Parameters via the dashboard.
-        'params' will be the full list of parameters entered by the user.
+        """Handles updates to custom typed data from the Polyglot dashboard.
+
+        This method is called when a user enters or updates data in the
+        custom typed parameters UI.
+
+        Args:
+            data (dict): A dictionary of the custom typed data.
         """
         LOGGER.debug(f'Loading typed data now')
         if data is None:
@@ -370,8 +429,11 @@ class Controller(Node):
 
         
     def check_handlers(self):
-        """
-        Once all start-up parameters are done then set event.
+        """Checks if all startup handlers have completed and signals an event.
+
+        This method is called after each handler completes. Once all handlers
+        (parameters, data, etc.) have finished their startup tasks, it sets
+        an event to signal that the main startup process can continue.
         """
         if (self.handler_params_st and self.handler_data_st and
                     self.handler_typedparams_st and self.handler_typeddata_st):
@@ -380,8 +442,10 @@ class Controller(Node):
                 
                 
     def handleLevelChange(self, level):
-        """
-        Handle log level change.
+        """Handles a change in the log level.
+
+        Args:
+            level (dict): A dictionary containing the new log level.
         """
         LOGGER.info(f'enter: level={level}')
         if level['level'] < 10:
@@ -394,9 +458,13 @@ class Controller(Node):
 
         
     def checkParams(self):
-        """
-        Check the custom parameters for the controller.
-        This is using custom Params for gatewayip
+        """Validates the custom parameters for the controller.
+
+        This method checks the 'gatewayip' parameter, resolves the gateway
+        address(es), and determines the gateway generation (Gen 2 or Gen 3).
+
+        Returns:
+            bool: True if parameters are valid, False otherwise.
         """
         self.Notices.delete('gateway')
         # gatewaycheck = self.gateway
@@ -436,10 +504,13 @@ class Controller(Node):
 
 
     def _goodip(self) -> bool:
-        """
-        Validate gateway IP addresses.
-        Keeps only valid ones in self.gateways.
-        Returns True if at least one valid IP remains, False otherwise.
+        """Validates a list of gateway IP addresses.
+
+        It iterates through the provided IP addresses, keeping only the ones
+        with a valid format.
+
+        Returns:
+            bool: True if at least one valid IP address is found, False otherwise.
         """
         good_ips = []
         for ip in self.gateways:
@@ -459,9 +530,13 @@ class Controller(Node):
 
 
     def _g2_or_g3(self):
-        """
-        Set self.generation to 2, 3, or unSet.
-        Returns True if a gateway is found, False otherwise.
+        """Determines if the configured gateways are Gen 2 or Gen 3.
+
+        It checks the list of gateways to find a responsive primary gateway and
+        sets the `self.generation` attribute accordingly.
+
+        Returns:
+            bool: True if a supported gateway is found, False otherwise.
         """
         if (self._set_gateway(3, self._is_g3_primary) or
             self._set_gateway(2, self._is_g2)):
@@ -476,10 +551,18 @@ class Controller(Node):
 
         
     def _set_gateway(self, generation, check_func):
-        """
-        Generic gateway checker.
-        Iterates over self.gateways, applies check_func(ip).
-        If True, sets self.gateway and self.generation, then returns True.
+        """Helper function to find and set the active gateway.
+
+        It iterates through the list of potential gateway IPs and uses the
+        provided checking function to identify a valid gateway.
+
+        Args:
+            generation (int): The gateway generation (2 or 3) to set if found.
+            check_func (callable): A function that takes an IP address and returns
+                                 True if it's a valid gateway of the target type.
+
+        Returns:
+            bool: True if a gateway was successfully found and set, False otherwise.
         """
         for ip in self.gateways:
             if check_func(ip):
@@ -490,7 +573,14 @@ class Controller(Node):
 
     
     def _is_g3_primary(self, ip):
-        """Return True if ip is a G3 primary gateway."""
+        """Checks if the given IP address is a Gen 3 primary gateway.
+
+        Args:
+            ip (str): The IP address to check.
+
+        Returns:
+            bool: True if the IP belongs to a Gen 3 primary gateway, False otherwise.
+        """
         res = self.get(URL_GATEWAY.format(g=ip))
         if res.status_code != requests.codes.ok:
             return False
@@ -506,7 +596,14 @@ class Controller(Node):
 
 
     def _is_g2(self, ip):
-        """Return True if ip is a G2 gateway."""
+        """Checks if the given IP address is a Gen 2 gateway.
+
+        Args:
+            ip (str): The IP address to check.
+
+        Returns:
+            bool: True if the IP belongs to a Gen 2 gateway, False otherwise.
+        """
         res = self.get(URL_G2_HUB.format(g=ip))
         if res.status_code == requests.codes.ok:
             LOGGER.info(f"{ip} is PowerView 2")
@@ -515,14 +612,15 @@ class Controller(Node):
 
 
     def poll(self, flag):
-        """
-        Wait until all start-up is ready, and pause if in discovery.
-        use longPoll for Gen3 update through gateway GET 
-        use shortPoll for Gen2 update through gateway GET,
-                      as well as heart-beat,
-                      and starting / restarting of sse client,
-                      and starting / restarting of polling event client,
-                      and incrementing clock since last event from sse server
+        """Handles polling requests from Polyglot.
+
+        This method is called by Polyglot for both short and long polls.
+        - Short polls are used for heartbeats, checking on background tasks, and
+          triggering Gen 2 updates.
+        - Long polls are used to trigger a full data refresh for Gen 3 gateways.
+
+        Args:
+            flag (str): A string indicating the type of poll ('shortPoll' or 'longPoll').
         """
         LOGGER.debug('enter')
         # no updates until node is through start-up
@@ -563,9 +661,11 @@ class Controller(Node):
 
         
     def pollUpdate(self):
-        """
-        Handles poll GET updates from gateway as well as seeding shade/scene update events
-        which command the shade/scene nodes to take the updated data and apply it.
+        """Triggers a full data update from the gateway.
+
+        This method fetches all room, shade, and scene data from the gateway
+        and then seeds a 'home' event to trigger updates in the respective
+        child nodes.
         """
         if self.poll_in:
             LOGGER.error(f"Still in Poll, exiting")
@@ -597,8 +697,10 @@ class Controller(Node):
 
         
     def start_event_polling(self):
-        """
-        Run routine in a separate thread to retrieve events from array loaded by sse client from gateway.
+        """Starts the background thread for polling and processing gateway events.
+
+        This ensures that the event processing loop is running in its own thread,
+        consuming events that are queued by the SSE client.
         """
         LOGGER.debug(f"start")
         if self._event_polling_thread and self._event_polling_thread.is_alive():
@@ -616,9 +718,11 @@ class Controller(Node):
 
 
     def _poll_events(self):
-        """
-        Handles Gateway Events like homedoc-updated & scene-add (for new scenes)
-        Removes unacted events only if isoDate is older than 2 minutes or invalid.
+        """The main loop for processing events from the gateway event queue.
+
+        This method runs in a dedicated thread and continuously processes events
+        such as 'homedoc-updated' and 'scene-add'. It also handles cleanup of
+        stale or unhandled events.
         """
         
         self.event_polling_in = True
@@ -699,8 +803,10 @@ class Controller(Node):
 
             
     def start_sse_client(self):
-        """
-        Run sse client in a thread-safe loop for gateway events polling which then loads the events to an array.
+        """Starts the SSE (Server-Sent Events) client.
+
+        For Gen 3 gateways, this method initiates the asynchronous SSE client
+        to listen for real-time events from the gateway.
         """
         LOGGER.debug(f"start")
         if self.generation == 3:
@@ -712,9 +818,11 @@ class Controller(Node):
 
     
     async def _client_sse(self):
-        """
-        Polls the SSE endpoint with aiohttp for events.
-        Includes robust retry logic with exponential backoff.
+        """The core asynchronous task for the SSE client.
+
+        This async method connects to the gateway's SSE endpoint and listens for
+        events indefinitely. It includes robust error handling and a retry
+        mechanism with exponential backoff for connection issues.
         """
         self.sse_client_in = True
         LOGGER.info(f"controller start poll events")
@@ -763,8 +871,15 @@ class Controller(Node):
 
         
     def query(self, command = None):
-        """
-        Query all nodes from the gateway.
+        """Queries all nodes and reports their current status.
+
+        This method is typically called by Polyglot in response to a 'Query'
+        command from the ISY. It fetches the latest data from the gateway and
+        then asks each child node to report its drivers.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f"Enter {command}")
         if self.updateAllFromServer():
@@ -775,8 +890,17 @@ class Controller(Node):
 
         
     def updateProfile(self,command = None):
-        """
-        Update the profile.
+        """Initiates a profile update in Polyglot.
+
+        This is typically called in response to an 'Update Profile' command
+        from the ISY.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
+
+        Returns:
+            bool: The result of the profile update operation.
         """
         LOGGER.info(f"Enter {command}")
         st = self.poly.updateProfile()
@@ -785,8 +909,14 @@ class Controller(Node):
 
     
     def discover_cmd(self, command = None):
-        """
-        Run Discover from command.
+        """Handles the 'Discover' command from Polyglot.
+
+        This method is a wrapper around the main `discover` async method,
+        allowing it to be called from a synchronous command handler.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f"Enter {command}")
         # run discover
@@ -798,8 +928,14 @@ class Controller(Node):
 
             
     async def discover(self):
-        """
-        Discover all nodes from the gateway.
+        """Discovers all shades and scenes from the gateway and creates nodes.
+
+        This async method fetches all device data from the gateway, compares it
+        with the existing nodes in Polyglot, and creates, updates, or removes
+        nodes as necessary.
+
+        Returns:
+            bool: True if discovery was successful, False otherwise.
         """
         success = False
         if self.discovery_in:
@@ -832,6 +968,13 @@ class Controller(Node):
 
 
     def _discover_shades(self, nodes_existing, nodes_new):
+        """Discovers and creates nodes for shades.
+
+        Args:
+            nodes_existing (dict): A dictionary of existing nodes in Polyglot.
+            nodes_new (list): A list to be populated with the addresses of
+                              all discovered nodes.
+        """
         for sh in self.shades_map:
             shade = self.shades_map[sh]
             shade_id = shade['id']
@@ -846,6 +989,13 @@ class Controller(Node):
 
 
     def _discover_scenes(self, nodes_existing, nodes_new):
+        """Discovers and creates nodes for scenes.
+
+        Args:
+            nodes_existing (dict): A dictionary of existing nodes in Polyglot.
+            nodes_new (list): A list to be populated with the addresses of
+                              all discovered nodes.
+        """
         for sc in self.scenes_map:
             scene = self.scenes_map[sc]
             scene_id = scene.get('id') or scene.get('_id')
@@ -859,6 +1009,14 @@ class Controller(Node):
 
 
     def _cleanup_nodes(self, nodes_new, nodes_old):
+        """Removes any nodes that are no longer present on the gateway.
+
+        Args:
+            nodes_new (list): A list of node addresses that were found during
+                              the current discovery process.
+            nodes_old (list): A list of node addresses that existed before
+                              the current discovery process.
+        """
         nodes_db = self.poly.getNodesFromDb()
         LOGGER.debug(f"db nodes = {nodes_db}")
 
@@ -879,8 +1037,15 @@ class Controller(Node):
 
 
     def _create_shade_node(self, shade, shTxt, capabilities):
-        """
-        Helper function to create the appropriate node type during discovery.
+        """Creates the appropriate shade node based on its capabilities.
+
+        Args:
+            shade (dict): The shade data from the gateway.
+            shTxt (str): The node address for the new shade.
+            capabilities (int): The capabilities code for the shade.
+
+        Returns:
+            Node: An instance of the appropriate Shade node class.
         """
         node_classes = {
             (7, 8): ShadeNoTilt,
@@ -898,10 +1063,12 @@ class Controller(Node):
 
 
     def delete(self):
-        """
-        This is called by Polyglot upon deletion of the NodeServer. If the
-        process is co-resident and controlled by Polyglot, it will be
-        terminiated within 5 seconds of receiving this message.
+        """Handles node deletion from Polyglot.
+
+        This method is called by Polyglot upon deletion of the NodeServer.
+        If the process is co-resident and controlled by Polyglot, it will be
+        terminated within 5 seconds of receiving this message. It sets the
+        node status to off and stops background tasks.
         """
         self.setDriver('ST', 0, report = True, force = True)
         self.stop_sse_client_event.set()
@@ -909,10 +1076,11 @@ class Controller(Node):
 
 
     def stop(self):
-        """
-        This is called by Polyglot when the node server is stopped.  You have
-        the opportunity here to cleanly disconnect from your device or do
-        other shutdown type tasks.
+        """Handles the shutdown sequence for the node.
+
+        This method is called by Polyglot when the NodeServer is stopped.
+        It performs cleanup tasks such as setting the driver status to off
+        and stopping background threads.
         """
         self.setDriver('ST', 0, report = True, force = True)
         self.stop_sse_client_event.set()
@@ -921,9 +1089,10 @@ class Controller(Node):
 
 
     def heartbeat(self):
-        """
-        Heartbeat function uses the long poll interval to alternately send a ON and OFF
-        command back to the ISY.  Programs on the ISY can then monitor this.
+        """Sends a heartbeat signal to the ISY.
+
+        This method alternates sending 'DON' and 'DOF' commands to the controller
+        node, allowing ISY programs to monitor the NodeServer's status.
         """
         LOGGER.debug(f'heartbeat: hb={self.hb}')
         command = "DOF" if self.hb else "DON"
@@ -933,8 +1102,11 @@ class Controller(Node):
 
 
     def removeNoticesAll(self, command = None):
-        """
-        Remove all notices from the ISY.
+        """Removes all custom notices from the Polyglot dashboard.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f"remove_notices_all: notices={self.Notices} , {command}")
         # Remove all existing notices
@@ -943,8 +1115,13 @@ class Controller(Node):
 
 
     def updateAllFromServer(self):
-        """
-        Update all nodes from the gateway.
+        """Fetches all data from the gateway for all nodes.
+
+        This method throttles updates to avoid overloading the gateway. It calls
+        the appropriate update method based on the gateway generation.
+
+        Returns:
+            bool: True if the update was successful, False otherwise.
         """
         success = True
         if self.update_in:
@@ -964,8 +1141,16 @@ class Controller(Node):
 
 
     def updateAllFromServerG3(self, data):
-        """
-        Update all nodes from the gateway for Generation 3.
+        """Updates internal data maps from a Gen 3 gateway's home data.
+
+        Parses the full data structure from a Gen 3 gateway, updating the
+        internal maps for rooms, shades, and scenes.
+
+        Args:
+            data (dict): The 'home' data structure from the Gen 3 gateway.
+
+        Returns:
+            bool: True if the data was parsed successfully, False otherwise.
         """
         try:
             if data:
@@ -1018,8 +1203,14 @@ class Controller(Node):
 
         
     def updateActiveFromServerG3(self, scenesActiveData):
-        """
-        Update active scene array from data previously retrieved.
+        """Updates the list of currently active scenes from a Gen 3 gateway.
+
+        Args:
+            scenesActiveData (list[dict]): A list of active scene objects from
+                                           the gateway.
+
+        Returns:
+            bool: True if the update was successful, False otherwise.
         """
         try:
             self.sceneIdsActive = []
@@ -1034,8 +1225,11 @@ class Controller(Node):
 
 
     def getHomeG3(self):
-        """
-        Get the home data from the gateway for Generation 3.
+        """Retrieves the main 'home' data object from a Gen 3 gateway.
+
+        Returns:
+            dict or None: The JSON response from the gateway as a dictionary,
+                          or None if the request fails.
         """
         res = self.get(URL_HOME.format(g=self.gateway))
         code = res.status_code
@@ -1052,8 +1246,11 @@ class Controller(Node):
 
 
     def getScenesActiveG3(self):
-        """
-        Get the active scenes from the gateway for Generation 3.
+        """Retrieves the list of active scenes from a Gen 3 gateway.
+
+        Returns:
+            list[dict] or None: A list of active scene objects, or None if the
+                                request fails.
         """
         res = self.get(URL_SCENES_ACTIVE.format(g=self.gateway))
         code = res.status_code
@@ -1070,8 +1267,17 @@ class Controller(Node):
 
 
     def updateAllFromServerG2(self, data):
-        """
-        Update all nodes from the gateway for Generation 2.
+        """Updates internal data maps by making multiple API calls to a Gen 2 hub.
+
+        Unlike Gen 3, Gen 2 requires separate API calls to get room, shade,
+        and scene data.
+
+        Args:
+            data (dict): The initial 'userdata' from the Gen 2 hub.
+
+        Returns:
+            bool: True if all data was fetched and parsed successfully,
+                  False otherwise.
         """
         try:
             if data:
@@ -1142,8 +1348,11 @@ class Controller(Node):
 
 
     def getHomeG2(self):
-        """
-        Get the home data from the gateway for Generation 2.
+        """Retrieves the main 'userdata' object from a Gen 2 gateway.
+
+        Returns:
+            dict or None: The JSON response from the gateway as a dictionary,
+                          or None if the request fails.
         """
         res = self.get(URL_G2_HUB.format(g=self.gateway))
         code = res.status_code
@@ -1160,8 +1369,15 @@ class Controller(Node):
 
 
     def get(self, url: str) -> requests.Response:
-        """
-        Get data from the specified URL.
+        """Performs an HTTP GET request with standardized error handling.
+
+        Args:
+            url (str): The URL to send the GET request to.
+
+        Returns:
+            requests.Response: The response object from the requests library.
+                               If the request fails, a dummy response object
+                               with an error status is returned.
         """
         try:
             res = requests.get(url, headers={'accept': 'application/json'})
@@ -1203,8 +1419,15 @@ class Controller(Node):
 
 
     def toPercent(self, pos, divr=1.0):
-        """
-        Convert a position to a percentage.
+        """Converts a raw position value to a percentage.
+
+        Args:
+            pos (int or float): The raw position value from the gateway.
+            divr (float, optional): The divisor to use for the conversion.
+                                    Defaults to 1.0 for Gen 3.
+
+        Returns:
+            int: The position converted to a percentage (0-100).
         """
         LOGGER.debug(f"{self.name}: toPercent:pos={pos}")
         if pos:
@@ -1216,8 +1439,16 @@ class Controller(Node):
 
 
     def put(self, url: str, data: dict | None = None) -> dict | bool:
-        """
-        Put data to the specified URL.
+        """Performs an HTTP PUT request with standardized error handling.
+
+        Args:
+            url (str): The URL to send the PUT request to.
+            data (dict, optional): The JSON payload to send with the request.
+                                   Defaults to None.
+
+        Returns:
+            dict or bool: The JSON response from the gateway as a dictionary
+                          if successful, otherwise False.
         """
         try:
             headers = {'accept': 'application/json'}
