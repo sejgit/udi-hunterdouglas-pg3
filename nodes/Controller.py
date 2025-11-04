@@ -1489,8 +1489,10 @@ class Controller(Node):
     ]
 
     
-    # Commands that this node can handle.  Should match the
-    # 'accepts' section of the nodedef file.
+    """
+    Commands that this node can handle.
+    Should match the 'accepts' section of the nodedef file.
+    """
     commands = {
         'QUERY': query,
         'DISCOVER': discover_cmd,

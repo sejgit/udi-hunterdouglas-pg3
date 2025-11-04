@@ -525,8 +525,8 @@ class Scene(udi_interface.Node):
 
     
     """
-    This is a dictionary of commands. If ISY sends a command to the NodeServer,
-    this tells it which method to call. DON calls setOn, etc.
+    Commands that this node can handle.
+    Should match the 'accepts' section of the nodedef file.
     """
     commands = {
                     'ACTIVATE': cmdActivate,

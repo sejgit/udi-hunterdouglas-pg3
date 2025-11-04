@@ -1,9 +1,10 @@
-"""
-udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
+"""Module for the Hunter Douglas PowerView Shade nodes in a Polyglot v3 NodeServer.
+
+This module defines the base Shade class and several subclasses, each representing
+a different type of Hunter Douglas PowerView shade with varying capabilities
+(e.g., primary, secondary, and tilt controls).
 
 (C) 2025 Stephen Jenkins
-
-Shade class
 """
 
 # std libraries
@@ -53,19 +54,50 @@ G2_DIVR = 65535
 
 
 class Shade(udi_interface.Node):
+    """Polyglot v3 NodeServer node for a generic Hunter Douglas PowerView Shade.
+
+    This is the base class for all Hunter Douglas PowerView shades. It handles
+    positioning, status updates, and commands for a shade. Subclasses are used
+    to represent shades with different physical capabilities.
+
+    Attributes:
+        id (str): The Polyglot node ID for this shade type.
+
+    Shade Capabilities:
+        Type 0 - Bottom Up: Standard roller/screen shades, Duette bottom up.
+            Uses the “primary” control type.
+        Type 1 - Bottom Up w/ 90° Tilt: Silhouette, Pirouette.
+            Uses the “primary” and “tilt” control types.
+        Type 2 - Bottom Up w/ 180° Tilt: Silhouette Halo.
+            Uses the “primary” and “tilt” control types.
+        Type 3 - Vertical (Traversing): Skyline, Duette Vertiglide, Design
+            Studio Drapery. Uses the “primary” control type.
+        Type 4 - Vertical (Traversing) w/ 180° Tilt: Luminette.
+            Uses the “primary” and “tilt” control types.
+        Type 5 - Tilt Only 180°: Palm Beach Shutters, Parkland Wood Blinds.
+            Uses the “tilt” control type.
+        Type 6 - Top Down: Duette Top Down.
+            Uses the “primary” control type.
+        Type 7 - Top-Down/Bottom-Up: Duette TDBU, Vignette TDBU.
+            Uses the “primary” and “secondary” control types.
+        Type 8 - Duolite (front and rear shades): Roller Duolite, Vignette
+            Duolite, Dual Roller. Uses the “primary” and “secondary” control types.
+        Type 9 - Duolite with 90° Tilt: Silhouette Duolite, Silhouette Adeux.
+            Uses the “primary,” “secondary,” and “tilt” control types.
+        Type 10 - Duolite with 180° Tilt: Silhouette Halo Duolite.
+            Uses the “primary,” “secondary,” and “tilt” control types.
+    """
     id = 'shadeid'
     
-    """
-    Node for shades which sets and responds to shade position & status.
-    """
     def __init__(self, poly, primary, address, name, sid):
-        """
-        Initialize the node.
+        """Initializes the Shade node.
 
-        :param polyglot: Reference to the Interface class
-        :param primary: Parent address
-        :param address: This nodes address
-        :param name: This nodes name
+        Args:
+            poly: The Polyglot interface object.
+            primary: The address of the primary controller node.
+            address: The address of this shade node.
+            name: The name of this shade node.
+            sid (str): The unique ID of the Hunter Douglas PowerView shade.
         """
         super().__init__(poly, primary, address, name)
         self.poly = poly
@@ -87,9 +119,11 @@ class Shade(udi_interface.Node):
 
         
     def start(self):
-        """
-        This method is called after Polyglot has added the node per the
-        START event subscription above
+        """Handles the startup sequence for the shade node.
+
+        This method is called after Polyglot has added the node. It sets the
+        shade ID driver, waits for the controller to be ready, updates its
+        initial data, and starts the event polling loop.
         """
         self.setDriver('GV0', self.sid,report=True, force=True)
         
@@ -103,9 +137,13 @@ class Shade(udi_interface.Node):
 
             
     def poll(self, flag):
-        """
-        Wait until all start-up is ready
-        Only use shortPoll, no longPoll used
+        """Handles polling requests from Polyglot.
+
+        This method is called by Polyglot for short polls. It ensures the
+        controller is ready and starts the event polling loop if not already running.
+
+        Args:
+            flag (str): A string indicating the type of poll ('shortPoll').
         """
         if not self.controller.ready_event:
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
@@ -120,8 +158,10 @@ class Shade(udi_interface.Node):
 
                 
     def start_event_polling(self):
-        """
-        Run routine in a separate thread to retrieve events from array loaded by sse client from gateway.
+        """Starts the background thread for polling and processing gateway events.
+
+        This ensures that the event processing loop is running in its own thread,
+        consuming events that are queued by the SSE client.
         """
         LOGGER.info(f"start: {self.lpfx}")
         if self._event_polling_thread and self._event_polling_thread.is_alive():
@@ -138,8 +178,10 @@ class Shade(udi_interface.Node):
         
 
     def _poll_events(self):
-        """
-        Retrieve gateway sse events from array.
+        """The main loop for processing events from the gateway event queue.
+
+        This method runs in a dedicated thread and continuously processes events
+        relevant to this shade, such as 'home' updates and Gen 3 specific events.
         """
         self.event_polling_in = True
 
@@ -177,8 +219,14 @@ class Shade(udi_interface.Node):
 
 
     def _poll_events_for_g3(self, gateway_events):
-        """
-        Separate the G3 ONLY events.  Mostly these are done in isoDate order.
+        """Processes Gen 3 specific gateway events for the shade.
+
+        This method handles events like 'motion-started', 'motion-stopped',
+        'shade-online', 'shade-offline', and 'battery-alert' that are specific
+        to Gen 3 gateways.
+
+        Args:
+            gateway_events (list[dict]): A list of gateway events to process.
         """
         # handle the G3 events in isoDate order
         try:
@@ -239,8 +287,14 @@ class Shade(udi_interface.Node):
 
         
     def updateData(self):
-        """
-        Updade the ISY from retrieved data. Rename node if changed on gateway.
+        """Updates the node's drivers and name from the controller's data map.
+
+        This method retrieves the latest shade data from the controller, updates
+        all relevant drivers on the ISY, and renames the node if the name has
+        changed on the PowerView gateway.
+
+        Returns:
+            bool: True if the update was successful, False otherwise.
         """
         try:
             shade = self.controller.get_shade_data(self.sid)
@@ -279,8 +333,17 @@ class Shade(udi_interface.Node):
 
     
     def updatePositions(self, positions):
-        """
-        Update the positions of the shade.
+        """Updates the shade's position drivers.
+
+        This method updates the local shade data in the controller and sets the
+        appropriate position drivers (primary, secondary, tilt) on the ISY
+        based on the shade's capabilities.
+
+        Args:
+            positions (dict): A dictionary containing the shade's position data.
+
+        Returns:
+            bool: Always returns True.
         """
         LOGGER.info(f"shade:{self.sid}, positions:{positions}")
         
@@ -303,9 +366,15 @@ class Shade(udi_interface.Node):
 
     
     def posToPercent(self, pos):
-        """
-        Convert a position to a percentage.
-        Only used for PowerView G3 events.
+        """Converts a dictionary of raw position values to percentages.
+
+        This is used to process position data from Gen 3 gateway events.
+
+        Args:
+            pos (dict): A dictionary of raw position values.
+
+        Returns:
+            dict: A new dictionary with the position values converted to percentages.
         """
         new_pos = {}
         for key, value in pos.items():
@@ -321,8 +390,10 @@ class Shade(udi_interface.Node):
 
         
     def cmdOpen(self, command):
-        """
-        open shade command from ISY
+        """Handles the 'Open' command from the ISY.
+
+        Args:
+            command (dict): The command payload from Polyglot.
         """
         LOGGER.info(f'cmd Shade Open {self.lpfx}, {command}')
         self.setShadePosition({"primary": 100})
@@ -331,8 +402,10 @@ class Shade(udi_interface.Node):
 
         
     def cmdClose(self, command):
-        """
-        close shade command from ISY
+        """Handles the 'Close' command from the ISY.
+
+        Args:
+            command (dict): The command payload from Polyglot.
         """
         LOGGER.info(f'cmd Shade Close {self.lpfx}, {command}')
         self.setShadePosition({"primary":0})
@@ -341,9 +414,10 @@ class Shade(udi_interface.Node):
 
         
     def cmdStop(self, command):
-        """
-        stop shade command from ISY
-        only available in PowerView G3
+        """Handles the 'Stop' command from the ISY (Gen 3 only).
+
+        Args:
+            command (dict): The command payload from Polyglot.
         """
         if self.controller.generation == 3:
             shadeUrl = URL_SHADES_STOP.format(g=self.controller.gateway, id=self.sid)
@@ -355,8 +429,10 @@ class Shade(udi_interface.Node):
 
 
     def cmdTiltOpen(self, command):
-        """
-        tilt shade open command from ISY
+        """Handles the 'Tilt Open' command from the ISY.
+
+        Args:
+            command (dict): The command payload from Polyglot.
         """
         LOGGER.info(f'cmd Shade TiltOpen {self.lpfx}, {command}')
         #self.positions["tilt"] = 50
@@ -366,8 +442,10 @@ class Shade(udi_interface.Node):
 
         
     def cmdTiltClose(self, command):
-        """
-        tilt shade close command from ISY
+        """Handles the 'Tilt Close' command from the ISY.
+
+        Args:
+            command (dict): The command payload from Polyglot.
         """
         LOGGER.info(f'cmd Shade TiltClose {self.lpfx}, {command}')
         #self.positions['tilt'] = 0
@@ -377,10 +455,13 @@ class Shade(udi_interface.Node):
 
         
     def cmdJog(self, command = None):
-        """
-        jog shade command from ISY
-        PowerView G2 will send updateBatteryLevel which also jogs shade
-        Battery level updates are automatic in PowerView G3
+        """Handles the 'Jog' command from the ISY.
+
+        For Gen 2 gateways, this also triggers a battery level update.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f'cmd Shade Jog {self.lpfx}, {command}')
         if self.controller.generation == 2:
@@ -399,9 +480,11 @@ class Shade(udi_interface.Node):
 
         
     def cmdCalibrate(self, command = None):
-        """
-        calibrate shade from ISY
-        only available in PowerView G2, automatic in PowerView G3
+        """Handles the 'Calibrate' command from the ISY (Gen 2 only).
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f'cmd Shade CALIBRATE {self.lpfx}, {command}')
         if self.controller.generation == 2:
@@ -418,10 +501,11 @@ class Shade(udi_interface.Node):
 
         
     def query(self, command = None):
-        """
-        Called by ISY to report all drivers for this node. This is done in
-        the parent class, so you don't need to override this method unless
-        there is a need.
+        """Queries the node and reports all drivers to the ISY.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot.
+                                      Defaults to None.
         """
         LOGGER.info(f'cmd Query {self.lpfx}, {command}')
         self.updateData()
@@ -430,8 +514,15 @@ class Shade(udi_interface.Node):
 
         
     def cmdSetpos(self, command = None):
-        """
-        Set the position of the shade; setting primary, secondary, tilt
+        """Sets the position of the shade based on a command from the ISY.
+
+        This method parses a command containing primary, secondary, or tilt
+        positions and sends the corresponding request to the gateway.
+
+        Args:
+            command (dict, optional): The command payload from Polyglot,
+                                      containing position query parameters.
+                                      Defaults to None.
         """
         LOGGER.info(f'cmdSetpos {self.lpfx}, {command}')
 
@@ -468,9 +559,13 @@ class Shade(udi_interface.Node):
 
 
     def _get_g2_positions(self, pos):
-        """
-        Helper function to build G2 positions payload.
-        g2 uses posKind1/2/3 which are mapped
+        """Builds the position payload for a Gen 2 gateway.
+
+        Args:
+            pos (dict): A dictionary of target positions (primary, secondary, tilt).
+
+        Returns:
+            dict: The formatted payload for the Gen 2 API.
         """
         positions_array = {}
 
@@ -493,7 +588,14 @@ class Shade(udi_interface.Node):
 
     
     def _get_g3_positions(self, pos):
-        """Helper function to build G3 positions payload."""
+        """Builds the position payload for a Gen 3 gateway.
+
+        Args:
+            pos (dict): A dictionary of target positions (primary, secondary, tilt).
+
+        Returns:
+            dict: The formatted payload for the Gen 3 API.
+        """
         positions_array = {}
 
         for key, value in pos.items():
@@ -508,8 +610,16 @@ class Shade(udi_interface.Node):
 
     
     def setShadePosition(self, pos):
-        """
-        Sets the shade position based on the gateway generation.
+        """Sends a command to the gateway to set the shade's position.
+
+        This method constructs the appropriate payload for the gateway generation
+        (Gen 2 or Gen 3) and sends the request.
+
+        Args:
+            pos (dict): A dictionary of target positions.
+
+        Returns:
+            bool: True if the command was sent, False otherwise.
         """
         if self.controller.generation == 2:
             shade_payload = self._get_g2_positions(pos)
@@ -525,8 +635,15 @@ class Shade(udi_interface.Node):
 
     
     def fromPercent(self, pos, divr=1.0):
-        """
-        Convert a percentage to a position.
+        """Converts a percentage value to a raw position value for the gateway.
+
+        Args:
+            pos (int or float): The position value as a percentage (0-100).
+            divr (float, optional): The divisor to use for the conversion.
+                                    Defaults to 1.0.
+
+        Returns:
+            int or float: The raw position value for the gateway.
         """
         if self.controller.generation == 2:
             newpos = math.trunc((float(pos) / 100.0) * divr)
@@ -538,8 +655,21 @@ class Shade(udi_interface.Node):
         return newpos
 
     
-    # all the drivers - for reference
-    # NOTE velocity not implemented, possible for position setting, no use in reading scenes
+    # UOMs:
+    # 2: boolean
+    # 25: index
+    # 100: A Level from 0-255 e.g. brightness of a dimmable lamp
+    # 107: Raw 1-byte unsigned value
+    #
+    # Driver controls:
+    # GV0: Custom Control 0 (Shade Id)
+    # ST: Status (In Motion)
+    # GV1: Custom Control 1 (Room Id)
+    # GV2: Custom Control 2 (Primary)
+    # GV3: Custom Control 3 (Secondary)
+    # GV4: Custom Control 4 (Tilt)
+    # GV5: Custom Control 5 (Capabilities)
+    # GV6: Custom Control 6 (Battery Status)
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
@@ -553,8 +683,8 @@ class Shade(udi_interface.Node):
 
     
     """
-    This is a dictionary of commands. If ISY sends a command to the NodeServer,
-    this tells it which method to call. DON calls setOn, etc.
+    Commands that this node can handle.
+    Should match the 'accepts' section of the nodedef file.
     """
     commands = {
         'OPEN': cmdOpen,
@@ -573,6 +703,7 @@ class Shade(udi_interface.Node):
 ###################
 
 class ShadeNoTilt(Shade):
+    """ Shade node for shades with primary and secondary controls, but no tilt. """
     id = 'shadenotiltid'
 
     drivers = [
@@ -587,6 +718,7 @@ class ShadeNoTilt(Shade):
 
     
 class ShadeOnlyPrimary(Shade):
+    """ Shade node for shades with only a primary position control. """
     id = 'shadeonlyprimid'
 
     drivers = [
@@ -600,6 +732,7 @@ class ShadeOnlyPrimary(Shade):
 
     
 class ShadeOnlySecondary(Shade):
+    """ Shade node for shades with only a secondary position control. """
     id = 'shadeonlysecondid'
 
     drivers = [
@@ -613,6 +746,7 @@ class ShadeOnlySecondary(Shade):
 
     
 class ShadeNoSecondary(Shade):
+    """ Shade node for shades with primary and tilt controls, but no secondary. """
     id = 'shadenosecondid'
 
     drivers = [
@@ -627,6 +761,7 @@ class ShadeNoSecondary(Shade):
 
     
 class ShadeOnlyTilt(Shade):
+    """ Shade node for shades with only a tilt control. """
     id = 'shadeonlytiltid'
 
     drivers = [
@@ -638,62 +773,4 @@ class ShadeOnlyTilt(Shade):
         {'driver': 'GV6', 'value': 0, 'uom': 25, 'name': "Battery Status"},
         ]
 
-    
-    """
-    Shade Capabilities:
-
-    Type 0 - Bottom Up 
-    Examples: Standard roller/screen shades, Duette bottom up 
-    Uses the “primary” control type
-
-    Type 1 - Bottom Up w/ 90° Tilt 
-    Examples: Silhouette, Pirouette 
-    Uses the “primary” and “tilt” control types
-
-    Type 2 - Bottom Up w/ 180° Tilt 
-    Example: Silhouette Halo 
-    Uses the “primary” and “tilt” control types
-
-    Type 3 - Vertical (Traversing) 
-    Examples: Skyline, Duette Vertiglide, Design Studio Drapery 
-    Uses the “primary” control type
-
-    Type 4 - Vertical (Traversing) w/ 180° Tilt 
-    Example: Luminette 
-    Uses the “primary” and “tilt” control types
-
-    Type 5 - Tilt Only 180° 
-    Examples: Palm Beach Shutters, Parkland Wood Blinds 
-    Uses the “tilt” control type
-
-    Type 6 - Top Down 
-    Example: Duette Top Down 
-    Uses the “primary” control type
-
-    Type 7 - Top-Down/Bottom-Up (can open either from the bottom or from the top) 
-    Examples: Duette TDBU, Vignette TDBU 
-    Uses the “primary” and “secondary” control types
-    NOTE reversed to scene labelling
-
-    Type 8 - Duolite (front and rear shades) 
-    Examples: Roller Duolite, Vignette Duolite, Dual Roller
-    Uses the “primary” and “secondary” control types 
-    Note: In some cases the front and rear shades are
-    controlled by a single motor and are on a single tube so they cannot operate independently - the
-    front shade must be down before the rear shade can deploy. In other cases, they are independent with
-    two motors and two tubes. Where they are dependent, the shade firmware will force the appropriate
-    front shade position when the rear shade is controlled - there is no need for the control system to
-    take this into account.
-    NOTE some positions are assumed in scenes, same for #9 & #10 ???
-
-    Type 9 - Duolite with 90° Tilt 
-    (front bottom up shade that also tilts plus a rear blackout (non-tilting) shade) 
-    Example: Silhouette Duolite, Silhouette Adeux 
-    Uses the “primary,” “secondary,” and “tilt” control types Note: Like with Type 8, these can be
-    either dependent or independent.
-
-    Type 10 - Duolite with 180° Tilt 
-    Example: Silhouette Halo Duolite 
-    Uses the “primary,” “secondary,” and “tilt” control types
-    """
     
