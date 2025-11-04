@@ -1474,15 +1474,15 @@ class Controller(Node):
             LOGGER.error(f"Error in put {url} with data {data}: {e}", exc_info=True)
             return False
 
-        
-    # all the drivers - for reference
-    # UOMs of interest:
-    # 25: index
-    # 107: Raw 1-byte unsigned value
-    #
-    # Driver controls of interest:
-    # ST: Status
-    # GV0: Custom Control 0
+    """
+    UOMs:
+    25: index
+    107: Raw 1-byte unsigned value
+
+    Driver controls:
+    ST: Status
+    GV0: Custom Control 0
+    """
     drivers = [
         {'driver': 'ST', 'value': 1, 'uom': 25, 'name': "Controller Status"},
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "NumberOfNodes"},
