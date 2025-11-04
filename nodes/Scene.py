@@ -510,14 +510,15 @@ class Scene(udi_interface.Node):
         LOGGER.info(f'scene:{self.controller.scenes_map.get(self.sid)}')
         LOGGER.debug(f"Exit {self.lpfx}")        
 
-        
-    # UOMs:
-    # 2: boolean
-    # 25: index
-    #
-    # Driver controls:
-    # ST: Status (Activated)
-    # GV0: Custom Control 0 (Scene Id)
+    """
+    UOMs:
+    2: boolean
+    25: index
+    
+    Driver controls:
+    ST: Status (Activated)
+    GV0: Custom Control 0 (Scene Id)
+    """    
     drivers = [
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "Activated"},
         {'driver': 'GV0', 'value': 0, 'uom': 25, 'name': "Scene Id"},

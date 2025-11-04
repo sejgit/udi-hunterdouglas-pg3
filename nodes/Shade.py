@@ -654,22 +654,23 @@ class Shade(udi_interface.Node):
         LOGGER.debug(f"fromPercent: pos={pos}, becomes {newpos}")
         return newpos
 
+    """
+    UOMs:
+    2: boolean
+    25: index
+    100: A Level from 0-255 e.g. brightness of a dimmable lamp
+    107: Raw 1-byte unsigned value
     
-    # UOMs:
-    # 2: boolean
-    # 25: index
-    # 100: A Level from 0-255 e.g. brightness of a dimmable lamp
-    # 107: Raw 1-byte unsigned value
-    #
-    # Driver controls:
-    # GV0: Custom Control 0 (Shade Id)
-    # ST: Status (In Motion)
-    # GV1: Custom Control 1 (Room Id)
-    # GV2: Custom Control 2 (Primary)
-    # GV3: Custom Control 3 (Secondary)
-    # GV4: Custom Control 4 (Tilt)
-    # GV5: Custom Control 5 (Capabilities)
-    # GV6: Custom Control 6 (Battery Status)
+    Driver controls:
+    GV0: Custom Control 0 (Shade Id)
+    ST: Status (In Motion)
+    GV1: Custom Control 1 (Room Id)
+    GV2: Custom Control 2 (Primary)
+    GV3: Custom Control 3 (Secondary)
+    GV4: Custom Control 4 (Tilt)
+    GV5: Custom Control 5 (Capabilities)
+    GV6: Custom Control 6 (Battery Status)
+    """
     drivers = [
         {'driver': 'GV0', 'value': 0, 'uom': 107, 'name': "Shade Id"},
         {'driver': 'ST', 'value': 0, 'uom': 2, 'name': "In Motion"}, 
