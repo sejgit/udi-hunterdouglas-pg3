@@ -19,11 +19,12 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = '1.13.2'
+VERSION = "1.13.2"
 """
 1.13.2
 DONE requirements.txt changes
 DONE comments improvements
+DONE testing additions
 
 1.13.1
 DONE refactor controller discovery, put, get, goodip functions
@@ -107,8 +108,8 @@ def main():
         * use 'controller' for both parent and address and PG3 will be able
           to automatically update node server status
         """
-        control = Controller(polyglot, 'hdctrl', 'hdctrl', 'HunterDouglas')
-        LOGGER.debug(f'Controller:{control}')
+        control = Controller(polyglot, "hdctrl", "hdctrl", "HunterDouglas")
+        LOGGER.debug(f"Controller:{control}")
 
         """
         Sits around and does nothing forever, keeping your program running.
@@ -126,9 +127,9 @@ def main():
             polyglot.stop()
         sys.exit(0)
     except Exception as err:
-        LOGGER.error(f'Excption: {err}', exc_info=True)
+        LOGGER.error(f"Excption: {err}", exc_info=True)
         sys.exit(0)
 
-    
+
 if __name__ == "__main__":
     main()
