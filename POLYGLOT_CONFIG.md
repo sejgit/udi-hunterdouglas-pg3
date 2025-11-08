@@ -1,7 +1,7 @@
 
 # PG3 Plugin/Nodeserver for HunterDouglas PowerView Shades
 
-udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy  
+udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 (C) 2025 Stephen Jenkins
 
 [![licence][shield]][licenseFile]
@@ -11,7 +11,7 @@ udi-HunterDouglas-pg3 NodeServer/Plugin for EISY/Polisy
 This Poly provides an interface between HunterDouglas window shades
 and [**Polyglot PG3**][polyglot] server
 
-[**This thread**][forum] on UDI forums has more details, ask questions there!  
+[**This thread**][forum] on UDI forums has more details, ask questions there!
 [Troubleshooting][troubleshoot] available in this document
 
 **IMPORTANT:** There are differences for HunterDouglas G3 API versus G2 API
@@ -32,8 +32,8 @@ You will need to define the custom parameter **gatewayip**
 
 Primary gateway will be determined if you have more than one Gateway
 
-- Enter **gatewayip** configuration as an array of string IP's with all Hunter Douglas  
-gateways you have  
+- Enter **gatewayip** configuration as an array of string IP's with all Hunter Douglas
+gateways you have
 - example for variable  **gatewayip** ['10.0.1.150', '10.0.1.151', '10.0.1.152']
 
 ## Functionality
@@ -62,7 +62,7 @@ gateways you have
 - **battery-alert** when battery goes below "2" or normal
 - **scene-add** is newly observed, not sure if **scene-delete** or **scene-remove** even exists
 - **Shade-Online**, **Shade-offline**, & **homedoc-updated** pushed infrequently & randomly so it seems
- 
+
 ### Commands: Both PowerView G3 & G2
 
 - Open / Close

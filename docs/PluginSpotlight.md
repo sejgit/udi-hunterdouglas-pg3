@@ -7,7 +7,7 @@
 Hunter Douglas Plugin is another in the long line of plugins to make your home
 more comfortable, private and safe with your eisy/Polisy. It will help you keep
 your home cool in the summer, warm in the winter, & private when you want it.
-You can respond when shades are moved, or scenes are activated.  
+You can respond when shades are moved, or scenes are activated.
 You can initiate scenes or custom movement in your shades.
 You can be alerted using Instant Notifications and see/control everything on UD Mobile!
 

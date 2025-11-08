@@ -13,17 +13,17 @@ and Polyglot V3 server supporting Universal Devices EISY or Polisy controllers
 
 ## Installation
 
-You can install This node server from the PG3 NodeServer Store.  
-Read the [**Configuration**][configuration] file for instructions  
-[**The Forum**][forum] is a great place to ask questions  
+You can install This node server from the PG3 NodeServer Store.
+Read the [**Configuration**][configuration] file for instructions
+[**The Forum**][forum] is a great place to ask questions
 And [**troubleshooting**][troubleshoot] steps are also available,
 and updated from forum discussions
 
 ## Requirements
 
-**IMPORTANT:** There are differences for HunterDouglas G3 API versus G2 API  
+**IMPORTANT:** There are differences for HunterDouglas G3 API versus G2 API
 
-See the [**Configuration**][configuration] file for details  
+See the [**Configuration**][configuration] file for details
 
 This node server will only run on Polyglot version 3. You will
 need to have an EISY/Polisy with PG3 installed to run this node server
@@ -123,7 +123,7 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 ### motion-stopped **new for v1.13.0**
 
 * when a shade stops the scene activation may have changed
-* ACTION: 
+* ACTION:
   * G3: run calcActive which will update GV1 based on results
   *  shade will wait before removing from cue to give scenes time to calculate if Active.
 
@@ -145,10 +145,10 @@ PwerView G1 hubs, NOT part of scope of this plugin, the [**G1-API is here**][G1-
 * any shade motion from any source by any command
 * ACTION: set the ST, Motion flag, update position to targetPosition
 
-### motion-stopped **modified in v1.13.0** 
+### motion-stopped **modified in v1.13.0**
 
 * shade motion from any source by any command
-* ACTION: 
+* ACTION:
   * G3: clear the ST, Motion flag, update position to currentPosition
   * Wait before removing from cue to give scenes time to calculate if Active.
 

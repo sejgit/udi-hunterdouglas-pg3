@@ -21,7 +21,7 @@
   - Open / Close / Stop
   - Tilt Open / Close
   - Jog
-  
+
 ![Controller](Screenshot_Shade.png "Shade")
 
 ## Scene Node

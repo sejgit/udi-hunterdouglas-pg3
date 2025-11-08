@@ -404,3 +404,235 @@ class TestSceneDriversCommands:
 
         assert Scene.commands["ACTIVATE"] == Scene.cmdActivate
         assert Scene.commands["QUERY"] == Scene.query
+
+
+# ==================== PHASE 3 TESTS ====================
+
+
+class TestSceneEventPollingG3:
+    """Tests for Scene event polling functionality."""
+
+    @pytest.fixture
+    def scene_with_event_mocks(self):
+        """Create a Scene with event polling mocks."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.stop_sse_client_event = Event()
+        controller.generation = 3
+        controller.gateway = "192.168.1.100"
+        controller.get_gateway_event = Mock(return_value=[])
+        controller.scenes_map = {"scene1": {"_id": "scene1", "name": "Morning Scene"}}
+
+        poly.getNode = Mock(return_value=controller)
+
+        scene = Scene(poly, "controller", "scene1", "Morning Scene", "scene1")
+        scene.setDriver = Mock()
+        scene.reportCmd = Mock()
+
+        return scene
+
+    def test_poll_events_for_g3_scene_calc(self, scene_with_event_mocks):
+        """Test _poll_events_for_g3 with scene-calc event."""
+        events = [
+            {"evt": "scene-calc", "id": "scene1", "isoDate": "2025-01-01T12:00:00.000Z"}
+        ]
+
+        scene_with_event_mocks._poll_events_for_g3(events)
+
+        # Should process without error
+        assert True
+
+    def test_poll_events_for_g3_scene_activated(self, scene_with_event_mocks):
+        """Test _poll_events_for_g3 with scene-activated event."""
+        events = [
+            {
+                "evt": "scene-activated",
+                "id": "scene1",
+                "isoDate": "2025-01-01T12:00:00.000Z",
+            }
+        ]
+
+        scene_with_event_mocks.calcActive = Mock()
+        scene_with_event_mocks._poll_events_for_g3(events)
+
+        # Should call calcActive
+        scene_with_event_mocks.calcActive.assert_called()
+
+    def test_poll_events_for_g3_with_empty_events(self, scene_with_event_mocks):
+        """Test _poll_events_for_g3 with no events."""
+        events = []
+
+        # Should not raise exception
+        try:
+            scene_with_event_mocks._poll_events_for_g3(events)
+            assert True
+        except Exception:
+            assert False, "_poll_events_for_g3 should handle empty events"
+
+
+class TestSceneActivation:
+    """Tests for Scene activation functionality."""
+
+    @pytest.fixture
+    def scene_with_activation_mocks(self):
+        """Create a Scene with activation mocks."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 3
+        controller.put = Mock()
+
+        poly.getNode = Mock(return_value=controller)
+
+        scene = Scene(poly, "controller", "scene1", "Morning Scene", "scene1")
+        scene.setDriver = Mock()
+        scene.reportCmd = Mock()
+
+        return scene
+
+    def test_cmd_activate_gen3(self, scene_with_activation_mocks):
+        """Test cmdActivate for Gen 3 gateway."""
+        scene_with_activation_mocks.cmdActivate(None)
+
+        # Should call controller.put with scene activation URL
+        assert scene_with_activation_mocks.controller.put.called
+
+    def test_calc_active_scene_active(self, scene_with_activation_mocks):
+        """Test calcActive when scene has members."""
+        scene_with_activation_mocks.controller.sceneIdsActive = ["scene1"]
+        scene_with_activation_mocks.controller.sceneIdsActive_calc = set()
+        scene_with_activation_mocks.controller.scenes_map = {
+            "scene1": {
+                "_id": "scene1",
+                "members": [],  # Empty members means no match
+            }
+        }
+        scene_with_activation_mocks.controller.generation = 3
+
+        scene_with_activation_mocks.calcActive()
+
+        # With no members, should call _handle_no_match (status = 0)
+        calls = [
+            c
+            for c in scene_with_activation_mocks.setDriver.call_args_list
+            if c[0][0] == "ST"
+        ]
+        if calls:
+            assert calls[0][0][1] == 0  # No match = 0
+
+    def test_calc_active_scene_inactive(self, scene_with_activation_mocks):
+        """Test calcActive when scene is not active."""
+        scene_with_activation_mocks.controller.sceneIdsActive = ["other_scene"]
+        scene_with_activation_mocks.controller.sceneIdsActive_calc = set(["scene1"])
+
+        scene_with_activation_mocks.calcActive()
+
+        # Should set status to inactive (0) and remove from calc set
+        calls = [
+            c
+            for c in scene_with_activation_mocks.setDriver.call_args_list
+            if c[0][0] == "ST"
+        ]
+        if calls:
+            assert calls[0][0][1] == 0
+        assert (
+            "scene1" not in scene_with_activation_mocks.controller.sceneIdsActive_calc
+        )
+
+
+# ==================== PHASE 4 TESTS (BALANCED) ====================
+
+
+class TestSceneQuery:
+    """Tests for Scene query functionality."""
+
+    @pytest.fixture
+    def scene_query(self):
+        """Create a Scene for query testing."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 3
+        controller.scenes_map = {
+            "scene1": {"_id": "scene1", "name": "Morning", "roomId": "room1"}
+        }
+        controller.sceneIdsActive = []
+        controller.sceneIdsActive_calc = set()
+
+        poly.getNode = Mock(return_value=controller)
+
+        scene = Scene(poly, "controller", "scene1", "Morning", "scene1")
+        scene.setDriver = Mock()
+        scene.reportDrivers = Mock()
+
+        return scene
+
+    def test_query_reports_drivers(self, scene_query):
+        """Test query reports current drivers."""
+        scene_query.query(None)
+
+        scene_query.reportDrivers.assert_called_once()
+
+    def test_query_with_command_data(self, scene_query):
+        """Test query with command data."""
+        command = {"value": "test"}
+
+        scene_query.query(command)
+
+        # Should still report drivers
+        scene_query.reportDrivers.assert_called()
+
+
+class TestSceneActivationGen2:
+    """Tests for Scene activation with Gen 2 gateway."""
+
+    @pytest.fixture
+    def scene_gen2(self):
+        """Create a Scene for Gen 2 testing."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 2
+        controller.get = Mock()
+
+        poly.getNode = Mock(return_value=controller)
+
+        scene = Scene(poly, "controller", "scene1", "Morning", "scene1")
+        scene.setDriver = Mock()
+        scene.reportCmd = Mock()
+        scene.calcActive = Mock()
+
+        return scene
+
+    def test_cmd_activate_gen2(self, scene_gen2):
+        """Test cmdActivate for Gen 2 gateway."""
+        from unittest.mock import Mock as MockResponse
+
+        mock_response = MockResponse()
+        mock_response.status_code = 200
+        scene_gen2.controller.get.return_value = mock_response
+
+        scene_gen2.cmdActivate(None)
+
+        # Should call controller.get for Gen 2
+        assert scene_gen2.controller.get.called

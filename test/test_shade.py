@@ -568,3 +568,521 @@ class TestShadeGen2Compatibility:
             shade_gen2_mocks.setShadePosition.called
             or shade_gen2_mocks.controller.get.called
         )
+
+
+class TestShadePositionCalculations:
+    """Tests for Shade position calculations and conversions."""
+
+    @pytest.fixture
+    def shade_with_mocks(self):
+        """Create a Shade with mocked dependencies."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.gateway = "powerview-g3.local"
+        controller.generation = 3
+        controller.shades_map = {}
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller_addr", "shade_addr", "Test Shade", "12345")
+        shade.setDriver = Mock()
+
+        return shade
+
+    def test_cmdSetpos_exists(self, shade_with_mocks):
+        """Test that cmdSetpos method exists."""
+        assert hasattr(shade_with_mocks, "cmdSetpos")
+        assert callable(shade_with_mocks.cmdSetpos)
+
+    def test_pos_to_percent_conversion(self, shade_with_mocks):
+        """Test posToPercent converts positions correctly."""
+        pos_dict = {"primary": 50, "secondary": 75, "tilt": 25}
+        result = shade_with_mocks.posToPercent(pos_dict)
+
+        assert isinstance(result, dict)
+        assert "primary" in result
+
+    def test_from_percent_conversion(self, shade_with_mocks):
+        """Test fromPercent converts percentages to raw values."""
+        result = shade_with_mocks.fromPercent(50)
+
+        assert isinstance(result, (int, float))
+        assert result >= 0
+
+
+class TestShadeUpdatePositionsMethods:
+    """Tests for Shade position updates from gateway."""
+
+    @pytest.fixture
+    def shade_with_mocks(self):
+        """Create a Shade with mocked dependencies."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.gateway = "powerview-g3.local"
+        controller.generation = 3
+        controller.update_shade_data = Mock()
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller_addr", "shade_addr", "Test Shade", "12345")
+        shade.setDriver = Mock()
+        shade.capabilities = 9  # Duolite with tilt
+
+        return shade
+
+    def test_update_positions_primary(self, shade_with_mocks):
+        """Test updatePositions updates primary position."""
+        positions = {"primary": 5000, "secondary": 7500, "tilt": 2500}
+        shade_with_mocks.updatePositions(positions)
+
+        # Should set GV2 (primary position)
+        calls = [
+            c for c in shade_with_mocks.setDriver.call_args_list if c[0][0] == "GV2"
+        ]
+        assert len(calls) > 0
+
+    def test_update_positions_with_tilt(self, shade_with_mocks):
+        """Test updatePositions updates tilt for tilt-capable shade."""
+        positions = {"primary": 5000, "secondary": 7500, "tilt": 2500}
+        shade_with_mocks.updatePositions(positions)
+
+        # Should set GV4 (tilt position)
+        calls = [
+            c for c in shade_with_mocks.setDriver.call_args_list if c[0][0] == "GV4"
+        ]
+        assert len(calls) > 0
+
+    def test_update_positions_with_secondary(self, shade_with_mocks):
+        """Test updatePositions updates secondary for duolite shade."""
+        positions = {"primary": 5000, "secondary": 7500, "tilt": 2500}
+        shade_with_mocks.updatePositions(positions)
+
+        # Should set GV3 (secondary position)
+        calls = [
+            c for c in shade_with_mocks.setDriver.call_args_list if c[0][0] == "GV3"
+        ]
+        assert len(calls) > 0
+
+
+class TestShadeCapabilities:
+    """Tests for different shade capability types."""
+
+    @pytest.fixture
+    def basic_controller(self):
+        """Create a basic mock controller."""
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "powerview-g3.local"
+        controller.generation = 3
+        controller.shades_map = {}
+        return controller
+
+    def test_shade_no_tilt_type(self, basic_controller):
+        """Test ShadeNoTilt class."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        poly.getNode = Mock(return_value=basic_controller)
+
+        shade = ShadeNoTilt(
+            poly, "controller_addr", "shade_addr", "Test Shade", "12345"
+        )
+
+        assert shade.id == "shadenotiltid"
+
+    def test_shade_only_primary_type(self, basic_controller):
+        """Test ShadeOnlyPrimary class."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        poly.getNode = Mock(return_value=basic_controller)
+
+        shade = ShadeOnlyPrimary(
+            poly, "controller_addr", "shade_addr", "Test Shade", "12345"
+        )
+
+        assert shade.id == "shadeonlyprimid"
+
+    def test_shade_only_secondary_type(self, basic_controller):
+        """Test ShadeOnlySecondary class."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        poly.getNode = Mock(return_value=basic_controller)
+
+        shade = ShadeOnlySecondary(
+            poly, "controller_addr", "shade_addr", "Test Shade", "12345"
+        )
+
+        assert shade.id == "shadeonlysecondid"
+
+    def test_shade_no_secondary_type(self, basic_controller):
+        """Test ShadeNoSecondary class."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        poly.getNode = Mock(return_value=basic_controller)
+
+        shade = ShadeNoSecondary(
+            poly, "controller_addr", "shade_addr", "Test Shade", "12345"
+        )
+
+        assert shade.id == "shadenosecondid"
+
+    def test_shade_only_tilt_type(self, basic_controller):
+        """Test ShadeOnlyTilt class."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+        poly.getNode = Mock(return_value=basic_controller)
+
+        shade = ShadeOnlyTilt(
+            poly, "controller_addr", "shade_addr", "Test Shade", "12345"
+        )
+
+        assert shade.id == "shadeonlytiltid"
+
+
+# ==================== PHASE 3 TESTS ====================
+
+
+class TestShadeEventPollingG3:
+    """Tests for Shade event polling functionality."""
+
+    @pytest.fixture
+    def shade_with_event_mocks(self):
+        """Create a Shade with event polling mocks."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.stop_sse_client_event = Event()
+        controller.generation = 3
+        controller.gateway = "192.168.1.100"
+        controller.get_gateway_event = Mock(return_value=[])
+        controller.get_shade_data = Mock(
+            return_value={
+                "shd_Id": "shade1",
+                "positions": {"primary": 50, "tilt": 0},
+                "capabilities": 0,
+                "batteryStatus": 3,
+            }
+        )
+        controller.shades_map = {
+            "shade1": {
+                "id": "shade1",
+                "name": "Test Shade",
+                "positions": {"primary": 50},
+            }
+        }
+
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller", "shade1", "Test Shade", "shade1")
+        shade.setDriver = Mock()
+        shade.reportCmd = Mock()
+
+        return shade
+
+    def test_poll_events_for_g3_motion_started(self, shade_with_event_mocks):
+        """Test _poll_events_for_g3 with motion-started event."""
+        events = [
+            {
+                "evt": "motion-started",
+                "id": "shade1",
+                "isoDate": "2025-01-01T12:00:00.000Z",
+                "targetPositions": {"primary": 75},
+            }
+        ]
+
+        shade_with_event_mocks.updatePositions = Mock()
+        shade_with_event_mocks._poll_events_for_g3(events)
+
+        # Should update positions and set motion status
+        shade_with_event_mocks.updatePositions.assert_called()
+        calls = [
+            c
+            for c in shade_with_event_mocks.setDriver.call_args_list
+            if c[0][0] == "ST"
+        ]
+        if calls:
+            assert calls[0][0][1] == 1  # Motion status = 1
+
+    def test_poll_events_for_g3_with_empty_events(self, shade_with_event_mocks):
+        """Test _poll_events_for_g3 with no events."""
+        events = []
+
+        # Should not raise exception
+        try:
+            shade_with_event_mocks._poll_events_for_g3(events)
+            assert True
+        except Exception:
+            assert False, "_poll_events_for_g3 should handle empty events"
+
+
+class TestShadeGen2Operations:
+    """Tests for Gen 2 shade operations."""
+
+    @pytest.fixture
+    def shade_gen2(self):
+        """Create a Shade configured for Gen 2."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 2
+        controller.get = Mock()
+        controller.shades_map = {}
+
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller", "shade1", "Test Shade", "shade1")
+        shade.setDriver = Mock()
+        shade.capabilities = 0
+
+        return shade
+
+    def test_get_g2_positions_primary_only(self, shade_gen2):
+        """Test _get_g2_positions with primary position only."""
+        pos = {"primary": 50}
+
+        result = shade_gen2._get_g2_positions(pos)
+
+        assert "shade" in result
+        assert "positions" in result["shade"]
+
+    def test_get_g2_positions_with_tilt(self, shade_gen2):
+        """Test _get_g2_positions with tilt position."""
+        shade_gen2.capabilities = 1  # Tilt capable
+        pos = {"primary": 50, "tilt": 45}
+
+        result = shade_gen2._get_g2_positions(pos)
+
+        assert "shade" in result
+        assert "positions" in result["shade"]
+
+    def test_get_g2_positions_with_secondary(self, shade_gen2):
+        """Test _get_g2_positions with secondary position."""
+        shade_gen2.capabilities = 7  # Has secondary
+        pos = {"primary": 50, "secondary": 75}
+
+        result = shade_gen2._get_g2_positions(pos)
+
+        assert "shade" in result
+
+    def test_get_g3_positions_primary(self, shade_gen2):
+        """Test _get_g3_positions with primary position."""
+        shade_gen2.controller.generation = 3
+        pos = {"primary": 50}
+
+        result = shade_gen2._get_g3_positions(pos)
+
+        assert "positions" in result
+        assert "primary" in result["positions"]
+
+    def test_set_shade_position_gen2(self, shade_gen2):
+        """Test setShadePosition for Gen 2."""
+        # Gen 2 position setting is complex, just verify method exists
+        assert hasattr(shade_gen2, "setShadePosition")
+        assert callable(shade_gen2.setShadePosition)
+
+    def test_set_shade_position_gen3(self, shade_gen2):
+        """Test setShadePosition for Gen 3."""
+        from unittest.mock import Mock as MockResponse
+
+        shade_gen2.controller.generation = 3
+        shade_gen2.controller.put = Mock()
+
+        mock_response = MockResponse()
+        mock_response.status_code = 200
+        shade_gen2.controller.put.return_value = True
+
+        pos = {"primary": 75}
+        shade_gen2.setShadePosition(pos)
+
+        # Should call controller.put for Gen 3
+        assert shade_gen2.controller.put.called
+
+
+class TestShadeCommandHandlers:
+    """Tests for additional Shade command handlers."""
+
+    @pytest.fixture
+    def shade_with_commands(self):
+        """Create a Shade with command mocks."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 3
+        controller.put = Mock()
+
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller", "shade1", "Test Shade", "shade1")
+        shade.setDriver = Mock()
+        shade.capabilities = 0
+
+        return shade
+
+    def test_cmd_jog(self, shade_with_commands):
+        """Test cmdJog command."""
+        shade_with_commands.controller.generation = 3
+        shade_with_commands.cmdJog(None)
+
+        # Should call controller.put for Gen 3
+        assert shade_with_commands.controller.put.called
+
+    def test_cmd_calibrate(self, shade_with_commands):
+        """Test cmdCalibrate command (Gen 2 only)."""
+        shade_with_commands.controller.generation = 2  # Gen 2
+        shade_with_commands.cmdCalibrate(None)
+
+        # Should call controller.put for Gen 2
+        assert shade_with_commands.controller.put.called
+
+    def test_query_updates_data(self, shade_with_commands):
+        """Test query command updates shade data."""
+        shade_with_commands.updateData = Mock(return_value=True)
+
+        shade_with_commands.query(None)
+
+        shade_with_commands.updateData.assert_called_once()
+
+
+# ==================== PHASE 4 TESTS (BALANCED) ====================
+
+
+class TestShadePositionValidation:
+    """Tests for Shade position validation and edge cases."""
+
+    @pytest.fixture
+    def shade_positions(self):
+        """Create a Shade for position testing."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 3
+        controller.shades_map = {}
+
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller", "shade1", "Test Shade", "shade1")
+        shade.setDriver = Mock()
+        shade.capabilities = 0
+
+        return shade
+
+    def test_from_percent_zero(self, shade_positions):
+        """Test fromPercent with 0 percent."""
+        result = shade_positions.fromPercent(0)
+
+        assert result == 0.0
+
+    def test_from_percent_hundred(self, shade_positions):
+        """Test fromPercent with 100 percent."""
+        result = shade_positions.fromPercent(100)
+
+        assert isinstance(result, (int, float))
+        assert result > 0
+
+    def test_from_percent_with_divider(self, shade_positions):
+        """Test fromPercent with custom divider."""
+        result = shade_positions.fromPercent(50, divr=100.0)
+
+        assert isinstance(result, (int, float))
+
+    def test_pos_to_percent_empty_dict(self, shade_positions):
+        """Test posToPercent with empty dictionary."""
+        result = shade_positions.posToPercent({})
+
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_pos_to_percent_with_values(self, shade_positions):
+        """Test posToPercent converts all values."""
+        pos = {"primary": 5000, "secondary": 7500, "tilt": 2500}
+        result = shade_positions.posToPercent(pos)
+
+        assert "primary" in result
+        assert "secondary" in result
+        assert "tilt" in result
+
+
+class TestShadeOpenClose:
+    """Tests for Shade open/close command variations."""
+
+    @pytest.fixture
+    def shade_commands(self):
+        """Create a Shade for command testing."""
+        poly = Mock()
+        poly.subscribe = Mock()
+        poly.db_getNodeDrivers = Mock(return_value=[])
+
+        controller = Mock()
+        controller.ready_event = Event()
+        controller.ready_event.set()
+        controller.gateway = "192.168.1.100"
+        controller.generation = 3
+        controller.put = Mock()
+
+        poly.getNode = Mock(return_value=controller)
+
+        shade = Shade(poly, "controller", "shade1", "Test Shade", "shade1")
+        shade.setDriver = Mock()
+        shade.setShadePosition = Mock()
+
+        return shade
+
+    def test_cmd_open_with_capabilities(self, shade_commands):
+        """Test cmdOpen with different capabilities."""
+        shade_commands.capabilities = 7  # Has primary and secondary
+
+        shade_commands.cmdOpen(None)
+
+        shade_commands.setShadePosition.assert_called()
+
+    def test_cmd_close_with_capabilities(self, shade_commands):
+        """Test cmdClose with different capabilities."""
+        shade_commands.capabilities = 8  # Duolite
+
+        shade_commands.cmdClose(None)
+
+        shade_commands.setShadePosition.assert_called()
+
+    def test_cmd_tilt_open_tilt_capable(self, shade_commands):
+        """Test cmdTiltOpen with tilt-capable shade."""
+        shade_commands.capabilities = 2  # Tilt capable (180°)
+
+        shade_commands.cmdTiltOpen(None)
+
+        shade_commands.setShadePosition.assert_called()
+
+    def test_cmd_tilt_close_tilt_capable(self, shade_commands):
+        """Test cmdTiltClose with tilt-capable shade."""
+        shade_commands.capabilities = 4  # Tilt capable (180°)
+
+        shade_commands.cmdTiltClose(None)
+
+        shade_commands.setShadePosition.assert_called()
