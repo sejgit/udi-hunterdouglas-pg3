@@ -12,8 +12,10 @@ build.txt
 *.so
 
 # Distribution / packaging
-.Python
+.python-version
 env/
+.venv/
+venv/
 build/
 develop-eggs/
 dist/
@@ -45,6 +47,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
 nosetests.xml
 coverage.xml
 *,cover
@@ -65,22 +68,42 @@ docs/_build/
 # PyBuilder
 target/
 
-#Ipython Notebook
+# Ipython Notebook
 .ipynb_checkpoints
 .idea/
 
-# Crapple
+# Type checkers
+.mypy_cache/
+.pytype/
+.pyre/
+
+# Linters
+.ruff_cache/
+
+# Environment variables
+.env
+.envrc
+
+# macOS
 .AppleDouble
 .DS_Store
+
+# Emacs
+*~
+.#*
+\#*\#
+
+# Vim
+*.swp
+*.swo
+*.swn
 
 #Project specific
 polyinterface
 *.cert
 *.key
-*.DS_Store
 *.pid
 /.saves/
 .aider*
 /temp/
-.zip
-\#.#
+*.zip
