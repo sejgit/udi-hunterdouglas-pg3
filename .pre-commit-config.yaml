@@ -43,7 +43,14 @@ repos:
     hooks:
       - id: pytest
         name: Run test suite
-        entry: pipenv run pytest
+        # --exitfirst stops at first failure (fail fast)
+        # -x is short for --exitfirst
+        # If you want to allow repos without tests, you can use one of these approaches:
+        # 1. Add this to pytest.ini: testpaths = test (and pytest will skip if test/ doesn't exist)
+        # 2. Use: bash -c 'pipenv run pytest || [ $? -eq 5 ]' (exit code 5 = no tests collected)
+        # 3. Use: bash -c 'pipenv run pytest || true' (always pass, not recommended)
+        # Currently using approach #2 - fails on real errors but passes if no tests found
+        entry: bash -c 'pipenv run pytest || [ $? -eq 5 ]'
         language: system
         types: [python]
         pass_filenames: false # Always run the full suite
