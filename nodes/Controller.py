@@ -101,7 +101,7 @@ class Controller(Node):
             address: The address of this node.
             name: The name of this node.
         """
-        super(Controller, self).__init__(poly, primary, address, name)
+        super().__init__(poly, primary, address, name)
         # importand flags, timers, vars
         self.poly = poly
         self.address = address
@@ -862,7 +862,9 @@ class Controller(Node):
         while not self.stop_sse_client_event.is_set():
             try:
                 # Increase timeout to 10 min to allow for slow heartbeats (every ~5m)
-                timeout = aiohttp.ClientTimeout(total=None, sock_connect=60, sock_read=600)
+                timeout = aiohttp.ClientTimeout(
+                    total=None, sock_connect=60, sock_read=600
+                )
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     async with session.get(url) as response:
                         retries = 0  # Reset retries on successful connection
@@ -1329,7 +1331,7 @@ class Controller(Node):
                             0:ROOM_NAME_LIMIT
                         ]
                         sh["name"] = self.poly.getValidName(
-                            "%s - %s" % (room_name, name)
+                            "{} - {}".format(room_name, name)
                         )
                         if "positions" in sh:
                             pos = sh["positions"]
@@ -1367,7 +1369,7 @@ class Controller(Node):
                                 0:ROOM_NAME_LIMIT
                             ]
                         scene["name"] = self.poly.getValidName(
-                            "%s - %s" % (room_name, name)
+                            "{} - {}".format(room_name, name)
                         )
                         self.scenes_map[scene["id"]] = scene
 
