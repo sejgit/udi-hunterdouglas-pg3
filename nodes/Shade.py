@@ -280,12 +280,12 @@ class Shade(udi_interface.Node):
 
             # # battery-alert event
             if event.get("evt") == "battery-alert":
-                LOGGER.error(f"shade {self.sid} battery-event")
+                LOGGER.warning(f"shade {self.sid} battery-event")
                 # the shade/event labels the battery different Status/level
                 self.controller.shades_map[self.sid]["batteryStatus"] = event[
                     "batteryLevel"
                 ]
-                self.setDriver("GV6", event["batterylevel"], report=True, force=True)
+                self.setDriver("GV6", event["batteryLevel"], report=True, force=True)
                 self.updatePositions(self.posToPercent(event["currentPositions"]))
                 self.controller.remove_gateway_event(event)
 

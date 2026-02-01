@@ -861,7 +861,9 @@ class Controller(Node):
 
         while not self.stop_sse_client_event.is_set():
             try:
-                async with aiohttp.ClientSession() as session:
+                # Increase timeout to 10 min to allow for slow heartbeats (every ~5m)
+                timeout = aiohttp.ClientTimeout(total=None, sock_connect=60, sock_read=600)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
                     async with session.get(url) as response:
                         retries = 0  # Reset retries on successful connection
                         async for val in response.content:
