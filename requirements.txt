@@ -1,3 +1,7 @@
+--find-links ./vendor-wheels
+--no-binary :all:
+--only-binary aiohttp,yarl,multidict,frozenlist
+
 udi_interface
 requests
 aiohttp

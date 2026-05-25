@@ -87,4 +87,3 @@ ST-scene-GV0-NAME = Id
 # ST-scene-GV1-NAME = Calc Agrees
 CMD-scene-ACTIVATE-NAME = Activate
 CMD-scene-QUERY-NAME = Query
-

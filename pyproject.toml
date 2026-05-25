@@ -1,0 +1,27 @@
+[project]
+name = "udi-hunterdouglas-pg3"
+version = "0.0.1"
+requires-python = ">=3.11"
+dependencies = [
+    "udi-interface",
+    "requests",
+    "aiohttp",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+
+[tool.ty.rules]
+possibly-missing-import = "ignore"
+unresolved-attribute = "ignore"
+
+[[tool.ty.overrides]]
+include = ["tests/**", "**/test_*.py"]
+
+[tool.ty.overrides.rules]
+possibly-unresolved-reference = "warn"
+invalid-assignment = "ignore"

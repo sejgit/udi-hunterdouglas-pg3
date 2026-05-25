@@ -19,8 +19,21 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = '1.13.1'
+VERSION = "1.13.4"
 """
+1.13.4
+DONE package updates "dependabot"
+
+1.13.3
+DONE package updates "dependabot"
+DONE fix typo, crash on batteryLevel event
+DONE fix timeout, drop every 300s timeout
+
+1.13.2
+DONE requirements.txt changes
+DONE comments improvements
+DONE testing additions
+
 1.13.1
 DONE refactor controller discovery, put, get, goodip functions
 DONE refactor controller startup, config, params, naming, logging
@@ -33,46 +46,6 @@ DONE polling rewrite, scene: shortPoll: re-start events if stopped, manually cle
 NOTE default & recommend setting shortPoll=60, longPoll=600
 DONE major re-write of function and Event routines
 DONE add number of nodes managed by controller to controller node
-
-1.12.8
-DONE prevent update until previous complete
-DONE update README with 120s LongPoll suggestion for G3 due to Events updates
-NEXT minor change, don't push to production until other changes needed
-
-1.12.7
-DEBUG crash when connection reset by peer ; fix data
-DONE remove separate open / close behaviour for G2/G3
-
-1.12.6
-DONE reverse open / close behaviour for G3 shades
-
-1.12.5
-DONE re-write SSE for G3
-DONE fix motion if motion-stop missed
-DONE battery low event added for G3
-DONE force updates to server (helps with new eisy-ui)
-DONE doc clean-up
-DONE string clean-up
-DONE improve logging
-DONE bumped requests and urllib3 versions
-
-1.12.4
-DEBUG Gen-2 make a default capability if none exists in JSON
-
-1.12.3
-DONE G2 Scene event fix
-
-1.12.2
-DONE add shade-offline event handling to error log; currently not passed to ISY
-DONE add updating of scene activation status on longPoll as backup to event
-
-1.12.1
-DONE environment updates
-DONE small refactors
-
-1.12.0
-DONE change versioning to align with workflow
-DONE update docs: README, versionHistory, logging
 
 for previous version see versionHistory.md
 
@@ -103,8 +76,8 @@ def main():
         * use 'controller' for both parent and address and PG3 will be able
           to automatically update node server status
         """
-        control = Controller(polyglot, 'hdctrl', 'hdctrl', 'HunterDouglas')
-        LOGGER.debug(f'Controller:{control}')
+        control = Controller(polyglot, "hdctrl", "hdctrl", "HunterDouglas")
+        LOGGER.debug(f"Controller:{control}")
 
         """
         Sits around and does nothing forever, keeping your program running.
@@ -122,9 +95,9 @@ def main():
             polyglot.stop()
         sys.exit(0)
     except Exception as err:
-        LOGGER.error(f'Excption: {err}', exc_info=True)
+        LOGGER.error(f"Excption: {err}", exc_info=True)
         sys.exit(0)
 
-    
+
 if __name__ == "__main__":
     main()

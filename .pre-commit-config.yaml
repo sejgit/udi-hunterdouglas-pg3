@@ -1,0 +1,65 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+# To run tests before you push instead of before you commit (recommended if tests are slow),
+# uncomment stages line and run `pre-commit install --hook-type pre-push`
+# To run manually on all files `pre-commit run --all-files
+
+repos:
+  # Standard hooks for file formatting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-xml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+
+  # automatically upgrade python files
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.21.2
+    hooks:
+      - id: pyupgrade
+
+  # Extremely fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: [--fix] # Automatically fix what it can
+      - id: ruff-format
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        exclude: '^\.envrc$'
+
+  # Local hook to run your test suite
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Run test suite
+        # --exitfirst stops at first failure (fail fast)
+        # -x is short for --exitfirst
+        # If you want to allow repos without tests, you can use one of these approaches:
+        # 1. Add this to pytest.ini: testpaths = test (and pytest will skip if test/ doesn't exist)
+        # 2. Use: bash -c 'pipenv run pytest || [ $? -eq 5 ]' (exit code 5 = no tests collected)
+        # 3. Use: bash -c 'pipenv run pytest || true' (always pass, not recommended)
+        # Currently using approach #2 - fails on real errors but passes if no tests found
+        entry: bash -c 'pipenv run pytest || [ $? -eq 5 ]'
+        language: system
+        types: [python]
+        pass_filenames: false # Always run the full suite
+        # To run tests before you push instead of before you commit (recommended if tests are slow),
+        # uncomment the following line and run `pre-commit install --hook-type pre-push`
+        stages: [pre-push]
