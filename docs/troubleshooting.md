@@ -20,7 +20,7 @@ Open a browser and type in the following for each gateway
     {"modApp":"IOS: com.hunterdouglas.powerview v15280","modDate":{"seconds":1707432094,"nanoseconds":781701000},"automations":[{"enabled":true,"min":0,"days":127,"type":10,"bleId":187,"scene_Id":49,"hour":0,"_id":65,"errorShd_Ids":[]},{"enabled":true,"scene_Id":66,"_id":69,"min":30,"bleId":146,"errorShd_Ids":[],"hour":0,"days":127,"type":6},{"days":127,"enabled":true,"hour":0,"min":31,"scene_Id":25,"type":6,"errorShd_Ids":[],"_id":37,"bleId":137},{"_id"
     #It will be much longer than this
     ```
-  
+
   Good news! You have found your primary V3 gateway!
 
 - it also worked, but you need more
