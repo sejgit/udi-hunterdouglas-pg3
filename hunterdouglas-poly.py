@@ -19,8 +19,11 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = "1.13.3"
+VERSION = "1.13.4"
 """
+1.13.4
+DONE package updates "dependabot"
+
 1.13.3
 DONE package updates "dependabot"
 DONE fix typo, crash on batteryLevel event
