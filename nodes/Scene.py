@@ -8,48 +8,20 @@ on shade positions and gateway events.
 """
 
 # std libraries
-from threading import Thread
 
 # external libraries
 import udi_interface
 
+# personal libraries
+from utils.event_polling import start_event_poll_thread
+from utils.gateway_events import (
+    find_event_by_field,
+    find_home_event,
+    find_newest_dated_event,
+)
+from utils.urls import URL_G2_SCENES_ACTIVATE, URL_SCENES_ACTIVATE
 
 LOGGER = udi_interface.LOGGER
-
-
-"""
-HunterDouglas PowerView G3 url's
-"""
-URL_DEFAULT_GATEWAY = "powerview-g3.local"
-URL_GATEWAY = "http://{g}/gateway"
-URL_HOME = "http://{g}/home"
-URL_ROOMS = "http://{g}/home/rooms"
-URL_ROOM = "http://{g}/home/rooms/{id}"
-URL_SHADES = "http://{g}/home/shades/{id}"
-URL_SHADES_MOTION = "http://{g}/home/shades/{id}/motion"
-URL_SHADES_POSITIONS = "http://{g}/home/shades/positions?ids={id}"
-URL_SHADES_STOP = "http://{g}/home/shades/stop?ids={id}"
-URL_SCENES = "http://{g}/home/scenes/{id}"
-URL_SCENES_ACTIVATE = "http://{g}/home/scenes/{id}/activate"
-URL_EVENTS = "http://{g}/home/events"
-URL_EVENTS_SCENES = "http://{g}/home/scenes/events"
-URL_EVENTS_SHADES = "http://{g}/home/shades/events"
-
-
-"""
-HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
-"""
-URL_G2_HUB = "http://{g}/api/userdata/"
-URL_G2_ROOMS = "http://{g}/api/rooms"
-URL_G2_ROOM = "http://{g}/api/rooms/{id}"
-URL_G2_SHADES = "http://{g}/api/shades"
-URL_G2_SHADE = "http://{g}/api/shades/{id}"
-URL_G2_SHADE_BATTERY = "http://{g}/api/shades/{id}?updateBatteryLevel=true"
-URL_G2_SCENES = "http://{g}/api/scenes"
-URL_G2_SCENE = "http://{g}/api/scenes?sceneid={id}"
-URL_G2_SCENES_ACTIVATE = "http://{g}/api/scenes?sceneId={id}"
-G2_DIVR = 65535
 
 
 class Scene(udi_interface.Node):
@@ -135,16 +107,11 @@ class Scene(udi_interface.Node):
         consuming events that are queued by the SSE client.
         """
         LOGGER.info(f"start: {self.lpfx}")
-        if self._event_polling_thread and self._event_polling_thread.is_alive():
-            return  # Already running
-
-        self.controller.stop_sse_client_event.clear()
-        self._event_polling_thread = Thread(
+        start_event_poll_thread(
+            self,
+            thread_name=f"SceneEventPollingThread{self.sid}",
             target=self._poll_events,
-            name=f"SceneEventPollingThread{self.sid}",
-            daemon=True,
         )
-        self._event_polling_thread.start()
         LOGGER.info(f"exit: {self.lpfx}")
 
     def _poll_events(self):
@@ -156,21 +123,11 @@ class Scene(udi_interface.Node):
         self.event_polling_in = True
 
         while not self.controller.stop_sse_client_event.is_set():
-            # wait for events to process
             gateway_events = self.controller.get_gateway_event()
+            if not gateway_events:
+                continue
 
-            # home update event
-            # Efficiently find the 'home' event using next() with a default value.
-            try:
-                event = next(
-                    (e for e in gateway_events if e.get("evt") == "home"), None
-                )
-            except Exception as ex:
-                LOGGER.error(
-                    f"scene {self.sid} home event lookup error: {ex}", exc_info=True
-                )
-                event = None
-
+            event = find_home_event(gateway_events)
             if event:
                 try:
                     if self.sid in event.get("scenes", []):
@@ -229,16 +186,7 @@ class Scene(udi_interface.Node):
         # scene-calc event
         # from shade motion-stopped event which produced scene-calc
         # run calc active if shade is within scene
-        try:
-            event = next(
-                (e for e in gateway_events if e.get("evt") == "scene-calc"), None
-            )
-        except Exception as ex:
-            LOGGER.error(
-                f"scene {self.sid} scene-calc event lookup error: {ex}", exc_info=True
-            )
-            event = None
-
+        event = find_event_by_field(gateway_events, "evt", "scene-calc")
         if event:
             try:
                 members = self.controller.scenes_map.get(self.sid, {}).get(
@@ -267,12 +215,8 @@ class Scene(udi_interface.Node):
 
         # handle the rest of events in isoDate order
         try:
-            # filter events without isoDate like home
-            event_nohome = (e for e in gateway_events if e.get("isoDate") is not None)
-            # get most recent isoDate
-            event = min(event_nohome, key=lambda x: x["isoDate"], default={})
-
-        except (ValueError, TypeError) as ex:  # Catch specific exceptions
+            event = find_newest_dated_event(gateway_events)
+        except (ValueError, TypeError) as ex:
             LOGGER.error(f"Error filtering or finding minimum event: {ex}")
             event = {}
 

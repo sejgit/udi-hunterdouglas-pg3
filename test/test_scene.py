@@ -167,7 +167,7 @@ class TestSceneEventPolling:
 
         return scene
 
-    @patch("nodes.Scene.Thread")
+    @patch("utils.event_polling.Thread")
     def test_start_event_polling_creates_thread(self, mock_thread, scene_with_mocks):
         """Test that start_event_polling creates and starts a thread."""
         scene_with_mocks.start_event_polling()

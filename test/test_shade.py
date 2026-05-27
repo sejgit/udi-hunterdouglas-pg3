@@ -179,7 +179,7 @@ class TestShadeEventPolling:
 
         return shade
 
-    @patch("nodes.Shade.Thread")
+    @patch("utils.event_polling.Thread")
     def test_start_event_polling_creates_thread(self, mock_thread, shade_with_mocks):
         """Test that start_event_polling creates and starts a thread."""
         shade_with_mocks.start_event_polling()

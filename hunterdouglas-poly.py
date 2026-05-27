@@ -36,6 +36,12 @@ DONE Shade updateData null guards for missing shade data
 DONE fix battery-alert event batteryLevel key handling
 DONE fix Scene Gen2 active check (generation not gateway IP)
 DONE safe scene-deactivated remove from sceneIdsActive
+DONE consolidate PowerView URL constants into utils/urls.py
+DONE consolidate gateway event lookup helpers in utils/gateway_events.py
+DONE shared start_event_poll_thread helper for node event polling
+DONE get_gateway_event wait timeout so pollers cannot block indefinitely
+DONE SSE Not Found handling restarts stream without stopping node pollers
+DONE G2 updateAllFromServerG2 fails if rooms/shades/scenes fetch fails
 
 1.13.2
 DONE requirements.txt changes

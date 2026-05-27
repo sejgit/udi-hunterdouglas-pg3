@@ -25,7 +25,27 @@ import requests
 import aiohttp
 
 # personal libraries
+from utils.event_polling import start_event_poll_thread
+from utils.gateway_events import (
+    GATEWAY_EVENT_WAIT_TIMEOUT,
+    find_home_event,
+    find_newest_dated_event,
+    find_not_found_event,
+)
 from utils.time import check_timedelta_iso
+from utils.urls import (
+    G2_DIVR,
+    URL_DEFAULT_GATEWAY,
+    URL_EVENTS,
+    URL_GATEWAY,
+    URL_G2_HUB,
+    URL_G2_ROOMS,
+    URL_G2_SCENES,
+    URL_G2_SHADES,
+    URL_HOME,
+    URL_ROOMS,
+    URL_SCENES_ACTIVE,
+)
 
 # Nodes
 from nodes import (
@@ -40,42 +60,6 @@ from nodes import (
 
 # limit the room label length as room - shade/scene must be < 30
 ROOM_NAME_LIMIT = 15
-
-
-"""
-HunterDouglas PowerView G3 url's
-"""
-URL_DEFAULT_GATEWAY = "powerview-g3.local"
-URL_GATEWAY = "http://{g}/gateway"
-URL_HOME = "http://{g}/home"
-URL_ROOMS = "http://{g}/home/rooms"
-URL_ROOM = "http://{g}/home/rooms/{id}"
-URL_SHADES = "http://{g}/home/shades/{id}"
-URL_SHADES_MOTION = "http://{g}/home/shades/{id}/motion"
-URL_SHADES_POSITIONS = "http://{g}/home/shades/positions?ids={id}"
-URL_SHADES_STOP = "http://{g}/home/shades/stop?ids={id}"
-URL_SCENES = "http://{g}/home/scenes/{id}"
-URL_SCENES_ACTIVATE = "http://{g}/home/scenes/{id}/activate"
-URL_SCENES_ACTIVE = "http://{g}/home/scenes/active"
-URL_EVENTS = "http://{g}/home/events?sse=false&raw=true"
-URL_EVENTS_SCENES = "http://{g}/home/scenes/events"
-URL_EVENTS_SHADES = "http://{g}/home/shades/events"
-
-
-"""
-HunterDouglas PowerView G2 url's
-from api file: [[https://github.com/sejgit/indigo-powerview/blob/master/PowerView%20API.md]]
-"""
-URL_G2_HUB = "http://{g}/api/userdata/"
-URL_G2_ROOMS = "http://{g}/api/rooms"
-URL_G2_ROOM = "http://{g}/api/rooms/{id}"
-URL_G2_SHADES = "http://{g}/api/shades"
-URL_G2_SHADE = "http://{g}/api/shades/{id}"
-URL_G2_SHADE_BATTERY = "http://{g}/api/shades/{id}?updateBatteryLevel=true"
-URL_G2_SCENES = "http://{g}/api/scenes"
-URL_G2_SCENE = "http://{g}/api/scenes?sceneid={id}"
-URL_G2_SCENES_ACTIVATE = "http://{g}/api/scenes?sceneId={id}"
-G2_DIVR = 65535
 
 # We need an event loop as we run in a
 # thread which doesn't have a loop
@@ -143,6 +127,7 @@ class Controller(Node):
         # Events
         self.ready_event = Event()
         self.stop_sse_client_event = Event()
+        self.sse_restart_event = Event()
         self.all_handlers_st_event = Event()
 
         # Create data storage classes
@@ -335,18 +320,21 @@ class Controller(Node):
             self.gateway_event.append(event)
             self.gateway_event_condition.notify_all()  # Wake up all waiting consumers
 
-    def get_gateway_event(self) -> list[dict]:
+    def get_gateway_event(self, timeout=GATEWAY_EVENT_WAIT_TIMEOUT) -> list[dict]:
         """Waits for and returns the list of gateway events.
 
         This method is used by consumer threads to wait for new events to be
-        posted to the gateway_event list. It blocks until events are available.
+        posted to the gateway_event list. It blocks until events are available
+        or the timeout expires.
 
         Returns:
-            list[dict]: A reference to the list containing gateway events.
+            list[dict]: A reference to the list containing gateway events, or
+                        an empty list when the wait times out.
         """
         with self.gateway_event_condition:
             while not self.gateway_event:
-                self.gateway_event_condition.wait()
+                if not self.gateway_event_condition.wait(timeout=timeout):
+                    return []
             return self.gateway_event  # return reference, not a copy
 
     def remove_gateway_event(self, event):
@@ -747,13 +735,21 @@ class Controller(Node):
         if self._event_polling_thread and self._event_polling_thread.is_alive():
             return  # Already running
 
-        self.stop_sse_client_event.clear()
-        self._event_polling_thread = Thread(
-            target=self._poll_events, name="EventPollingThread", daemon=True
+        start_event_poll_thread(
+            self,
+            thread_name="EventPollingThread",
+            target=self._poll_events,
         )
-        self._event_polling_thread.start()
         LOGGER.debug("exit")
-        return
+
+    def request_sse_restart(self):
+        """Ask the SSE client to reconnect without stopping node event pollers."""
+        if self.generation != 3:
+            return
+
+        self.sse_restart_event.set()
+        if not self.sse_client_in:
+            self.start_sse_client()
 
     def _poll_events(self):
         """The main loop for processing events from the gateway event queue.
@@ -766,48 +762,25 @@ class Controller(Node):
         self.event_polling_in = True
 
         while not self.stop_sse_client_event.is_set():
-            # wait for events to process
             gateway_events = self.get_gateway_event()
+            if not gateway_events:
+                continue
 
-            # find the 'message' event using next() with a default value.
-            try:
-                event = next(
-                    (e for e in gateway_events if e.get("message") == "Not Found"), None
-                )
-            except Exception as ex:
-                LOGGER.error(f"controller home event lookup error: {ex}", exc_info=True)
-                event = None
-
+            event = find_not_found_event(gateway_events)
             if event:
-                LOGGER.error("Message Error, restart Event loop. Removing.")
+                LOGGER.error("SSE Not Found event, requesting SSE restart.")
                 self.remove_gateway_event(event)
-                self.stop_sse_client_event.set()
-                break
+                self.request_sse_restart()
+                continue
 
-            # find the 'home' event using next() with a default value.
+            event = find_home_event(gateway_events)
+            if event and not event.get("shades") and not event.get("scenes"):
+                LOGGER.debug("Empty home event. Removing.")
+                self.remove_gateway_event(event)
+
             try:
-                event = next(
-                    (e for e in gateway_events if e.get("evt") == "home"), None
-                )
-            except Exception as ex:
-                LOGGER.error(f"controller home event lookup error: {ex}", exc_info=True)
-                event = None
-
-            if event:
-                if not event.get("shades") and not event.get("scenes"):
-                    LOGGER.debug("Empty home event. Removing.")
-                    self.remove_gateway_event(event)
-
-            # handle the rest of events in isoDate order
-            try:
-                # filter events without isoDate like home
-                event_nohome = (
-                    e for e in gateway_events if e.get("isoDate") is not None
-                )
-                # get most recent isoDate
-                event = min(event_nohome, key=lambda x: x["isoDate"], default={})
-
-            except (ValueError, TypeError) as ex:  # Catch specific exceptions
+                event = find_newest_dated_event(gateway_events)
+            except (ValueError, TypeError) as ex:
                 LOGGER.error(f"Error filtering or finding minimum event: {ex}")
                 event = {}
 
@@ -887,6 +860,11 @@ class Controller(Node):
                     async with session.get(url) as response:
                         retries = 0  # Reset retries on successful connection
                         async for val in response.content:
+                            if self.sse_restart_event.is_set():
+                                self.sse_restart_event.clear()
+                                LOGGER.warning("SSE restart requested, reconnecting")
+                                break
+
                             line = val.decode().strip()
                             if not line:
                                 continue
@@ -916,6 +894,7 @@ class Controller(Node):
                 LOGGER.warning(f"Reconnecting in {delay}s")
                 await asyncio.sleep(delay)  # Explicitly use asyncio.sleep
                 retries += 1
+        self.sse_client_in = False
         LOGGER.info("controller sse client exiting due to while exit")
 
     def query(self, command=None):
@@ -1333,76 +1312,106 @@ class Controller(Node):
                   False otherwise.
         """
         try:
-            if data:
-                self.rooms_map = {}
-                self.scenes_map = {}
-
-                res = self.get(URL_G2_ROOMS.format(g=self.gateway))
-                if res.status_code == requests.codes.ok:
-                    data = res.json()
-                    for room in data["roomData"]:
-                        room["name"] = base64.b64decode(room["name"]).decode()
-                        self.rooms_map[room["id"]] = room
-                    LOGGER.info(f"rooms = {self.rooms_map.keys()}")
-
-                res = self.get(URL_G2_SHADES.format(g=self.gateway))
-                if res.status_code == requests.codes.ok:
-                    data = res.json()
-                    for sh in data["shadeData"]:
-                        LOGGER.debug(f"Update shade {sh['id']}")
-                        name = base64.b64decode(sh["name"]).decode()
-                        room_name = self.rooms_map[sh["roomId"]]["name"][
-                            0:ROOM_NAME_LIMIT
-                        ]
-                        sh["name"] = self.poly.getValidName(
-                            "%s - %s" % (room_name, name)
-                        )
-                        if "positions" in sh:
-                            pos = sh["positions"]
-                            # Use .get() to safely retrieve values and provide defaults
-                            pos_kind1 = pos.get("posKind1")
-                            position1 = pos.get("position1")
-                            position2 = pos.get("position2")
-
-                            if pos_kind1 == 1 and position1 is not None:
-                                pos["primary"] = self.toPercent(position1, G2_DIVR)
-                            elif pos_kind1 == 3:
-                                pos["primary"] = 0
-                                if position1 is not None:
-                                    pos["tilt"] = self.toPercent(position1, G2_DIVR)
-
-                            if position2 is not None:
-                                pos["secondary"] = self.toPercent(position2, G2_DIVR)
-
-                            capabilities = sh.get("capabilities", 0)
-                            if capabilities not in range(1, 11):
-                                sh["capabilities"] = 0
-
-                        self.update_shade_data(sh["id"], sh)
-                    LOGGER.info(f"shades = {list(self.shades_map.keys())}")
-
-                res = self.get(URL_G2_SCENES.format(g=self.gateway))
-                if res.status_code == requests.codes.ok:
-                    data = res.json()
-                    for scene in data["sceneData"]:
-                        name = base64.b64decode(scene["name"]).decode()
-                        if scene["roomId"] is None:
-                            room_name = "Multi"
-                        else:
-                            room_name = self.rooms_map[scene["roomId"]]["name"][
-                                0:ROOM_NAME_LIMIT
-                            ]
-                        scene["name"] = self.poly.getValidName(
-                            "%s - %s" % (room_name, name)
-                        )
-                        self.scenes_map[scene["id"]] = scene
-
-                    LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
-
-                return True
-            else:
+            if not data:
                 LOGGER.error("updateAllfromServerG2, no data")
                 return False
+
+            self.rooms_map = {}
+            self.scenes_map = {}
+            success = True
+
+            res = self.get(URL_G2_ROOMS.format(g=self.gateway))
+            if res.status_code == requests.codes.ok:
+                data = res.json()
+                for room in data["roomData"]:
+                    room["name"] = base64.b64decode(room["name"]).decode()
+                    self.rooms_map[room["id"]] = room
+                LOGGER.info(f"rooms = {self.rooms_map.keys()}")
+            else:
+                LOGGER.error(
+                    "updateAllFromServerG2 rooms fetch failed: %s",
+                    res.status_code,
+                )
+                success = False
+
+            res = self.get(URL_G2_SHADES.format(g=self.gateway))
+            if res.status_code == requests.codes.ok:
+                data = res.json()
+                for sh in data["shadeData"]:
+                    LOGGER.debug(f"Update shade {sh['id']}")
+                    name = base64.b64decode(sh["name"]).decode()
+                    room = self.rooms_map.get(sh.get("roomId"))
+                    if room:
+                        room_name = room["name"][0:ROOM_NAME_LIMIT]
+                    else:
+                        LOGGER.warning(
+                            "Shade %s references missing room %s",
+                            sh.get("id"),
+                            sh.get("roomId"),
+                        )
+                        room_name = "Unknown"
+                    sh["name"] = self.poly.getValidName("%s - %s" % (room_name, name))
+                    if "positions" in sh:
+                        pos = sh["positions"]
+                        pos_kind1 = pos.get("posKind1")
+                        position1 = pos.get("position1")
+                        position2 = pos.get("position2")
+
+                        if pos_kind1 == 1 and position1 is not None:
+                            pos["primary"] = self.toPercent(position1, G2_DIVR)
+                        elif pos_kind1 == 3:
+                            pos["primary"] = 0
+                            if position1 is not None:
+                                pos["tilt"] = self.toPercent(position1, G2_DIVR)
+
+                        if position2 is not None:
+                            pos["secondary"] = self.toPercent(position2, G2_DIVR)
+
+                        capabilities = sh.get("capabilities", 0)
+                        if capabilities not in range(1, 11):
+                            sh["capabilities"] = 0
+
+                    self.update_shade_data(sh["id"], sh)
+                LOGGER.info(f"shades = {list(self.shades_map.keys())}")
+            else:
+                LOGGER.error(
+                    "updateAllFromServerG2 shades fetch failed: %s",
+                    res.status_code,
+                )
+                success = False
+
+            res = self.get(URL_G2_SCENES.format(g=self.gateway))
+            if res.status_code == requests.codes.ok:
+                data = res.json()
+                for scene in data["sceneData"]:
+                    name = base64.b64decode(scene["name"]).decode()
+                    if scene["roomId"] is None:
+                        room_name = "Multi"
+                    else:
+                        room = self.rooms_map.get(scene["roomId"])
+                        if room:
+                            room_name = room["name"][0:ROOM_NAME_LIMIT]
+                        else:
+                            LOGGER.warning(
+                                "Scene %s references missing room %s",
+                                scene.get("id"),
+                                scene.get("roomId"),
+                            )
+                            room_name = "Multi"
+                    scene["name"] = self.poly.getValidName(
+                        "%s - %s" % (room_name, name)
+                    )
+                    self.scenes_map[scene["id"]] = scene
+
+                LOGGER.info(f"scenes = {list(self.scenes_map.keys())}")
+            else:
+                LOGGER.error(
+                    "updateAllFromServerG2 scenes fetch failed: %s",
+                    res.status_code,
+                )
+                success = False
+
+            return success
         except Exception as ex:
             LOGGER.error(f"updateAllfromServerG2 error:{ex}")
             return False
