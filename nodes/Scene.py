@@ -117,7 +117,7 @@ class Scene(udi_interface.Node):
         Args:
             flag (str): A string indicating the type of poll ('shortPoll').
         """
-        if not self.controller.ready_event:
+        if not self.controller.ready_event.is_set():
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
 
@@ -214,7 +214,7 @@ class Scene(udi_interface.Node):
                     )
 
         self.event_polling_in = False
-        LOGGER.info(f"shade:{self.sid} exiting poll events due to controller shutdown")
+        LOGGER.info(f"scene:{self.sid} exiting poll events due to controller shutdown")
 
     def _poll_events_for_g3(self, gateway_events):
         """Processes Gen 3 specific gateway events for the scene.
@@ -289,7 +289,8 @@ class Scene(udi_interface.Node):
             if event.get("evt") == "scene-deactivated":
                 LOGGER.info(f"event {event.get('evt')}: {self.lpfx}")
                 self.controller.remove_gateway_event(event)
-                self.controller.sceneIdsActive.remove(self.sid)
+                if self.sid in self.controller.sceneIdsActive:
+                    self.controller.sceneIdsActive.remove(self.sid)
                 self.calcActive()
 
             # scene-add if scene already exists
@@ -467,7 +468,7 @@ class Scene(udi_interface.Node):
             bool: True if the calculated active state matches the gateway's
                   reported state, False otherwise.
         """
-        if self.controller.gateway == 2:
+        if self.controller.generation == 2:
             LOGGER.info("check = GEN2, no action")
             do_they_agree = False
         else:

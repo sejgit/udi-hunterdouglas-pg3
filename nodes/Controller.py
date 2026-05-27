@@ -9,6 +9,7 @@ processes events.
 """
 
 # std libraries
+import ast
 import asyncio
 import base64
 import json
@@ -404,8 +405,9 @@ class Controller(Node):
         for param, default_value in defaults.items():
             if param not in self.Parameters:
                 self.Parameters[param] = default_value
-            if self.checkParams():
-                self.handler_params_st = True
+
+        if self.checkParams():
+            self.handler_params_st = True
         self.check_handlers()
 
     def typedParameterHandler(self, params):
@@ -499,20 +501,19 @@ class Controller(Node):
             return True
 
         # gatewayip is list or string
-        try:
-            if isinstance(eval(self.gateway), list):
-                self.gateways = eval(self.gateway)
-                self.gateway = self.gateways[0]
-        except Exception:
-            if isinstance(self.gateway, str):
-                if self.gateway not in self.gateways:
-                    self.gateways.append(self.gateway)
-            else:
-                LOGGER.error("we have a bad gateway %s", self.gateway)
-                self.Notices["gateway"] = (
-                    "Please note bad gateway address check gatewayip in customParams"
-                )
-                return False
+        gateway_list = self._parse_gateway_list(self.gateway)
+        if gateway_list:
+            self.gateways = gateway_list
+            self.gateway = self.gateways[0]
+        elif isinstance(self.gateway, str):
+            if self.gateway not in self.gateways:
+                self.gateways.append(self.gateway)
+        else:
+            LOGGER.error("we have a bad gateway %s", self.gateway)
+            self.Notices["gateway"] = (
+                "Please note bad gateway address check gatewayip in customParams"
+            )
+            return False
 
         # check if valid ip address(es)
         if not self._goodip():
@@ -525,14 +526,30 @@ class Controller(Node):
         else:
             return False
 
-    def _goodip(self) -> bool:
-        """Validates a list of gateway IP addresses.
+    def _parse_gateway_list(self, gateway_value):
+        """Parse gatewayip when configured as a JSON or Python list string."""
+        if isinstance(gateway_value, list):
+            return gateway_value
+        if not isinstance(gateway_value, str):
+            return None
 
-        It iterates through the provided IP addresses, keeping only the ones
+        for parser in (json.loads, ast.literal_eval):
+            try:
+                parsed = parser(gateway_value)
+            except (json.JSONDecodeError, ValueError, SyntaxError):
+                continue
+            if isinstance(parsed, list):
+                return parsed
+        return None
+
+    def _goodip(self) -> bool:
+        """Validates a list of gateway IP addresses or hostnames.
+
+        It iterates through the provided addresses, keeping only the ones
         with a valid format.
 
         Returns:
-            bool: True if at least one valid IP address is found, False otherwise.
+            bool: True if at least one valid address is found, False otherwise.
         """
         good_ips = []
         for ip in self.gateways:
@@ -540,7 +557,11 @@ class Controller(Node):
                 socket.inet_aton(ip)
                 good_ips.append(ip)
             except OSError:  # OSError is the modern base for socket.error
-                LOGGER.error("Bad gateway IP address: %s", ip)
+                if ip.replace(".", "").replace("-", "").isalnum():
+                    good_ips.append(ip)
+                    LOGGER.info("Gateway hostname accepted: %s", ip)
+                else:
+                    LOGGER.error("Bad gateway address: %s", ip)
 
         if good_ips:
             self.Notices.delete("gateway")
@@ -644,7 +665,7 @@ class Controller(Node):
         """
         LOGGER.debug("enter")
         # no updates until node is through start-up
-        if not self.ready_event:
+        if not self.ready_event.is_set():
             LOGGER.error("Node not ready yet, exiting")
             return
 
@@ -821,14 +842,15 @@ class Controller(Node):
                         LOGGER.warning(
                             f"Unacted event!!! removed due to age > 2 min: {event}"
                         )
-                        self.gateway_event.remove(event)
+                        self.remove_gateway_event(event)
                 except (TypeError, ValueError) as ex:
                     LOGGER.error(
                         f"Invalid 'isoDate' in unacted event: {event}. Error: {ex}"
                     )
-                    self.gateway_event.remove(event)
+                    self.remove_gateway_event(event)
 
-        LOGGER.info("controller sse client event exiting while")
+        self.event_polling_in = False
+        LOGGER.info("controller event polling exiting")
 
     def start_sse_client(self):
         """Starts the SSE (Server-Sent Events) client.
@@ -1136,20 +1158,24 @@ class Controller(Node):
         Returns:
             bool: True if the update was successful, False otherwise.
         """
-        success = True
         if self.update_in:
             return False
-        if time.perf_counter() > (self.update_last + self.update_minimum):
-            self.update_in = True
-            self.last = time.perf_counter()
+        if time.perf_counter() <= (self.update_last + self.update_minimum):
+            return False
+
+        self.update_in = True
+        success = False
+        try:
             if self.generation == 3:
                 success = self.updateAllFromServerG3(self.getHomeG3())
-                success = self.updateActiveFromServerG3(self.getScenesActiveG3())
+                if success:
+                    success = self.updateActiveFromServerG3(self.getScenesActiveG3())
             elif self.generation == 2:
                 success = self.updateAllFromServerG2(self.getHomeG2())
-            else:
-                success = False
-        self.update_in = False
+            if success:
+                self.update_last = time.perf_counter()
+        finally:
+            self.update_in = False
         return success
 
     def updateAllFromServerG3(self, data):
@@ -1179,6 +1205,8 @@ class Controller(Node):
                         sh["name"] = self.poly.getValidName(
                             ("%s - %s") % (room_name, name)
                         )
+                        sh["roomId"] = r["_id"]
+                        sh.setdefault("batteryStatus", 0)
                         LOGGER.debug(sh["name"])
                         if "positions" in sh:
                             keys_to_convert = [
@@ -1415,7 +1443,9 @@ class Controller(Node):
                                with an error status is returned.
         """
         try:
-            res = requests.get(url, headers={"accept": "application/json"})
+            res = requests.get(
+                url, headers={"accept": "application/json"}, timeout=10
+            )
         except requests.exceptions.RequestException as e:
             LOGGER.error(f"Error fetching {url}: {e}")
             self.Notices["badfetch"] = "Error fetching from gateway"

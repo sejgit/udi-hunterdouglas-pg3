@@ -153,7 +153,7 @@ class TestShadePoll:
 
     def test_poll_exits_if_controller_not_ready(self, shade_with_mocks):
         """Test that poll exits early if controller is not ready."""
-        shade_with_mocks.controller.ready_event = None
+        shade_with_mocks.controller.ready_event = Event()
 
         shade_with_mocks.poll("shortPoll")
 

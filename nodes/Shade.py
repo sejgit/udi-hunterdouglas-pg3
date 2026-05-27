@@ -144,7 +144,7 @@ class Shade(udi_interface.Node):
         Args:
             flag (str): A string indicating the type of poll ('shortPoll').
         """
-        if not self.controller.ready_event:
+        if not self.controller.ready_event.is_set():
             LOGGER.error(f"Node not ready yet, exiting {self.lpfx}")
             return
 
@@ -281,12 +281,13 @@ class Shade(udi_interface.Node):
             # # battery-alert event
             if event.get("evt") == "battery-alert":
                 LOGGER.error(f"shade {self.sid} battery-event")
-                # the shade/event labels the battery different Status/level
-                self.controller.shades_map[self.sid]["batteryStatus"] = event[
-                    "batteryLevel"
-                ]
-                self.setDriver("GV6", event["batterylevel"], report=True, force=True)
-                self.updatePositions(self.posToPercent(event["currentPositions"]))
+                battery_level = event.get("batteryLevel", event.get("batterylevel"))
+                if battery_level is not None:
+                    self.controller.update_shade_data(
+                        self.sid, {"batteryStatus": battery_level}
+                    )
+                    self.setDriver("GV6", battery_level, report=True, force=True)
+                self.updatePositions(self.posToPercent(event.get("currentPositions", {})))
                 self.controller.remove_gateway_event(event)
 
     def updateData(self):
@@ -301,18 +302,24 @@ class Shade(udi_interface.Node):
         """
         try:
             shade = self.controller.get_shade_data(self.sid)
-            self.capabilities = shade.get("capabilities")
+            if not shade:
+                LOGGER.warning(f"shade {self.sid} updateData: no shade data yet")
+                return False
+
+            self.capabilities = shade.get("capabilities", 0)
             LOGGER.debug(f"shade {self.sid} is {shade}")
-            if self.name != shade["name"]:
+            if self.name != shade.get("name", self.name):
                 LOGGER.warning(f"Name error current:{self.name}  new:{shade['name']}")
                 self.rename(shade["name"])
                 LOGGER.warning(f"Renamed {self.name}")
             self.setDriver("ST", 0, report=True, force=True)
             self.reportCmd("DOF", 2)
-            self.setDriver("GV1", shade["roomId"], report=True, force=True)
-            self.setDriver("GV6", shade["batteryStatus"], report=True, force=True)
+            self.setDriver("GV1", shade.get("roomId", 0), report=True, force=True)
+            self.setDriver(
+                "GV6", shade.get("batteryStatus", 0), report=True, force=True
+            )
             self.setDriver("GV5", self.capabilities, report=True, force=True)
-            self.updatePositions(shade["positions"])
+            self.updatePositions(shade.get("positions", {}))
             return True
         except Exception as ex:
             LOGGER.error(f"shade {self.sid} updateData error: {ex}", exc_info=True)

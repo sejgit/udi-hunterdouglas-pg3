@@ -19,8 +19,24 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = "1.13.2"
+VERSION = "1.13.3"
 """
+1.13.3
+DONE sync versionHistory.md with hunterdouglas-poly.py; older history in versionHistory.md only
+DONE fix ready_event poll checks (Controller, Shade, Scene)
+DONE fix updateAllFromServer throttling and in-progress guard
+DONE fix parameterHandler startup flag after checkParams
+DONE replace eval() with json/ast parsing for gatewayip list
+DONE accept gateway hostnames in addition to IP addresses
+DONE thread-safe stale gateway event cleanup
+DONE reset controller event_polling_in on thread exit
+DONE add HTTP GET timeout to match PUT
+DONE G3 shade discovery sets roomId and default batteryStatus
+DONE Shade updateData null guards for missing shade data
+DONE fix battery-alert event batteryLevel key handling
+DONE fix Scene Gen2 active check (generation not gateway IP)
+DONE safe scene-deactivated remove from sceneIdsActive
+
 1.13.2
 DONE requirements.txt changes
 DONE comments improvements
@@ -39,47 +55,7 @@ NOTE default & recommend setting shortPoll=60, longPoll=600
 DONE major re-write of function and Event routines
 DONE add number of nodes managed by controller to controller node
 
-1.12.8
-DONE prevent update until previous complete
-DONE update README with 120s LongPoll suggestion for G3 due to Events updates
-NEXT minor change, don't push to production until other changes needed
-
-1.12.7
-DEBUG crash when connection reset by peer ; fix data
-DONE remove separate open / close behaviour for G2/G3
-
-1.12.6
-DONE reverse open / close behaviour for G3 shades
-
-1.12.5
-DONE re-write SSE for G3
-DONE fix motion if motion-stop missed
-DONE battery low event added for G3
-DONE force updates to server (helps with new eisy-ui)
-DONE doc clean-up
-DONE string clean-up
-DONE improve logging
-DONE bumped requests and urllib3 versions
-
-1.12.4
-DEBUG Gen-2 make a default capability if none exists in JSON
-
-1.12.3
-DONE G2 Scene event fix
-
-1.12.2
-DONE add shade-offline event handling to error log; currently not passed to ISY
-DONE add updating of scene activation status on longPoll as backup to event
-
-1.12.1
-DONE environment updates
-DONE small refactors
-
-1.12.0
-DONE change versioning to align with workflow
-DONE update docs: README, versionHistory, logging
-
-for previous version see versionHistory.md
+for previous versions see versionHistory.md
 
 """
 
