@@ -142,7 +142,7 @@ class TestScenePoll:
 
     def test_poll_exits_if_controller_not_ready(self, scene_with_mocks):
         """Test that poll exits early if controller is not ready."""
-        scene_with_mocks.controller.ready_event = None
+        scene_with_mocks.controller.ready_event = Event()
 
         scene_with_mocks.poll("shortPoll")
 
@@ -167,7 +167,7 @@ class TestSceneEventPolling:
 
         return scene
 
-    @patch("nodes.Scene.Thread")
+    @patch("utils.event_polling.Thread")
     def test_start_event_polling_creates_thread(self, mock_thread, scene_with_mocks):
         """Test that start_event_polling creates and starts a thread."""
         scene_with_mocks.start_event_polling()
@@ -348,7 +348,7 @@ class TestSceneCheckActive:
         poly.db_getNodeDrivers = Mock(return_value=[])
         controller = Mock()
         controller.ready_event = Event()
-        controller.gateway = 3
+        controller.generation = 3
         controller.sceneIdsActive_calc = set()
         controller.sceneIdsActive = []
         poly.getNode = Mock(return_value=controller)
@@ -377,7 +377,7 @@ class TestSceneCheckActive:
 
     def test_check_calc_active_match_gateway_gen2(self, scene_with_mocks):
         """Test check returns False for Gen 2 gateway."""
-        scene_with_mocks.controller.gateway = 2
+        scene_with_mocks.controller.generation = 2
 
         result = scene_with_mocks.check_if_calc_active_match_gateway()
 
