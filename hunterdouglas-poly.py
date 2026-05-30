@@ -25,9 +25,26 @@ VERSION = "1.13.4"
 DONE package updates "dependabot"
 
 1.13.3
-DONE package updates "dependabot"
-DONE fix typo, crash on batteryLevel event
-DONE fix timeout, drop every 300s timeout
+DONE sync versionHistory.md with hunterdouglas-poly.py; older history in versionHistory.md only
+DONE fix ready_event poll checks (Controller, Shade, Scene)
+DONE fix updateAllFromServer throttling and in-progress guard
+DONE fix parameterHandler startup flag after checkParams
+DONE replace eval() with json/ast parsing for gatewayip list
+DONE accept gateway hostnames in addition to IP addresses
+DONE thread-safe stale gateway event cleanup
+DONE reset controller event_polling_in on thread exit
+DONE add HTTP GET timeout to match PUT
+DONE G3 shade discovery sets roomId and default batteryStatus
+DONE Shade updateData null guards for missing shade data
+DONE fix battery-alert event batteryLevel key handling
+DONE fix Scene Gen2 active check (generation not gateway IP)
+DONE safe scene-deactivated remove from sceneIdsActive
+DONE consolidate PowerView URL constants into utils/urls.py
+DONE consolidate gateway event lookup helpers in utils/gateway_events.py
+DONE shared start_event_poll_thread helper for node event polling
+DONE get_gateway_event wait timeout so pollers cannot block indefinitely
+DONE SSE Not Found handling restarts stream without stopping node pollers
+DONE G2 updateAllFromServerG2 fails if rooms/shades/scenes fetch fails
 
 1.13.2
 DONE requirements.txt changes
@@ -47,7 +64,7 @@ NOTE default & recommend setting shortPoll=60, longPoll=600
 DONE major re-write of function and Event routines
 DONE add number of nodes managed by controller to controller node
 
-for previous version see versionHistory.md
+for previous versions see versionHistory.md
 
 """
 

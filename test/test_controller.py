@@ -400,7 +400,7 @@ class TestControllerGen2Support:
 
     def test_gen2_divider_constant(self, controller_gen2_mocks):
         """Test that G2_DIVR constant is available."""
-        from nodes.Controller import G2_DIVR
+        from utils.urls import G2_DIVR
 
         assert G2_DIVR == 65535
 

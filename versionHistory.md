@@ -1,143 +1,179 @@
 # Version History
 
-## see hunterdouglas-pg3.py for current version
+Current version: see `VERSION` in [hunterdouglas-poly.py](hunterdouglas-poly.py).
 
-1.13.0 \
-DONE polling rewrite, controller: longPoll=G3 poll, shortPoll=G2 poll, heartbeat for all, re-start G3 events \
-NOTE default & recommend setting shortPoll=60, longPoll=600 \
-DONE polling rewrite, shade: shortPoll: re-start events if stopped \
-DONE polling rewrite, scene: shortPoll: re-start events if stopped, manually clear G2 scene activate \
-DONE major re-write of function and Event routines \
-DONE add number of nodes managed by controller to controller node
+## Recent (also in hunterdouglas-poly.py)
 
-1.12.7 \
-DEBUG crash when connection reset by peer ; fix data \
-DONE remove separate open / close behaviour for G2/G3
+### 1.13.4
+- DONE package updates "dependabot"
 
-1.12.6 \
-DONE reverse open / close behaviour for G3 shades
+### 1.13.3
+- DONE sync versionHistory.md with hunterdouglas-poly.py; older history in versionHistory.md only
+- DONE fix ready_event poll checks (Controller, Shade, Scene)
+- DONE fix updateAllFromServer throttling and in-progress guard
+- DONE fix parameterHandler startup flag after checkParams
+- DONE replace eval() with json/ast parsing for gatewayip list
+- DONE accept gateway hostnames in addition to IP addresses
+- DONE thread-safe stale gateway event cleanup
+- DONE reset controller event_polling_in on thread exit
+- DONE add HTTP GET timeout to match PUT
+- DONE G3 shade discovery sets roomId and default batteryStatus
+- DONE Shade updateData null guards for missing shade data
+- DONE fix battery-alert event batteryLevel key handling
+- DONE fix Scene Gen2 active check (generation not gateway IP)
+- DONE safe scene-deactivated remove from sceneIdsActive
+- DONE consolidate PowerView URL constants into utils/urls.py
+- DONE consolidate gateway event lookup helpers in utils/gateway_events.py
+- DONE shared start_event_poll_thread helper for node event polling
+- DONE get_gateway_event wait timeout so pollers cannot block indefinitely
+- DONE SSE Not Found handling restarts stream without stopping node pollers
+- DONE G2 updateAllFromServerG2 fails if rooms/shades/scenes fetch fails
 
-1.12.5 \
-DONE re-write SSE for G3 \
-DONE fix motion if motion-stop missed \
-DONE battery low event added for G3 \
-DONE force updates to server (helps with new eisy-ui) \
-DONE doc clean-up \
-DONE string clean-up \
-DONE improve logging \
-DONE bumped requests and urllib3 versions
+### 1.13.2
+- DONE requirements.txt changes
+- DONE comments improvements
+- DONE testing additions
 
-1.12.4 \
-DEBUG Gen-2 make a default capability if none exists in JSON
+### 1.13.1
+- DONE refactor controller discovery, put, get, goodip functions
+- DONE refactor controller startup, config, params, naming, logging
+- DONE refactor cmdSetPos
 
-1.12.3 \
-DONE G2 Scene event fix
+### 1.13.0
+- DONE polling rewrite, controller: shortPoll=G2 poll, heartbeat for all, re-start G3 events, longPoll=G3 poll
+- DONE polling rewrite, shade: shortPoll: re-start events if stopped, longPoll: not-used
+- DONE polling rewrite, scene: shortPoll: re-start events if stopped, manually clear G2 scene activate, longPoll: not-used
+- NOTE default & recommend setting shortPoll=60, longPoll=600
+- DONE major re-write of function and Event routines
+- DONE add number of nodes managed by controller to controller node
 
-1.12.2 \
-DONE add shade-offline event handling to error log; currently not passed to
-ISY \
-DONE add updating of scene activation status on longPoll as backup to event \
+## Previous versions
 
-1.12.1 \
-DONE environment updates
-DONE small refactors
+### 1.12.8
+- DONE prevent update until previous complete
+- DONE update README with 120s LongPoll suggestion for G3 due to Events updates
+- NEXT minor change, don't push to production until other changes needed
 
-1.12.0 \
-DONE change versioning to align with workflow \
-DONE update docs: README, versionHistory, logging
+### 1.12.7
+- DEBUG crash when connection reset by peer ; fix data
+- DONE remove separate open / close behaviour for G2/G3
 
-### past versions: \
+### 1.12.6
+- DONE reverse open / close behaviour for G3 shades
 
-0.1.11 \
-DEBUG event rewrite to handle edge cases
+### 1.12.5
+- DONE re-write SSE for G3
+- DONE fix motion if motion-stop missed
+- DONE battery low event added for G3
+- DONE force updates to server (helps with new eisy-ui)
+- DONE doc clean-up
+- DONE string clean-up
+- DONE improve logging
+- DONE bumped requests and urllib3 versions
 
-0.1.12 \
-DONE update docs: README, versionHistory, logging
+### 1.12.4
+- DEBUG Gen-2 make a default capability if none exists in JSON
 
-0.1.11 \
-DEBUG event rewrite to handle edge cases
+### 1.12.3
+- DONE G2 Scene event fix
 
-0.1.10 \
-DEBUG multi-room scenes sending Discover into exception
+### 1.12.2
+- DONE add shade-offline event handling to error log; currently not passed to ISY
+- DONE add updating of scene activation status on longPoll as backup to event
 
-0.1.9 \
-DONE Fix G3 Events stop working after some period of time
+### 1.12.1
+- DONE environment updates
+- DONE small refactors
 
-0.1.8 \
-DEBUG branch
+### 1.12.0
+- DONE change versioning to align with workflow
+- DONE update docs: README, versionHistory, logging
 
-0.1.7 \
-DONE rename nodes if changed in PowerView app
+### 0.1.12
+- DONE update docs: README, versionHistory, logging
 
-0.1.6 \
-DONE parameters based on shade capabilities
+### 0.1.11
+- DEBUG event rewrite to handle edge cases
 
-0.1.5 \
-DONE format for program setShadePosition \
-DONE set Shade Position change using False to define which parameters to
-change \
-DONE more debug on G2 so it acts as expected
+### 0.1.10
+- DEBUG multi-room scenes sending Discover into exception
 
-0.1.4 \
-DONE add node_queue & as result need pause updates while in discovery \
-DONE FIRST TRY G2 tilt feature
+### 0.1.9
+- DONE Fix G3 Events stop working after some period of time
 
-0.1.3 \
-DONE node discover rewrite to allow add/remove \
-DONE add event 'homedoc-updated' currently no actions \
-DONE limit room label size to 15 as room - shade/scene < 30 for ISY \
-DONE clean up LOGGING.debug messages \
-DONE G2 bug fixes
+### 0.1.8
+- DEBUG branch
 
-0.1.2 \
-DONE change icons to nicer ones \
-DONE docs with screenshots & description for udi spotlight \
-DONE add troubleshooting document \
-DONE add some support for G2 gateways (no gateway push, only polling)
+### 0.1.7
+- DONE rename nodes if changed in PowerView app
 
-0.1.1 \
-DONE tap into gateway events, which allows longPoll update to move from 30s to
-60s \
-DONE active scene indications from events \
-DONE shade motion indicator from events \
-DONE shade position update from start, stop, online events \
-DONE remove parameters based on shade capability (primary, secondary, tilt) \
-DONE update readme & config instructions to highlight G3 scope
+### 0.1.6
+- DONE parameters based on shade capabilities
 
-0.1.0 \
-DONE handle multiple gateways automatically, picking primary & switching if
-required \
-DONE updated configuration instructions as well as link to the forums
+### 0.1.5
+- DONE format for program setShadePosition
+- DONE set Shade Position change using False to define which parameters to change
+- DONE more debug on G2 so it acts as expected
 
-0.0.9 \
-DONE fix uom for positions(100) & ids(107) \
-DONE more notices clean-up \
-DONE shade naming to include room as scenes \
-DONE remove status based on shade capability (primary, secondary, tilt)
+### 0.1.4
+- DONE add node_queue & as result need pause updates while in discovery
+- DONE FIRST TRY G2 tilt feature
 
-0.0.8: \
-DONE handling of notices individually \
-DONE polling 5s short-poll 30s long-poll \
-DONE status for programs (positions etc)
+### 0.1.3
+- DONE node discover rewrite to allow add/remove
+- DONE add event 'homedoc-updated' currently no actions
+- DONE limit room label size to 15 as room - shade/scene < 30 for ISY
+- DONE clean up LOGGING.debug messages
+- DONE G2 bug fixes
 
-0.0.7: \
-DONE faster status updates when command is given \
-DONE bug fix \
-DONE re-order of parameters displayed
-0.0.6: \
-DONE move shade by specific amounts \
-DONE bug fix scenes not activating
+### 0.1.2
+- DONE change icons to nicer ones
+- DONE docs with screenshots & description for udi spotlight
+- DONE add troubleshooting document
+- DONE add some support for G2 gateways (no gateway push, only polling)
 
-0.0.5: \
-DONE change shortpoll to 30s \
-DONE update shades on shortpoll \
-DONE clear start notice at shortpoll \
-DONE clean up error proofing in get \
-DONE fix updating variables with shortpoll \
-DONE limit device ping to 5s
+### 0.1.1
+- DONE tap into gateway events, which allows longPoll update to move from 30s to 60s
+- DONE active scene indications from events
+- DONE shade motion indicator from events
+- DONE shade position update from start, stop, online events
+- DONE remove parameters based on shade capability (primary, secondary, tilt)
+- DONE update readme & config instructions to highlight G3 scope
 
-0.0.4: \
-DONE discover when new gatewayip is entered \
-DONE poll status regularly using shortpoll \
-DONE update required after nodes added to get status \
-DONE notice when gateway get error
+### 0.1.0
+- DONE handle multiple gateways automatically, picking primary & switching if required
+- DONE updated configuration instructions as well as link to the forums
+
+### 0.0.9
+- DONE fix uom for positions(100) & ids(107)
+- DONE more notices clean-up
+- DONE shade naming to include room as scenes
+- DONE remove status based on shade capability (primary, secondary, tilt)
+
+### 0.0.8
+- DONE handling of notices individually
+- DONE polling 5s short-poll 30s long-poll
+- DONE status for programs (positions etc)
+
+### 0.0.7
+- DONE faster status updates when command is given
+- DONE bug fix
+- DONE re-order of parameters displayed
+
+### 0.0.6
+- DONE move shade by specific amounts
+- DONE bug fix scenes not activating
+
+### 0.0.5
+- DONE change shortpoll to 30s
+- DONE update shades on shortpoll
+- DONE clear start notice at shortpoll
+- DONE clean up error proofing in get
+- DONE fix updating variables with shortpoll
+- DONE limit device ping to 5s
+
+### 0.0.4
+- DONE discover when new gatewayip is entered
+- DONE poll status regularly using shortpoll
+- DONE update required after nodes added to get status
+- DONE notice when gateway get error
