@@ -8,6 +8,7 @@ def start_event_poll_thread(node, thread_name, target):
     if node._event_polling_thread and node._event_polling_thread.is_alive():
         return
 
-    node.controller.stop_sse_client_event.clear()
+    controller = getattr(node, "controller", node)
+    controller.stop_sse_client_event.clear()
     node._event_polling_thread = Thread(target=target, name=thread_name, daemon=True)
     node._event_polling_thread.start()
