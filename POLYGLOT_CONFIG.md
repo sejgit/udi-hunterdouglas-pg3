@@ -18,23 +18,23 @@ and [**Polyglot PG3**][polyglot] server
 
 ## Set-up & Configuration
 
-Set your gateway(s) to static IP's through your router
+Set your gateway(s) to static IP's through your router (recommended for reliability)
 
 ### Custom Parameters
 
 You will need to define the custom parameter **gatewayip**
 
-- this will default to **powerview-g3.local**  when it is not defined
-- although this works in a browser & should on PGx, it does not, YMMV
-- better to use an ip address per #2 or an array of string ip's as per #3
+- this will default to **powerview-g3.local** when it is not defined
+- **new in 1.13.5:** hostnames are accepted in **gatewayip** as well as IP addresses
+- use a single address or an array of string IP addresses and/or hostnames (see Multiple Gateways)
 
 ### Multiple Gateways
 
 Primary gateway will be determined if you have more than one Gateway
 
-- Enter **gatewayip** configuration as an array of string IP's with all Hunter Douglas
+- Enter **gatewayip** configuration as an array of string IP addresses or hostnames with all Hunter Douglas
 gateways you have
-- example for variable  **gatewayip** ['10.0.1.150', '10.0.1.151', '10.0.1.152']
+- example for variable **gatewayip** `['10.0.1.150', '10.0.1.151', 'powerview-g3.local']`
 
 ## Functionality
 
