@@ -533,7 +533,7 @@ class TestSceneActivation:
     def test_calc_active_scene_inactive(self, scene_with_activation_mocks):
         """Test calcActive when scene is not active."""
         scene_with_activation_mocks.controller.sceneIdsActive = ["other_scene"]
-        scene_with_activation_mocks.controller.sceneIdsActive_calc = set(["scene1"])
+        scene_with_activation_mocks.controller.sceneIdsActive_calc = {"scene1"}
 
         scene_with_activation_mocks.calcActive()
 
