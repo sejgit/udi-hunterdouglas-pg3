@@ -23,6 +23,8 @@ and updated from forum discussions
 
 **IMPORTANT:** There are differences for HunterDouglas G3 API versus G2 API
 
+* **new in 1.13.5:** `gatewayip` accepts hostnames (e.g. `powerview-g3.local`) as well as IP addresses — see [Configuration][configuration]
+
 See the [**Configuration**][configuration] file for details
 
 This node server will only run on Polyglot version 3. You will
