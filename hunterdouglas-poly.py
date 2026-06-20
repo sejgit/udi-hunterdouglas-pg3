@@ -19,12 +19,9 @@ from udi_interface import Interface, LOGGER
 from nodes import Controller
 
 
-VERSION = "1.13.4"
+VERSION = "1.13.5"
 """
-1.13.4
-DONE package updates "dependabot"
-
-1.13.3
+1.13.5
 DONE sync versionHistory.md with hunterdouglas-poly.py; older history in versionHistory.md only
 DONE fix ready_event poll checks (Controller, Shade, Scene)
 DONE fix updateAllFromServer throttling and in-progress guard
@@ -42,9 +39,18 @@ DONE safe scene-deactivated remove from sceneIdsActive
 DONE consolidate PowerView URL constants into utils/urls.py
 DONE consolidate gateway event lookup helpers in utils/gateway_events.py
 DONE shared start_event_poll_thread helper for node event polling
+DONE fix start_event_poll_thread when called from Controller
 DONE get_gateway_event wait timeout so pollers cannot block indefinitely
 DONE SSE Not Found handling restarts stream without stopping node pollers
 DONE G2 updateAllFromServerG2 fails if rooms/shades/scenes fetch fails
+
+1.13.4
+DONE package updates "dependabot"
+
+1.13.3
+DONE package updates "dependabot"
+DONE fix typo, crash on batteryLevel event
+DONE fix timeout, drop every 300s timeout
 
 1.13.2
 DONE requirements.txt changes
