@@ -1,11 +1,10 @@
 # HunterDouglas PowerView Interface
 
+Polyglot V3 NodeServer for **EISY** or **Polisy** that connects to **Hunter Douglas PowerView** G2 or G3 hubs on your LAN. It discovers motorized shades and exposes position, tilt, battery, connectivity, and shade commands (open, close, stop, favorite/my position) as ISY nodes for programs and scenes. Supports G3 self-hosted hub API (hostname or IP) and G2 PowerView gateways.
+
 ## Universal Devices PG3
 
 [![licence][shield]][licenseFile]
-
-This plugin/nodeserver provides an interface between HunterDouglas Shades
-and Polyglot V3 server supporting Universal Devices EISY or Polisy controllers
 
 ### Get your amazing EISY at [**Universal-Devices**][udi]
 
