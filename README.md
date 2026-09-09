@@ -1,8 +1,8 @@
 # HunterDouglas PowerView Interface
 
-Polyglot V3 NodeServer for **EISY** or **Polisy** that connects to **Hunter Douglas PowerView** G2 or G3 hubs on your LAN. It discovers motorized shades and exposes position, tilt, battery, connectivity, and shade commands (open, close, stop, favorite/my position) as ISY nodes for programs and scenes. Supports G3 self-hosted hub API (hostname or IP) and G2 PowerView gateways.
+Plugin for **EISY/Polisy** (eisy-ui or PG3 environment) that connects to **Hunter Douglas PowerView** G2 or G3 hubs on your LAN. It discovers motorized shades and exposes position, tilt, battery, connectivity, and shade commands (open, close, stop, favorite/my position) as ISY nodes for programs and scenes. Supports G3 self-hosted hub API (hostname or IP) and G2 PowerView gateways.
 
-## Universal Devices PG3
+## Universal Devices
 
 [![licence][shield]][licenseFile]
 
@@ -12,7 +12,7 @@ Polyglot V3 NodeServer for **EISY** or **Polisy** that connects to **Hunter Doug
 
 ## Installation
 
-You can install This node server from the PG3 NodeServer Store.
+You can install this plugin from the Plugin Store in eisy-ui or PG3.
 Read the [**Configuration**][configuration] file for instructions
 [**The Forum**][forum] is a great place to ask questions
 And [**troubleshooting**][troubleshoot] steps are also available,
@@ -23,12 +23,11 @@ and updated from forum discussions
 **IMPORTANT:** There are differences for HunterDouglas G3 API versus G2 API
 
 * **new in 1.13.5:** `gatewayip` accepts hostnames (e.g. `powerview-g3.local`) as well as IP addresses — see [Configuration][configuration]
-* **new in 1.14.0:** store installs use `udi-hunterdouglas-pg3x.py` and `server.json`; use **Update** from the PG3 store (same as other store plugins)
+* **new in 1.14.0:** store installs use `udi-hunterdouglas-pg3x.py` and `server.json`; use **Update** from the Plugin Store (same as other plugins)
 
 See the [**Configuration**][configuration] file for details
 
-This node server will only run on Polyglot version 3. You will
-need to have an EISY/Polisy with PG3 installed to run this node server
+This plugin requires **EISY/Polisy** (eisy-ui or PG3 environment).
 
 ## Background info (not needed to run plugin)
 
